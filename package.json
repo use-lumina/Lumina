@@ -1,12 +1,22 @@
 {
   "name": "lumina",
-  "module": "index.ts",
-  "type": "module",
+  "version": "0.1.0",
   "private": true,
-  "devDependencies": {
-    "@types/bun": "latest"
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "services/*",
+    "apps/*",
+    "examples/*"
+  ],
+  "scripts": {
+    "build": "bun run --filter '*' build",
+    "dev": "bun run --filter '*' dev",
+    "test": "bun test",
+    "clean": "rm -rf node_modules packages/*/node_modules services/*/node_modules apps/*/node_modules examples/*/node_modules"
   },
-  "peerDependencies": {
-    "typescript": "^5"
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.3.3"
   }
 }
