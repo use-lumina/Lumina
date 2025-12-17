@@ -1,2 +1,7 @@
 #!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Add common bun installation paths to PATH
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.bun/bin:$PATH"
+
 bun run lint-staged
