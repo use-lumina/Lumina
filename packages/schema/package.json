@@ -11,9 +11,10 @@
     }
   },
   "scripts": {
-    "build": "bun build src/index.ts --outdir dist --target node",
+    "build": "tsc && bun build src/index.ts --outdir dist --target node --sourcemap=external",
     "dev": "bun run --watch src/index.ts",
-    "test": "bun test"
+    "test": "bun test",
+    "clean": "rm -rf dist"
   },
   "dependencies": {
     "zod": "^3.22.4"
