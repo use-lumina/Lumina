@@ -1,15 +1,24 @@
 import { loadSdkConfig, type SdkConfig } from '@lumina/config';
-import { HttpExporter } from './exporter';
-import { Tracer } from './tracer';
+import { SpanStatusCode, type Span, type Tracer as OtelTracer } from '@opentelemetry/api';
+import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
+import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
+import { type Resource, resourceFromAttributes, defaultResource } from '@opentelemetry/resources';
+import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
+import * as SemanticConventions from './semantic-conventions';
 
 /**
- * Main Lumina SDK class
- * Entry point for instrumenting AI applications
+ * Main Lumina SDK class - OpenTelemetry-native LLM observability
+ *
+ * This SDK uses OpenTelemetry as its foundation, making it:
+ * - Compatible with existing OTEL infrastructure
+ * - Vendor-agnostic and future-proof
+ * - Integratable with Datadog, Grafana, etc.
  */
 export class Lumina {
   private config: SdkConfig;
-  private exporter: HttpExporter;
-  private tracer: Tracer;
+  private provider: NodeTracerProvider;
+  private tracer: OtelTracer;
   private static instance: Lumina | null = null;
 
   constructor(config?: Partial<SdkConfig>) {
@@ -20,16 +29,61 @@ export class Lumina {
     // Validate API key is present
     if (!this.config.api_key) {
       throw new Error(
-        'Lumina API key is required. Set LUMINA_API_KEY environment variable or pass apiKey in constructor.'
+        'Lumina API key is required. Set LUMINA_API_KEY environment variable or pass api_key in constructor.'
       );
     }
 
-    // Initialize exporter and tracer
-    this.exporter = new HttpExporter(this.config);
-    this.tracer = new Tracer(this.config, this.exporter);
+    // Initialize OpenTelemetry provider
+    this.provider = this.initializeProvider();
+    this.tracer = this.provider.getTracer('@lumina/sdk', '1.0.0');
 
     // Store singleton instance
     Lumina.instance = this;
+
+    console.log('[Lumina SDK] Initialized with OpenTelemetry');
+  }
+
+  /**
+   * Initialize OTEL TracerProvider with Lumina exporter
+   */
+  private initializeProvider(): NodeTracerProvider {
+    // Create resource with service information
+    const resource = defaultResource().merge(
+      resourceFromAttributes({
+        [ATTR_SERVICE_NAME]: this.config.service_name || 'unknown-service',
+        [ATTR_SERVICE_VERSION]: '1.0.0',
+        [SemanticConventions.LUMINA_CUSTOMER_ID]: this.config.customer_id || '',
+        [SemanticConventions.LUMINA_ENVIRONMENT]: this.config.environment,
+      })
+    );
+
+    // Create OTLP exporter pointing to Lumina collector
+    const exporter = new OTLPTraceExporter({
+      url: this.config.endpoint,
+      headers: {
+        Authorization: `Bearer ${this.config.api_key}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    // Create batch span processor for efficient batching
+    const spanProcessor = new BatchSpanProcessor(exporter, {
+      maxQueueSize: this.config.batch_size || 10,
+      scheduledDelayMillis: this.config.flush_interval_ms || 5000,
+      exportTimeoutMillis: this.config.timeout_ms || 30000,
+      maxExportBatchSize: this.config.batch_size || 10,
+    });
+
+    // Create tracer provider with resource and span processor
+    const provider = new NodeTracerProvider({
+      resource,
+      spanProcessors: [spanProcessor],
+    });
+
+    // Register the provider
+    provider.register();
+
+    return provider;
   }
 
   /**
@@ -53,53 +107,187 @@ export class Lumina {
   }
 
   /**
-   * Trace a function that makes LLM calls
-   * Automatically captures inputs, outputs, latency, and costs
+   * Trace an LLM operation using OpenTelemetry spans
+   *
+   * This creates an OTEL span with LLM semantic conventions,
+   * making it compatible with standard observability tools.
    *
    * @example
-   * const response = await lumina.trace(async () => {
-   *   return await openai.chat.completions.create({...});
-   * });
+   * const response = await lumina.trace(async (span) => {
+   *   const result = await openai.chat.completions.create({...});
+   *
+   *   // Enrich span with LLM metadata
+   *   span.setAttributes({
+   *     [SemanticConventions.LLM_REQUEST_MODEL]: 'gpt-4',
+   *     [SemanticConventions.LLM_USAGE_PROMPT_TOKENS]: result.usage.prompt_tokens,
+   *   });
+   *
+   *   return result;
+   * }, { name: 'chat-completion' });
    */
   async trace<T>(
-    fn: () => Promise<T>,
+    fn: (span: Span) => Promise<T>,
     options?: {
       name?: string;
       metadata?: Record<string, unknown>;
       tags?: string[];
     }
   ): Promise<T> {
-    return this.tracer.trace(fn, options);
+    const spanName = options?.name || SemanticConventions.SPAN_NAME_LLM_REQUEST;
+
+    return await this.tracer.startActiveSpan(spanName, async (span: Span) => {
+      const startTime = Date.now();
+
+      try {
+        // Add custom metadata as span attributes
+        if (options?.metadata) {
+          for (const [key, value] of Object.entries(options.metadata)) {
+            span.setAttribute(key, JSON.stringify(value));
+          }
+        }
+
+        // Add tags
+        if (options?.tags) {
+          span.setAttribute(SemanticConventions.LUMINA_TAGS, JSON.stringify(options.tags));
+        }
+
+        // Add Lumina-specific attributes
+        span.setAttribute(SemanticConventions.LUMINA_ENVIRONMENT, this.config.environment);
+        if (this.config.service_name) {
+          span.setAttribute(SemanticConventions.LUMINA_SERVICE_NAME, this.config.service_name);
+        }
+
+        // Execute the traced function, passing the span for enrichment
+        const result = await fn(span);
+
+        // Calculate latency
+        const latencyMs = Date.now() - startTime;
+        span.setAttribute('duration_ms', latencyMs);
+
+        // Mark span as successful
+        span.setStatus({ code: SpanStatusCode.OK });
+
+        return result;
+      } catch (error) {
+        // Record error in span
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        span.recordException(error as Error);
+        span.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: errorMessage,
+        });
+
+        throw error;
+      } finally {
+        // End the span
+        span.end();
+      }
+    });
   }
 
   /**
-   * Manually create a trace (for advanced use cases)
+   * Create a span for LLM generation with automatic attribute extraction
+   *
+   * This is a convenience wrapper that automatically extracts common LLM attributes
+   * from the response object.
    */
-  async createTrace(data: {
-    prompt: string;
-    response: string;
-    model: string;
-    tokens: number;
-    latency_ms: number;
-    cost_usd: number;
-    metadata?: Record<string, unknown>;
-    tags?: string[];
-  }): Promise<void> {
-    await this.tracer.createTrace(data);
+  async traceLLM<T extends { model?: string; usage?: any; id?: string }>(
+    fn: () => Promise<T>,
+    options?: {
+      name?: string;
+      system?: string; // e.g., 'openai', 'anthropic'
+      prompt?: string;
+      metadata?: Record<string, unknown>;
+      tags?: string[];
+    }
+  ): Promise<T> {
+    return await this.trace(async (span) => {
+      // Add LLM-specific attributes before the call
+      if (options?.system) {
+        span.setAttribute(SemanticConventions.LLM_SYSTEM, options.system);
+      }
+      if (options?.prompt) {
+        span.setAttribute(SemanticConventions.LLM_PROMPT, options.prompt);
+      }
+
+      // Execute the LLM call
+      const result = await fn();
+
+      // Extract and add response attributes
+      if (result.model) {
+        span.setAttribute(SemanticConventions.LLM_RESPONSE_MODEL, result.model);
+      }
+      if (result.id) {
+        span.setAttribute(SemanticConventions.LLM_RESPONSE_ID, result.id);
+      }
+      if (result.usage) {
+        if (result.usage.prompt_tokens) {
+          span.setAttribute(
+            SemanticConventions.LLM_USAGE_PROMPT_TOKENS,
+            result.usage.prompt_tokens
+          );
+        }
+        if (result.usage.completion_tokens) {
+          span.setAttribute(
+            SemanticConventions.LLM_USAGE_COMPLETION_TOKENS,
+            result.usage.completion_tokens
+          );
+        }
+        if (result.usage.total_tokens) {
+          span.setAttribute(SemanticConventions.LLM_USAGE_TOTAL_TOKENS, result.usage.total_tokens);
+        }
+
+        // Calculate cost if we have token usage
+        const cost = this.calculateCost(
+          result.model || '',
+          result.usage.prompt_tokens || 0,
+          result.usage.completion_tokens || 0
+        );
+        if (cost > 0) {
+          span.setAttribute(SemanticConventions.LUMINA_COST_USD, cost);
+        }
+      }
+
+      return result;
+    }, options);
   }
 
   /**
-   * Flush all pending traces immediately
+   * Calculate cost based on model and token usage
+   */
+  private calculateCost(model: string, promptTokens: number, completionTokens: number): number {
+    // Pricing per 1M tokens
+    const pricing: Record<string, { input: number; output: number }> = {
+      'gpt-4': { input: 30, output: 60 },
+      'gpt-4-turbo': { input: 10, output: 30 },
+      'gpt-3.5-turbo': { input: 0.5, output: 1.5 },
+      'claude-sonnet-4': { input: 3, output: 15 },
+      'claude-3-opus': { input: 15, output: 75 },
+      'claude-3-sonnet': { input: 3, output: 15 },
+      'claude-3-haiku': { input: 0.25, output: 1.25 },
+    };
+
+    const modelKey = Object.keys(pricing).find((key) => model.includes(key));
+    const prices = modelKey ? pricing[modelKey] : { input: 1, output: 2 };
+
+    const inputCost = (promptTokens / 1_000_000) * prices!.input;
+    const outputCost = (completionTokens / 1_000_000) * prices!.output;
+
+    return inputCost + outputCost;
+  }
+
+  /**
+   * Flush all pending spans immediately
    */
   async flush(): Promise<void> {
-    await this.exporter.flush();
+    await this.provider.forceFlush();
   }
 
   /**
-   * Shutdown the SDK and flush remaining traces
+   * Shutdown the SDK and flush remaining spans
    */
   async shutdown(): Promise<void> {
-    await this.exporter.shutdown();
+    await this.provider.shutdown();
   }
 
   /**
@@ -115,6 +303,13 @@ export class Lumina {
   getConfig(): SdkConfig {
     return { ...this.config };
   }
+
+  /**
+   * Get the OpenTelemetry tracer instance for advanced use cases
+   */
+  getTracer(): OtelTracer {
+    return this.tracer;
+  }
 }
 
 /**
@@ -125,8 +320,8 @@ export class Lumina {
  * import { initLumina } from '@lumina/sdk';
  *
  * const lumina = initLumina({
- *   apiKey: process.env.LUMINA_API_KEY,
- *   endpoint: 'https://ingestion.lumina.app/ingest',
+ *   api_key: process.env.LUMINA_API_KEY,
+ *   endpoint: 'https://collector.lumina.app/v1/traces',
  * });
  */
 export function initLumina(config?: Partial<SdkConfig>): Lumina {

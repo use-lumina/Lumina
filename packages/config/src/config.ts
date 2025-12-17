@@ -119,12 +119,15 @@ export type ReplayConfig = z.infer<typeof ReplayConfigSchema>;
  */
 export const SdkConfigSchema = z.object({
   api_key: z.string().min(1),
-  endpoint: z.string().url().default('http://localhost:8080/ingest'),
+  endpoint: z.string().url().default('http://localhost:8080/v1/traces'), // OTLP endpoint
   environment: z.enum(['live', 'test']).default('live'),
+  service_name: z.string().optional(),
+  customer_id: z.string().optional(),
   batch_size: z.number().int().positive().default(10),
   batch_interval_ms: z.number().int().positive().default(5000), // 5 seconds
+  flush_interval_ms: z.number().int().positive().default(5000), // Alias for batch_interval_ms (OTEL compatibility)
   max_retries: z.number().int().nonnegative().default(3),
-  timeout_ms: z.number().int().positive().default(10000),
+  timeout_ms: z.number().int().positive().default(30000), // Increased for OTLP
   enabled: z.boolean().default(true),
 });
 

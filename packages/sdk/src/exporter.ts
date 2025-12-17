@@ -66,7 +66,6 @@ export class HttpExporter {
     const payload: IngestRequest = {
       traces,
     };
-    console.log('[DEBUG] Sending payload:', JSON.stringify(payload, null, 2));
 
     try {
       const response = await fetch(this.config.endpoint, {

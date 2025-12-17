@@ -19,8 +19,8 @@ export async function POST(req: Request) {
 
     console.log('[Next.js] Received message:', message);
 
-    // Wrap the Anthropic call with lumina.trace()
-    const response = await lumina.trace(
+    // Wrap the Anthropic call with lumina.traceLLM() for automatic token tracking
+    const response = await lumina.traceLLM(
       async () => {
         return await anthropic.messages.create({
           model: 'claude-sonnet-4-5',
@@ -30,6 +30,8 @@ export async function POST(req: Request) {
       },
       {
         name: '/api/chat',
+        system: 'anthropic',
+        prompt: message,
         tags: ['nextjs', 'rag', 'test', 'anthropic'],
         metadata: {
           endpoint: '/api/chat',

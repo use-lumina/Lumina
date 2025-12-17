@@ -3,14 +3,13 @@
 // Main SDK class
 export { Lumina, initLumina, getLumina } from './lumina';
 
-// Core components (for advanced use)
-export { Tracer } from './tracer';
-export { HttpExporter } from './exporter';
+// Semantic conventions for LLM operations
+export * as SemanticConventions from './semantic-conventions';
 
-// Utilities
-export { generateTraceId, generateSpanId, hashResponse } from './utils';
+// Re-export OpenTelemetry types for convenience
+export type { Span, Tracer } from '@opentelemetry/api';
 
 // Re-export types from schema for convenience
-export type { Trace, Span, Alert, IngestRequest, IngestResponse } from '@lumina/schema';
+export type { Trace, Alert, IngestRequest, IngestResponse } from '@lumina/schema';
 
 export type { SdkConfig } from '@lumina/config';
