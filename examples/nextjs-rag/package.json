@@ -6,11 +6,16 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "lint": "next lint",
+    "lint:fix": "next lint --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@lumina/sdk": "workspace:*",
-    "next": "^14.0.4",
+    "next": "16.0.10",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "ai": "^2.2.30",
