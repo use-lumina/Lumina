@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { DashboardLayout } from '@/components/layout';
+import { ThemeProvider } from '@/components/theme-provider';
 
 export const metadata: Metadata = {
   title: 'Lumina Dashboard',
@@ -8,8 +10,27 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                const theme = localStorage.getItem('lumina-ui-theme') || 'light';
+                if (theme === 'dark') {
+                  document.documentElement.classList.add('dark');
+                }
+                document.documentElement.style.colorScheme = theme;
+              } catch (e) {}
+            `,
+          }}
+        />
+      </head>
+      <body className="bg-background text-foreground antialiased">
+        <ThemeProvider defaultTheme="light" storageKey="lumina-ui-theme">
+          <DashboardLayout>{children}</DashboardLayout>
+        </ThemeProvider>
+      </body>
     </html>
   );
 }

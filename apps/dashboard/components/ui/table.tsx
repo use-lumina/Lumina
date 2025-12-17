@@ -10,7 +10,7 @@ function Table({ className, ...props }: React.ComponentProps<'table'>) {
   return (
     <div
       data-slot="table-container"
-      className="relative w-full overflow-x-auto rounded-lg border border-neutral-200/60 dark:border-neutral-800"
+      className="relative w-full overflow-x-auto rounded-lg border border-border border-(--sidebar-border)"
     >
       <table
         data-slot="table"
@@ -29,7 +29,7 @@ function TableHeader({ className, ...props }: React.ComponentProps<'thead'>) {
       data-slot="table-header"
       className={cn(
         'sticky top-0 z-10 bg-background backdrop-blur',
-        '[&_tr]:border-b [&_tr]:border-neutral-200/60 dark:[&_tr]:border-neutral-800',
+        '[&_tr]:border-b [&_tr]:border-border',
         className
       )}
       {...props}
@@ -55,7 +55,7 @@ function TableFooter({ className, ...props }: React.ComponentProps<'tfoot'>) {
   return (
     <tfoot
       data-slot="table-footer"
-      className={cn('bg-neutral-100/50 border-t font-medium dark:bg-neutral-800/50', className)}
+      className={cn('bg-muted/50 border-t border-border font-medium', className)}
       {...props}
     />
   );
@@ -75,8 +75,8 @@ function TableRow({
     <tr
       data-slot="table-row"
       className={cn(
-        'group cursor-pointer border-b border-neutral-200/60 transition-all',
-        'hover:bg-neutral-50/60 dark:hover:bg-neutral-900/40',
+        'group cursor-pointer border-b border-border transition-all',
+        'hover:bg-muted/50',
         'data-[variant=success]:border-l-2 data-[variant=success]:border-l-emerald-400',
         'data-[variant=warning]:border-l-2 data-[variant=warning]:border-l-amber-400',
         'data-[variant=error]:border-l-2 data-[variant=error]:border-l-red-500',
@@ -95,8 +95,8 @@ function TableHead({ className, ...props }: React.ComponentProps<'th'>) {
       data-slot="table-head"
       className={cn(
         'h-10 px-2 text-left align-middle',
-        'text-xs font-semibold uppercase tracking-wide text-neutral-500',
-        'whitespace-nowrap dark:text-neutral-400',
+        'text-xs font-semibold uppercase tracking-wide text-muted-foreground',
+        'whitespace-nowrap',
         '[&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]',
         className
       )}
@@ -111,11 +111,7 @@ function TableCell({ className, ...props }: React.ComponentProps<'td'>) {
   return (
     <td
       data-slot="table-cell"
-      className={cn(
-        'p-2 align-middle whitespace-nowrap text-sm text-neutral-800',
-        'dark:text-neutral-200',
-        className
-      )}
+      className={cn('p-2 align-middle whitespace-nowrap text-sm text-foreground', className)}
       {...props}
     />
   );
@@ -127,7 +123,7 @@ function TableCaption({ className, ...props }: React.ComponentProps<'caption'>) 
   return (
     <caption
       data-slot="table-caption"
-      className={cn('mt-4 text-sm text-neutral-500 dark:text-neutral-400', className)}
+      className={cn('mt-4 text-sm text-muted-foreground', className)}
       {...props}
     />
   );
@@ -146,7 +142,7 @@ function StatusDot({ status }: { status: Trace['status'] }) {
           status === 'error' && 'bg-red-500'
         )}
       />
-      <span className="hidden text-xs capitalize text-neutral-500 md:inline">{status}</span>
+      <span className="hidden text-xs capitalize text-muted-foreground md:inline">{status}</span>
     </span>
   );
 }
