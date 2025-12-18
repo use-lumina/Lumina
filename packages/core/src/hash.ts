@@ -42,7 +42,9 @@ export function calculateHashSimilarity(responseHash: string, baselineHashes: st
   if (matchRate > 0.3) return 0.9;
 
   // Otherwise, use Hamming distance for approximate similarity
-  const similarities = baselineHashes.map((baselineHash) => hammingDistance(responseHash, baselineHash));
+  const similarities = baselineHashes.map((baselineHash) =>
+    hammingDistance(responseHash, baselineHash)
+  );
 
   const avgSimilarity = similarities.reduce((a, b) => a + b, 0) / similarities.length;
   return avgSimilarity;

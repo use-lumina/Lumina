@@ -47,7 +47,7 @@ export class BaselinesTable {
     return {
       serviceName: row.service_name,
       endpoint: row.endpoint,
-      window: row.time_window as '1h' | '24h' | '7d',
+      window: row.window_size as '1h' | '24h' | '7d',
       p50Cost: Number(row.p50_cost),
       p95Cost: Number(row.p95_cost),
       p99Cost: Number(row.p99_cost),
@@ -65,7 +65,7 @@ export class BaselinesTable {
     return rows.map((row) => ({
       serviceName: row.service_name,
       endpoint: row.endpoint,
-      window: row.time_window as '1h' | '24h' | '7d',
+      window: row.window_size as '1h' | '24h' | '7d',
       p50Cost: Number(row.p50_cost),
       p95Cost: Number(row.p95_cost),
       p99Cost: Number(row.p99_cost),
