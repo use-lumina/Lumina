@@ -3,6 +3,9 @@
   "workspaces": {
     "": {
       "name": "lumina",
+      "dependencies": {
+        "postgres": "^3.4.5",
+      },
       "devDependencies": {
         "@eslint/js": "^9.39.2",
         "@types/bun": "latest",
@@ -117,6 +120,7 @@
         "@lumina/core": "workspace:*",
         "@lumina/schema": "workspace:*",
         "hono": "^3.12.0",
+        "jose": "^5.2.0",
         "postgres": "^3.4.3",
       },
       "devDependencies": {
@@ -624,6 +628,8 @@
     "isexe": ["isexe@2.0.0", "", {}, "sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw=="],
 
     "jiti": ["jiti@1.21.7", "", { "bin": { "jiti": "bin/jiti.js" } }, "sha512-/imKNG4EbWNrVjoNC/1H5/9GFy+tqjGBHCaSsN+P2RnPqjsLmv6UD3Ej+Kj8nBWaRAwyk7kK5ZUc+OEatnTR3A=="],
+
+    "jose": ["jose@5.10.0", "", {}, "sha512-s+3Al/p9g32Iq+oqXxkW//7jk2Vig6FF1CFqzVXoTUXt2qz89YWbL+OwS17NFYEvxC35n0FKeGO2LGYSxeM2Gg=="],
 
     "js-tokens": ["js-tokens@4.0.0", "", {}, "sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ=="],
 

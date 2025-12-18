@@ -10,6 +10,7 @@ import { getDB } from './database/postgres';
 import tracesRoutes from './routes/traces';
 import analyticsRoutes from './routes/analytics';
 import alertsRoutes from './routes/alerts';
+import authRoutes from './routes/auth';
 
 const app = new Hono();
 
@@ -34,6 +35,7 @@ app.get('/health', (c) => {
 });
 
 // Mount routes
+app.route('/auth', authRoutes);
 app.route('/traces', tracesRoutes);
 app.route('/cost', analyticsRoutes);
 app.route('/alerts', alertsRoutes);

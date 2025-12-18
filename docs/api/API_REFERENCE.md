@@ -38,13 +38,24 @@ The complete OpenAPI specification is available at: [`docs/openapi.yaml`](./open
 
 **Base URL:** `http://localhost:8081`
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/traces` | GET | Query traces with filters |
-| `/api/traces/{traceId}` | GET | Get specific trace |
-| `/api/analytics/cost` | GET | Cost analytics |
-| `/api/analytics/latency` | GET | Latency analytics |
-| `/health` | GET | Health check |
+#### Authentication Endpoints
+
+| Endpoint | Method | Auth Required | Description |
+|----------|--------|---------------|-------------|
+| `/auth/login` | POST | No | User login with email/password |
+| `/auth/me` | GET | Yes | Get current user information |
+| `/auth/change-password` | POST | Yes | Change user password |
+| `/auth/refresh` | POST | Yes | Refresh JWT token |
+
+#### Data Endpoints
+
+| Endpoint | Method | Auth Required | Description |
+|----------|--------|---------------|-------------|
+| `/traces` | GET | Yes | Query traces with filters |
+| `/traces/{traceId}` | GET | Yes | Get specific trace |
+| `/cost` | GET | Yes | Cost analytics |
+| `/alerts` | GET | Yes | Get alerts |
+| `/health` | GET | No | Health check |
 
 ### Replay Engine (Port 8082)
 
@@ -61,10 +72,52 @@ The complete OpenAPI specification is available at: [`docs/openapi.yaml`](./open
 
 ## Authentication
 
-Currently in MVP phase with no authentication. Production deployments should implement:
-- API key authentication
-- Rate limiting
-- Request validation
+### Dashboard Authentication (JWT)
+
+Dashboard endpoints require JWT bearer token authentication:
+
+```bash
+# Login to get JWT token
+curl -X POST http://localhost:8081/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "your-password"
+  }'
+
+# Use token in subsequent requests
+curl http://localhost:8081/auth/me \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+**Token Details:**
+- Tokens expire after 7 days
+- Include user ID, customer ID, and email
+- Required for all data endpoints (traces, cost, alerts)
+- Use `/auth/refresh` to get a new token before expiration
+
+**Password Management:**
+- Initial passwords are marked as temporary (`isTemporaryPassword: true`)
+- Users must change temporary passwords on first login
+- Passwords must be at least 8 characters
+- Uses bcrypt hashing with cost factor 10
+
+### API Key Authentication (Ingestion)
+
+Ingestion API uses API key authentication for trace ingestion:
+
+```bash
+curl -X POST http://localhost:9411/v1/traces \
+  -H "X-API-Key: lumina_live_YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d @trace.json
+```
+
+**API Key Details:**
+- Each customer has separate `live` and `test` environment keys
+- Keys are prefixed with `lumina_live_` or `lumina_test_`
+- Keys are generated during customer onboarding
+- Contact admin to rotate keys
 
 ## Error Handling
 
@@ -80,8 +133,14 @@ All APIs return errors in this format:
 Common HTTP status codes:
 - `200` - Success
 - `400` - Bad request (invalid parameters)
+- `401` - Unauthorized (missing or invalid authentication)
 - `404` - Resource not found
 - `500` - Internal server error
+
+**Authentication Errors:**
+- Missing token: `{"error": "Unauthorized", "message": "No token provided"}`
+- Invalid token: `{"error": "Unauthorized", "message": "Invalid or expired token"}`
+- Wrong password: `{"error": "Invalid email or password"}`
 
 ## Rate Limits
 

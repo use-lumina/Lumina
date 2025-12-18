@@ -10,8 +10,10 @@ export class LuminaReplayDB {
   private connectionString: string;
 
   constructor(connectionString?: string) {
-    this.connectionString =
-      connectionString || Bun.env.DATABASE_URL || 'postgres://evansonigiri@localhost:5432/lumina';
+    this.connectionString = connectionString || Bun.env.DATABASE_URL;
+    if (!this.connectionString) {
+      throw new Error('DATABASE_URL environment variable is required');
+    }
   }
 
   /**

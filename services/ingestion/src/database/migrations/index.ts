@@ -1,6 +1,7 @@
 import { createTracesTable } from './001_create_traces_table';
 import { createCostBaselinesTable } from './002_create_cost_baselines_table';
 import { addSemanticScoresAndAlerts } from './003_add_semantic_scores_and_alerts';
+import { createMultiTenancyTables } from './004_create_multi_tenancy_tables';
 import type { Migration } from '../types';
 
 /**
@@ -10,4 +11,5 @@ export const migrations: Migration[] = [
   createTracesTable,
   createCostBaselinesTable,
   addSemanticScoresAndAlerts,
+  createMultiTenancyTables,
 ];
