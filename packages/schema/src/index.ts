@@ -6,3 +6,5 @@ export * from './trace';
 export * from './alert';
 // Authentication & Authorization schemas
 export * from './auth';
+// OTLP (OpenTelemetry Protocol) types
+export * from './otlp';

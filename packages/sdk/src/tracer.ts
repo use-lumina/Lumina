@@ -77,6 +77,7 @@ export class Tracer {
 
     const trace: Trace = {
       trace_id: generateTraceId(),
+      span_id: generateTraceId(), // Generate unique span ID
       customer_id: '', // Will be filled by ingestion service from API key
       timestamp: new Date(),
       service_name: data.service_name || this.detectServiceName(),
@@ -185,6 +186,7 @@ export class Tracer {
 
     const trace: Trace = {
       trace_id: traceId,
+      span_id: generateTraceId(), // Generate unique span ID
       customer_id: '', // Filled by ingestion service
       timestamp: new Date(),
       service_name: this.detectServiceName(),
@@ -224,6 +226,7 @@ export class Tracer {
 
     const trace: Trace = {
       trace_id: traceId,
+      span_id: generateTraceId(), // Generate unique span ID
       customer_id: '',
       timestamp: new Date(),
       service_name: this.detectServiceName(),
