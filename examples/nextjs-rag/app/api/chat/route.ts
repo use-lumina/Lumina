@@ -7,8 +7,10 @@ const anthropic = new Anthropic({
 
 // Initialize Lumina SDK
 const lumina = initLumina({
-  api_key: process.env.LUMINA_API_KEY || 'lumina_test_dummy_key',
-  endpoint: process.env.LUMINA_ENDPOINT || 'http://localhost:8080/ingest',
+  api_key: process.env.LUMINA_API_KEY || 'lumina_test123_abc',
+  endpoint: process.env.LUMINA_ENDPOINT || 'http://localhost:9411/v1/traces',
+  service_name: 'nextjs-rag-example',
+  customer_id: 'test123',
   environment: 'test',
 });
 
@@ -16,8 +18,6 @@ export async function POST(req: Request) {
   try {
     const body = (await req.json()) as { message: string };
     const { message } = body;
-
-    console.log('[Next.js] Received message:', message);
 
     // Wrap the Anthropic call with lumina.traceLLM() for automatic token tracking
     const response = await lumina.traceLLM(
@@ -39,9 +39,6 @@ export async function POST(req: Request) {
         },
       }
     );
-
-    console.log('[Next.js] Response received from Anthropic');
-    console.log('[Next.js] Lumina trace captured');
 
     const reply = response.content[0]?.type === 'text' ? response.content[0].text : 'No response';
 

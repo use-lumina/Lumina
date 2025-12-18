@@ -39,8 +39,6 @@ export class Lumina {
 
     // Store singleton instance
     Lumina.instance = this;
-
-    console.log('[Lumina SDK] Initialized with OpenTelemetry');
   }
 
   /**
@@ -58,11 +56,11 @@ export class Lumina {
     );
 
     // Create OTLP exporter pointing to Lumina collector
+    // Note: OTLPTraceExporter expects full URL including path
     const exporter = new OTLPTraceExporter({
       url: this.config.endpoint,
       headers: {
         Authorization: `Bearer ${this.config.api_key}`,
-        'Content-Type': 'application/json',
       },
     });
 
@@ -221,27 +219,26 @@ export class Lumina {
         span.setAttribute(SemanticConventions.LLM_RESPONSE_ID, result.id);
       }
       if (result.usage) {
-        if (result.usage.prompt_tokens) {
-          span.setAttribute(
-            SemanticConventions.LLM_USAGE_PROMPT_TOKENS,
-            result.usage.prompt_tokens
-          );
+        // Support both OpenAI (prompt_tokens/completion_tokens) and Anthropic (input_tokens/output_tokens) naming
+        const promptTokens = result.usage.prompt_tokens || result.usage.input_tokens;
+        const completionTokens = result.usage.completion_tokens || result.usage.output_tokens;
+        const totalTokens = result.usage.total_tokens || (promptTokens || 0) + (completionTokens || 0);
+
+        if (promptTokens) {
+          span.setAttribute(SemanticConventions.LLM_USAGE_PROMPT_TOKENS, promptTokens);
         }
-        if (result.usage.completion_tokens) {
-          span.setAttribute(
-            SemanticConventions.LLM_USAGE_COMPLETION_TOKENS,
-            result.usage.completion_tokens
-          );
+        if (completionTokens) {
+          span.setAttribute(SemanticConventions.LLM_USAGE_COMPLETION_TOKENS, completionTokens);
         }
-        if (result.usage.total_tokens) {
-          span.setAttribute(SemanticConventions.LLM_USAGE_TOTAL_TOKENS, result.usage.total_tokens);
+        if (totalTokens) {
+          span.setAttribute(SemanticConventions.LLM_USAGE_TOTAL_TOKENS, totalTokens);
         }
 
         // Calculate cost if we have token usage
         const cost = this.calculateCost(
           result.model || '',
-          result.usage.prompt_tokens || 0,
-          result.usage.completion_tokens || 0
+          promptTokens || 0,
+          completionTokens || 0
         );
         if (cost > 0) {
           span.setAttribute(SemanticConventions.LUMINA_COST_USD, cost);

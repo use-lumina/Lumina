@@ -7,6 +7,8 @@ import { z } from 'zod';
 export const TraceSchema = z.object({
   // Identifiers
   trace_id: z.string().min(1),
+  span_id: z.string().min(1), // Unique span identifier within the trace
+  parent_span_id: z.string().optional(), // Parent span ID for hierarchical relationships
   customer_id: z.string().min(1),
 
   // Timestamps
