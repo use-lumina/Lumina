@@ -1,0 +1,702 @@
+openapi: 3.0.3
+info:
+  title: Lumina API
+  description: |
+    Lumina is a lightweight observability platform for LLM applications.
+
+    This API provides three main services:
+    - **Ingestion API** (Port 9411): Receives and stores traces
+    - **Query API** (Port 8081): Query traces and analytics
+    - **Replay Engine** (Port 8082): Regression testing via trace replay
+  version: 0.1.0
+  contact:
+    name: Lumina Support
+    url: https://github.com/yourusername/lumina
+
+servers:
+  - url: http://localhost:9411
+    description: Ingestion Service
+  - url: http://localhost:8081
+    description: Query API Service
+  - url: http://localhost:8082
+    description: Replay Engine Service
+
+tags:
+  - name: Ingestion
+    description: Trace ingestion endpoints
+  - name: Query
+    description: Trace query and search endpoints
+  - name: Analytics
+    description: Cost and latency analytics
+  - name: Replay
+    description: Replay testing endpoints
+
+paths:
+  # ========================================
+  # INGESTION API (Port 9411)
+  # ========================================
+
+  /v1/traces:
+    post:
+      tags:
+        - Ingestion
+      summary: Ingest traces (OpenTelemetry compatible)
+      description: Accepts traces in OpenTelemetry JSON format
+      servers:
+        - url: http://localhost:9411
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/OTelTrace'
+      responses:
+        '200':
+          description: Traces ingested successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  tracesReceived:
+                    type: integer
+        '400':
+          description: Invalid trace data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /health:
+    get:
+      tags:
+        - Ingestion
+      summary: Health check
+      servers:
+        - url: http://localhost:9411
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheck'
+
+  # ========================================
+  # QUERY API (Port 8081)
+  # ========================================
+
+  /api/traces:
+    get:
+      tags:
+        - Query
+      summary: Query traces
+      description: Search and filter traces with pagination
+      servers:
+        - url: http://localhost:8081
+      parameters:
+        - name: service
+          in: query
+          schema:
+            type: string
+          description: Filter by service name
+        - name: model
+          in: query
+          schema:
+            type: string
+          description: Filter by model name
+        - name: tags
+          in: query
+          schema:
+            type: string
+          description: Filter by tags (comma-separated)
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter by start date (YYYY-MM-DD)
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter by end date (YYYY-MM-DD)
+        - name: minCost
+          in: query
+          schema:
+            type: number
+          description: Minimum cost threshold
+        - name: maxCost
+          in: query
+          schema:
+            type: number
+          description: Maximum cost threshold
+        - name: minLatency
+          in: query
+          schema:
+            type: integer
+          description: Minimum latency in milliseconds
+        - name: maxLatency
+          in: query
+          schema:
+            type: integer
+          description: Maximum latency in milliseconds
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+          description: Number of results per page
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+          description: Pagination offset
+      responses:
+        '200':
+          description: Traces retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Trace'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '400':
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/traces/{traceId}:
+    get:
+      tags:
+        - Query
+      summary: Get trace by ID
+      servers:
+        - url: http://localhost:8081
+      parameters:
+        - name: traceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Trace found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trace'
+        '404':
+          description: Trace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/analytics/cost:
+    get:
+      tags:
+        - Analytics
+      summary: Get cost analytics
+      servers:
+        - url: http://localhost:8081
+      parameters:
+        - name: service
+          in: query
+          schema:
+            type: string
+        - name: model
+          in: query
+          schema:
+            type: string
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: groupBy
+          in: query
+          schema:
+            type: string
+            enum: [service, model, date]
+            default: service
+      responses:
+        '200':
+          description: Cost analytics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalCost:
+                    type: number
+                  avgCost:
+                    type: number
+                  breakdown:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        groupKey:
+                          type: string
+                        totalCost:
+                          type: number
+                        traceCount:
+                          type: integer
+
+  /api/analytics/latency:
+    get:
+      tags:
+        - Analytics
+      summary: Get latency analytics
+      servers:
+        - url: http://localhost:8081
+      parameters:
+        - name: service
+          in: query
+          schema:
+            type: string
+        - name: model
+          in: query
+          schema:
+            type: string
+        - name: timeRange
+          in: query
+          schema:
+            type: string
+            enum: [1h, 6h, 24h, 7d, 30d]
+        - name: groupBy
+          in: query
+          schema:
+            type: string
+            enum: [service, model, endpoint]
+      responses:
+        '200':
+          description: Latency analytics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  avgLatency:
+                    type: number
+                  p50Latency:
+                    type: number
+                  p95Latency:
+                    type: number
+                  p99Latency:
+                    type: number
+                  breakdown:
+                    type: array
+                    items:
+                      type: object
+
+  # ========================================
+  # REPLAY ENGINE (Port 8082)
+  # ========================================
+
+  /replay/capture:
+    post:
+      tags:
+        - Replay
+      summary: Create a replay set
+      description: Capture a set of traces for replay testing
+      servers:
+        - url: http://localhost:8082
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - traceIds
+              properties:
+                name:
+                  type: string
+                  description: Name of the replay set
+                description:
+                  type: string
+                  description: Optional description
+                traceIds:
+                  type: array
+                  items:
+                    type: string
+                  description: Array of trace IDs to include
+                createdBy:
+                  type: string
+                  description: User who created the replay set
+      responses:
+        '200':
+          description: Replay set created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  replaySet:
+                    $ref: '#/components/schemas/ReplaySet'
+        '400':
+          description: Invalid input or traces not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /replay/run:
+    post:
+      tags:
+        - Replay
+      summary: Execute a replay set
+      description: Re-execute all traces in a replay set
+      servers:
+        - url: http://localhost:8082
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - replayId
+              properties:
+                replayId:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Replay executed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  replayId:
+                    type: string
+                    format: uuid
+                  completedCount:
+                    type: integer
+                  totalTraces:
+                    type: integer
+        '404':
+          description: Replay set not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /replay/{replayId}:
+    get:
+      tags:
+        - Replay
+      summary: Get replay status and summary
+      servers:
+        - url: http://localhost:8082
+      parameters:
+        - name: replayId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Replay status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  replaySet:
+                    $ref: '#/components/schemas/ReplaySet'
+                  summary:
+                    $ref: '#/components/schemas/ReplaySummary'
+        '404':
+          description: Replay not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /replay/{replayId}/diff:
+    get:
+      tags:
+        - Replay
+      summary: Get detailed comparison results
+      servers:
+        - url: http://localhost:8082
+      parameters:
+        - name: replayId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: showOnlyChanges
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Only show traces with response changes
+      responses:
+        '200':
+          description: Diff results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ReplayResult'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+  /replay:
+    get:
+      tags:
+        - Replay
+      summary: List all replay sets
+      servers:
+        - url: http://localhost:8082
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, running, completed, failed]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Replay sets list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ReplaySet'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+components:
+  schemas:
+    OTelTrace:
+      type: object
+      description: OpenTelemetry trace format
+      properties:
+        traceId:
+          type: string
+        spanId:
+          type: string
+        serviceName:
+          type: string
+        name:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        attributes:
+          type: object
+
+    Trace:
+      type: object
+      properties:
+        trace_id:
+          type: string
+        span_id:
+          type: string
+        service_name:
+          type: string
+        model:
+          type: string
+        prompt:
+          type: string
+        response:
+          type: string
+        cost_usd:
+          type: string
+        latency_ms:
+          type: integer
+        prompt_tokens:
+          type: integer
+        completion_tokens:
+          type: integer
+        tags:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+        timestamp:
+          type: string
+          format: date-time
+
+    ReplaySet:
+      type: object
+      properties:
+        replay_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        trace_ids:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+        status:
+          type: string
+          enum: [pending, running, completed, failed]
+        total_traces:
+          type: integer
+        completed_traces:
+          type: integer
+
+    ReplaySummary:
+      type: object
+      properties:
+        total_results:
+          type: integer
+        avg_hash_similarity:
+          type: number
+        avg_semantic_score:
+          type: number
+        avg_cost_diff:
+          type: number
+        avg_latency_diff:
+          type: number
+        response_changes:
+          type: integer
+
+    ReplayResult:
+      type: object
+      properties:
+        result_id:
+          type: string
+          format: uuid
+        trace_id:
+          type: string
+        original_response:
+          type: string
+        replay_response:
+          type: string
+        original_cost:
+          type: number
+        replay_cost:
+          type: number
+        original_latency:
+          type: integer
+        replay_latency:
+          type: integer
+        hash_similarity:
+          type: number
+        semantic_score:
+          type: number
+        diff_summary:
+          type: object
+          properties:
+            cost_diff:
+              type: number
+            cost_diff_percent:
+              type: number
+            latency_diff:
+              type: number
+            latency_diff_percent:
+              type: number
+            response_changed:
+              type: boolean
+        executed_at:
+          type: string
+          format: date-time
+
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        hasMore:
+          type: boolean
+
+    HealthCheck:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy]
+        service:
+          type: string
+        version:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string

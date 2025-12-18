@@ -148,6 +148,7 @@
         "@lumina/core": "workspace:*",
         "@lumina/schema": "workspace:*",
         "hono": "^3.12.0",
+        "postgres": "^3.4.3",
       },
       "devDependencies": {
         "@types/bun": "latest",
