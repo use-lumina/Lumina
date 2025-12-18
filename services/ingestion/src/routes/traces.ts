@@ -3,6 +3,7 @@ import type { OTLPTraceRequest } from '@lumina/schema';
 import { parseOTLPTraces } from '../parsers/otlp-parser';
 import { transformOTLPBatch } from '../transformers/otlp-transformer';
 import { getDB } from '../database/postgres';
+import { publishTraces, isNATSConnected } from '../queue/nats-client';
 import type { AppVariables } from '../types/hono';
 
 const traces = new Hono<{ Variables: AppVariables }>();
@@ -50,9 +51,22 @@ traces.post('/v1/traces', async (c) => {
     // Transform to Lumina trace format
     const traces = transformOTLPBatch(parsedSpans, customerId);
 
-    // Store in PostgreSQL
+    // Store in PostgreSQL (synchronous for immediate query availability)
     const db = getDB();
     await db.insertBatch(traces);
+
+    // Publish to NATS for async alert processing (fire and forget)
+    // This keeps the HTTP response fast while allowing background analysis
+    if (isNATSConnected()) {
+      // Don't await - publish async to keep response <20ms
+      publishTraces(traces).catch((err) => {
+        console.error('Failed to publish traces to NATS:', err);
+        // Don't fail the request if NATS publish fails
+        // Traces are already stored in DB
+      });
+    } else {
+      console.warn('NATS not connected - skipping async alert processing');
+    }
 
     // Return success response (OTLP spec requires empty response or status)
     return c.json(

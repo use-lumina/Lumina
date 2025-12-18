@@ -2,6 +2,7 @@ import postgres from 'postgres';
 import { Migrator } from './migrator';
 import { TracesTable } from './tables/traces';
 import { BaselinesTable } from './tables/baselines';
+import { AlertsTable } from './tables/alerts';
 
 /**
  * PostgreSQL Database Manager for Lumina traces
@@ -15,6 +16,7 @@ export class LuminaDB {
   // Public table instances
   public traces!: TracesTable;
   public baselines!: BaselinesTable;
+  public alerts!: AlertsTable;
 
   constructor(connectionString?: string) {
     this.connectionString =
@@ -41,8 +43,50 @@ export class LuminaDB {
     // Initialize tables
     this.traces = new TracesTable(this.sql);
     this.baselines = new BaselinesTable(this.sql);
+    this.alerts = new AlertsTable(this.sql);
 
     this.isInitialized = true;
+  }
+
+  /**
+   * Convenience method to insert a batch of traces
+   */
+  async insertBatch(traces: any[]): Promise<void> {
+    return this.traces.insertBatch(traces);
+  }
+
+  /**
+   * Convenience method to query traces
+   */
+  async queryTraces(options: {
+    customerId: string;
+    environment?: 'live' | 'test';
+    startTime?: Date;
+    endTime?: Date;
+    status?: 'success' | 'error';
+    serviceName?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<any[]> {
+    return this.traces.queryTraces(options);
+  }
+
+  /**
+   * Convenience method to get metrics
+   */
+  async getMetrics(options: {
+    customerId: string;
+    environment?: 'live' | 'test';
+    startTime?: Date;
+    endTime?: Date;
+  }): Promise<{
+    totalTraces: number;
+    totalTokens: number;
+    totalCost: number;
+    avgLatency: number;
+    successRate: number;
+  }> {
+    return this.traces.getMetrics(options);
   }
 
   /**

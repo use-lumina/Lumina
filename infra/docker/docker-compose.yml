@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  # PostgreSQL - Primary database for traces, baselines, alerts
+  postgres:
+    image: postgres:15-alpine
+    container_name: lumina-postgres
+    environment:
+      POSTGRES_USER: lumina
+      POSTGRES_PASSWORD: lumina
+      POSTGRES_DB: lumina
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lumina"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lumina
+
+  # NATS JetStream - Message queue for async trace processing
+  nats:
+    image: nats:2.10-alpine
+    container_name: lumina-nats
+    command:
+      - "--jetstream"
+      - "--store_dir=/data"
+      - "--http_port=8222"
+    ports:
+      - "4222:4222"  # Client connections
+      - "8222:8222"  # HTTP monitoring
+    volumes:
+      - nats-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8222/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lumina
+
+  # Redis - Cache for semantic scores
+  redis:
+    image: redis:7-alpine
+    container_name: lumina-redis
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lumina
+
+volumes:
+  postgres-data:
+    driver: local
+  nats-data:
+    driver: local
+  redis-data:
+    driver: local
+
+networks:
+  lumina:
+    driver: bridge

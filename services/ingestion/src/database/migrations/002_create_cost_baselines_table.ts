@@ -11,13 +11,13 @@ export const createCostBaselinesTable: Migration = {
         id SERIAL PRIMARY KEY,
         service_name VARCHAR(255) NOT NULL,
         endpoint VARCHAR(500) NOT NULL,
-        time_window VARCHAR(10) NOT NULL CHECK (time_window IN ('1h', '24h', '7d')),
+        window_size VARCHAR(10) NOT NULL CHECK (window_size IN ('1h', '24h', '7d')),
         p50_cost DOUBLE PRECISION NOT NULL,
         p95_cost DOUBLE PRECISION NOT NULL,
         p99_cost DOUBLE PRECISION NOT NULL,
         sample_count INTEGER NOT NULL,
         last_updated TIMESTAMPTZ DEFAULT NOW(),
-        UNIQUE(service_name, endpoint, time_window)
+        UNIQUE(service_name, endpoint, window_size)
       )
     `;
 
