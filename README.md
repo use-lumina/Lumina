@@ -1,6 +1,6 @@
 # Lumina
 
-A lightweight, open-source observability platform for LLM applications. Track costs, latency, and quality across your AI systems with minimal overhead.
+A lightweight observability platform for LLM applications. Track costs, latency, and quality across your AI systems with minimal overhead.
 
 ## Features
 
