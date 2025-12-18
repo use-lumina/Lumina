@@ -460,9 +460,7 @@ export default function Home() {
                           const value = typeof payload[0].value === 'number' ? payload[0].value : 0;
                           return (
                             <div className="bg-card border border-border rounded-lg px-3 py-2 shadow-lg">
-                              <p className="text-sm font-semibold">
-                                ${value.toFixed(2)}
-                              </p>
+                              <p className="text-sm font-semibold">${value.toFixed(2)}</p>
                               <p className="text-xs text-muted-foreground">
                                 {payload[0].payload.time}
                               </p>

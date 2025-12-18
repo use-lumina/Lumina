@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 
 export function TableSkeleton({ rows = 5, columns = 7 }: { rows?: number; columns?: number }) {
   return (
-    <div className="rounded-lg border border-border bg-card">
+    <div className="rounded-lg border border-(--accent) border-border bg-card">
       <Table>
         <TableHeader>
           <TableRow>

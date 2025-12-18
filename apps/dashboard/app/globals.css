@@ -193,3 +193,47 @@ select,
 button {
   transition-property: color, background-color, border-color, opacity;
 }
+
+/* Custom Scrollbar Styles */
+/* For Webkit browsers (Chrome, Safari, Edge) */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 100px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: oklch(0.88 0.01 255);
+  border-radius: 100px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.75 0.01 255);
+  background-clip: content-box;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: oklch(1 0 0 / 20%);
+  background-clip: content-box;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: oklch(1 0 0 / 30%);
+  background-clip: content-box;
+}
+
+/* For Firefox */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.88 0.01 255) transparent;
+}
+
+.dark .custom-scrollbar {
+  scrollbar-color: oklch(1 0 0 / 20%) transparent;
+}

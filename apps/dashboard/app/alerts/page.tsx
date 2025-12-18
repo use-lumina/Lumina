@@ -273,10 +273,12 @@ export default function AlertsPage() {
             <div
               className={cn(
                 'rounded-lg p-2',
-                alert.severity === 'high' && 'bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400',
+                alert.severity === 'high' &&
+                  'bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400',
                 alert.severity === 'medium' &&
                   'bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-400',
-                alert.severity === 'low' && 'bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400'
+                alert.severity === 'low' &&
+                  'bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400'
               )}
             >
               {getSeverityIcon(alert.severity)}
@@ -322,7 +324,9 @@ export default function AlertsPage() {
           <div
             className={cn(
               'text-sm font-semibold',
-              alert.metrics.current > alert.metrics.threshold ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
+              alert.metrics.current > alert.metrics.threshold
+                ? 'text-red-600 dark:text-red-400'
+                : 'text-green-600 dark:text-green-400'
             )}
           >
             {alert.metrics.current > alert.metrics.threshold ? '+' : ''}
@@ -332,7 +336,7 @@ export default function AlertsPage() {
 
         {/* Actions */}
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => handleViewTraces(alert)}>
+          <Button variant="ghost" size="sm" onClick={() => handleViewTraces(alert)}>
             <Eye className="h-4 w-4 mr-2" />
             View Traces ({alert.relatedTraces})
           </Button>
@@ -354,7 +358,9 @@ export default function AlertsPage() {
   );
 
   const activeCount = alerts.filter((a) => a.status === 'active').length;
-  const highSeverityCount = alerts.filter((a) => a.severity === 'high' && a.status === 'active').length;
+  const highSeverityCount = alerts.filter(
+    (a) => a.severity === 'high' && a.status === 'active'
+  ).length;
 
   return (
     <div className="h-full overflow-auto">
@@ -367,7 +373,7 @@ export default function AlertsPage() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="p-6">
+          <Card className="p-6 border-(--accent)">
             <div className="flex items-start justify-between">
               <div className="space-y-2">
                 <p className="text-sm font-medium text-muted-foreground">Active Alerts</p>
@@ -380,7 +386,7 @@ export default function AlertsPage() {
             </div>
           </Card>
 
-          <Card className="p-6">
+          <Card className="p-6 border-(--accent)">
             <div className="flex items-start justify-between">
               <div className="space-y-2">
                 <p className="text-sm font-medium text-muted-foreground">High Severity</p>
@@ -393,7 +399,7 @@ export default function AlertsPage() {
             </div>
           </Card>
 
-          <Card className="p-6">
+          <Card className="p-6 border-(--accent)">
             <div className="flex items-start justify-between">
               <div className="space-y-2">
                 <p className="text-sm font-medium text-muted-foreground">Resolved (24h)</p>
@@ -488,9 +494,7 @@ export default function AlertsPage() {
             <div className="text-center space-y-2">
               <CheckCircle2 className="h-12 w-12 mx-auto text-muted-foreground" />
               <h3 className="text-lg font-semibold">No alerts found</h3>
-              <p className="text-sm text-muted-foreground">
-                All systems are operating normally
-              </p>
+              <p className="text-sm text-muted-foreground">All systems are operating normally</p>
             </div>
           </Card>
         )}
