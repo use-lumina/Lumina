@@ -6,3 +6,4 @@ export * from './alert-engine';
 export * from './cache';
 export * from './semantic-scorer';
 export * from './webhooks';
+export * from './diff-engine';
