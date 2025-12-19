@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 const menuItems = [
   {
     label: 'Live Traces',
-    href: '/',
+    href: '/traces',
     icon: Activity,
   },
   {
@@ -32,11 +32,11 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-56 border-r border-[var(--sidebar-border)] border-border bg-card">
+    <aside className="w-56 border-r border-(--sidebar-border) border-border bg-card">
       <nav className="flex flex-col p-4 gap-1">
         {menuItems.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.href;
+          const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
 
           return (
             <Link

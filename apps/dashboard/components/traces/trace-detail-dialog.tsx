@@ -9,9 +9,10 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { SpanTimeline } from './span-timeline';
-import type { Trace } from '@/app/page';
+import { SpanTimeline } from './trace-timeline';
+
 import { Clock, DollarSign, User, Hash } from 'lucide-react';
+import { Trace } from '@/app/traces/page';
 
 interface TraceDetailDialogProps {
   trace: Trace | null;
@@ -24,7 +25,7 @@ export function TraceDetailDialog({ trace, open, onOpenChange }: TraceDetailDial
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto border-(--sidebar-border)">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             <span>Trace Details</span>
@@ -40,7 +41,7 @@ export function TraceDetailDialog({ trace, open, onOpenChange }: TraceDetailDial
         <div className="space-y-6">
           {/* Metadata cards */}
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <div className="rounded-lg border border-border bg-card p-3">
+            <div className="rounded-lg border border-border border-(--sidebar-border) bg-card p-3">
               <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
                 <Clock className="h-3 w-3" />
                 <span>Latency</span>
@@ -48,7 +49,7 @@ export function TraceDetailDialog({ trace, open, onOpenChange }: TraceDetailDial
               <p className="text-lg font-semibold">{trace.latencyMs}ms</p>
             </div>
 
-            <div className="rounded-lg border border-border bg-card p-3">
+            <div className="rounded-lg border border-(--sidebar-border) border-border bg-card p-3">
               <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
                 <DollarSign className="h-3 w-3" />
                 <span>Cost</span>
@@ -56,7 +57,7 @@ export function TraceDetailDialog({ trace, open, onOpenChange }: TraceDetailDial
               <p className="text-lg font-semibold">${trace.costUsd.toFixed(4)}</p>
             </div>
 
-            <div className="rounded-lg border border-border bg-card p-3">
+            <div className="rounded-lg border border-(--sidebar-border) border-border bg-card p-3">
               <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
                 <Hash className="h-3 w-3" />
                 <span>Model</span>
@@ -64,7 +65,7 @@ export function TraceDetailDialog({ trace, open, onOpenChange }: TraceDetailDial
               <p className="text-lg font-semibold">{trace.model}</p>
             </div>
 
-            <div className="rounded-lg border border-border bg-card p-3">
+            <div className="rounded-lg border border-(--sidebar-border) border-border bg-card p-3">
               <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
                 <User className="h-3 w-3" />
                 <span>Status</span>
@@ -87,7 +88,7 @@ export function TraceDetailDialog({ trace, open, onOpenChange }: TraceDetailDial
           {trace.spans && trace.spans.length > 0 && (
             <div className="space-y-2">
               <h3 className="text-sm font-medium">Execution Timeline</h3>
-              <div className="rounded-lg border border-border bg-card p-4">
+              <div className="rounded-lg border border-border border-(--sidebar-border) bg-card p-4">
                 <SpanTimeline spans={trace.spans} totalDuration={trace.latencyMs} />
               </div>
             </div>
@@ -96,13 +97,48 @@ export function TraceDetailDialog({ trace, open, onOpenChange }: TraceDetailDial
           {/* Tabs for prompt/response/metadata */}
           <Tabs defaultValue="prompt" className="w-full">
             <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="prompt">Prompt</TabsTrigger>
-              <TabsTrigger value="response">Response</TabsTrigger>
-              <TabsTrigger value="metadata">Metadata</TabsTrigger>
+              <TabsTrigger
+                value="prompt"
+                className="
+                  cursor-pointer
+                  border-b border-(--sidebar-border)
+                  data-[state=active]:border-b-2
+                  data-[state=active]:border-primary
+                  data-[state=active]:text-primary
+                "
+              >
+                Prompt
+              </TabsTrigger>
+
+              <TabsTrigger
+                value="response"
+                className="
+                  cursor-pointer
+                  border-b border-(--sidebar-border)
+                  data-[state=active]:border-b-2
+                  data-[state=active]:border-primary
+                  data-[state=active]:text-primary
+                "
+              >
+                Response
+              </TabsTrigger>
+
+              <TabsTrigger
+                value="metadata"
+                className="
+                cursor-pointer
+                border-b border-(--sidebar-border)
+                data-[state=active]:border-b-2
+                data-[state=active]:border-primary
+                data-[state=active]:text-primary
+              "
+              >
+                Metadata
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="prompt" className="mt-4">
-              <div className="rounded-lg border border-border bg-muted p-4">
+              <div className="rounded-lg border border-(--sidebar-border) border-border bg-muted p-4">
                 <pre className="whitespace-pre-wrap text-sm font-mono">
                   {trace.prompt || 'No prompt data available'}
                 </pre>
@@ -110,7 +146,7 @@ export function TraceDetailDialog({ trace, open, onOpenChange }: TraceDetailDial
             </TabsContent>
 
             <TabsContent value="response" className="mt-4">
-              <div className="rounded-lg border border-border bg-muted p-4">
+              <div className="rounded-lg border border-(--sidebar-border) border-border bg-muted p-4">
                 <pre className="whitespace-pre-wrap text-sm font-mono">
                   {trace.response || 'No response data available'}
                 </pre>
@@ -118,7 +154,7 @@ export function TraceDetailDialog({ trace, open, onOpenChange }: TraceDetailDial
             </TabsContent>
 
             <TabsContent value="metadata" className="mt-4">
-              <div className="rounded-lg border border-border bg-card p-4">
+              <div className="rounded-lg border border-(--sidebar-border) border-border bg-card p-4">
                 <dl className="grid grid-cols-2 gap-4">
                   {trace.metadata?.userId && (
                     <>

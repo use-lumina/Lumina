@@ -4,7 +4,7 @@ import { ThemeToggle } from '@/components/theme-toggle';
 
 export function Header() {
   return (
-    <header className="h-14 border-b border-[var(--sidebar-border)] border-border bg-card flex items-center justify-between px-6 sticky top-0 z-50">
+    <header className="h-14 border-b border-(--sidebar-border) border-border bg-card flex items-center justify-between px-6 sticky top-0 z-50">
       {/* Left: Branding and breadcrumb */}
       <div className="flex items-center gap-2 text-sm">
         <span className="font-semibold text-foreground">Lumina</span>

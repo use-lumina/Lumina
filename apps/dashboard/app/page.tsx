@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -13,779 +13,539 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  StatusDot,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart';
-import { TraceDetailDialog } from '@/components/traces/trace-detail-dialog';
-import { cn } from '@/lib/utils';
 import {
-  MoreHorizontal,
-  RefreshCw,
-  Filter,
-  Download,
+  CheckCircle2,
+  Circle,
+  PlayCircle,
+  GitCompare,
+  Users,
+  BookOpen,
+  Key,
+  ArrowRight,
   TrendingUp,
-  TrendingDown,
-  Activity,
+  Clock,
   DollarSign,
   AlertTriangle,
-  Clock,
-  X,
+  Zap,
+  MoreHorizontal,
 } from 'lucide-react';
-import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 
-export type TraceSpan = {
-  name: string;
-  startMs: number;
-  durationMs: number;
-  type: 'retrieval' | 'generation' | 'processing';
-};
-
-export type Trace = {
-  id: string;
-  service: string;
-  endpoint: string;
-  model: 'gpt-4' | 'claude-3' | 'gpt-3.5';
-  latencyMs: number;
-  costUsd: number;
-  status: 'healthy' | 'degraded' | 'error';
-  createdAt: string;
-  // Detailed trace information
-  prompt?: string;
-  response?: string;
-  metadata?: {
-    userId?: string;
-    sessionId?: string;
-    tokensIn?: number;
-    tokensOut?: number;
-    temperature?: number;
-  };
-  spans?: TraceSpan[];
-};
-
-const mockTraces: Trace[] = [
+// Mock data
+const recentTraces = [
   {
-    id: 'tr_01HX9A2F4K',
+    id: 'trace-1',
     service: 'chat-api',
     endpoint: '/chat/message',
-    model: 'gpt-4',
-    latencyMs: 2150,
-    costUsd: 0.044,
-    status: 'degraded',
-    createdAt: '2025-03-18T21:04:12Z',
-    prompt: 'Explain quantum computing in simple terms',
-    response:
-      'Quantum computing is a type of computing that uses quantum mechanics principles to process information. Unlike classical computers that use bits (0 or 1), quantum computers use qubits which can be in multiple states simultaneously...',
-    metadata: {
-      userId: 'user_abc123',
-      sessionId: 'sess_xyz789',
-      tokensIn: 42,
-      tokensOut: 156,
-      temperature: 0.7,
-    },
-    spans: [
-      { name: 'Context Retrieval', startMs: 0, durationMs: 320, type: 'retrieval' },
-      { name: 'LLM Generation', startMs: 320, durationMs: 1650, type: 'generation' },
-      { name: 'Post-processing', startMs: 1970, durationMs: 180, type: 'processing' },
-    ],
-  },
-  {
-    id: 'tr_01HX9A2J9P',
-    service: 'search-api',
-    endpoint: '/search/query',
+    latency: 820,
+    cost: 0.012,
     model: 'claude-3',
-    latencyMs: 820,
-    costUsd: 0.012,
-    status: 'healthy',
-    createdAt: '2025-03-18T21:04:08Z',
-    prompt: 'Find documents about machine learning best practices',
-    response:
-      'Here are the top 5 documents about machine learning best practices:\n1. "ML Engineering Guide" - Covers data preprocessing and model validation\n2. "Production ML Systems"...',
-    metadata: {
-      userId: 'user_def456',
-      sessionId: 'sess_abc111',
-      tokensIn: 28,
-      tokensOut: 89,
-      temperature: 0.3,
-    },
-    spans: [
-      { name: 'Vector Search', startMs: 0, durationMs: 210, type: 'retrieval' },
-      { name: 'Reranking', startMs: 210, durationMs: 150, type: 'processing' },
-      { name: 'Summary Generation', startMs: 360, durationMs: 460, type: 'generation' },
-    ],
+    time: '21:04:12',
+    status: 'success' as const,
   },
   {
-    id: 'tr_01HX9A2NQ3',
+    id: 'trace-2',
     service: 'order-api',
     endpoint: '/checkout',
+    latency: 3120,
+    cost: 0.091,
     model: 'gpt-4',
-    latencyMs: 3120,
-    costUsd: 0.091,
-    status: 'error',
-    createdAt: '2025-03-18T21:03:59Z',
-    prompt: 'Process checkout for order #12345 with items...',
-    response: 'Error: Payment validation failed - insufficient funds',
-    metadata: {
-      userId: 'user_ghi789',
-      sessionId: 'sess_def222',
-      tokensIn: 187,
-      tokensOut: 23,
-      temperature: 0.0,
-    },
-    spans: [
-      { name: 'Order Validation', startMs: 0, durationMs: 450, type: 'processing' },
-      { name: 'Payment Check', startMs: 450, durationMs: 2100, type: 'processing' },
-      { name: 'Error Handling', startMs: 2550, durationMs: 570, type: 'generation' },
-    ],
+    time: '21:04:08',
+    status: 'success' as const,
   },
   {
-    id: 'tr_01HX9A2R1A',
+    id: 'trace-3',
     service: 'chat-api',
     endpoint: '/chat/message',
-    model: 'gpt-3.5',
-    latencyMs: 640,
-    costUsd: 0.004,
-    status: 'healthy',
-    createdAt: '2025-03-18T21:03:42Z',
-    prompt: 'What is the weather like today?',
-    response:
-      "I don't have access to real-time weather data. Please check a weather service like weather.com or use your device's weather app for current conditions.",
-    metadata: {
-      userId: 'user_jkl012',
-      sessionId: 'sess_ghi333',
-      tokensIn: 18,
-      tokensOut: 45,
-      temperature: 0.8,
-    },
-    spans: [
-      { name: 'Intent Detection', startMs: 0, durationMs: 120, type: 'processing' },
-      { name: 'Response Generation', startMs: 120, durationMs: 480, type: 'generation' },
-      { name: 'Formatting', startMs: 600, durationMs: 40, type: 'processing' },
-    ],
+    latency: 640,
+    cost: 0.021,
+    model: 'claude-3',
+    time: '21:08:42',
+    status: 'error' as const,
+  },
+];
+
+// Seeded random function for consistent data between server and client
+const seededRandom = (seed: number) => {
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+};
+
+const costChartData = {
+  '24h': Array.from({ length: 24 }, (_, i) => ({
+    time: `${i}:00`,
+    cost: 4 + seededRandom(i) * 3 + Math.sin(i / 3) * 2,
+  })),
+  '7days': Array.from({ length: 7 }, (_, i) => ({
+    time: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i],
+    cost: 100 + seededRandom(i + 100) * 40 + i * 5,
+  })),
+  '30days': Array.from({ length: 30 }, (_, i) => ({
+    time: `${i + 1}`,
+    cost: 95 + seededRandom(i + 200) * 50 + Math.sin(i / 5) * 15,
+  })),
+};
+
+const alerts = [
+  {
+    id: 'alert-1',
+    severity: 'high' as const,
+    title: 'Costs exceeding $25/day',
+    time: '5 minutes ago',
+    model: 'gpt-4',
   },
   {
-    id: 'tr_01HX9A2T8C',
-    service: 'support-api',
-    endpoint: '/summarize',
-    model: 'claude-3',
-    latencyMs: 1480,
-    costUsd: 0.021,
-    status: 'degraded',
-    createdAt: '2025-03-18T21:03:31Z',
-    prompt: 'Summarize the following customer support conversation: [long text...]',
-    response:
-      'Summary: Customer reported login issues. Support agent verified credentials and reset password. Issue resolved in 15 minutes. Customer satisfaction: High.',
-    metadata: {
-      userId: 'agent_support_01',
-      sessionId: 'sess_jkl444',
-      tokensIn: 523,
-      tokensOut: 67,
-      temperature: 0.5,
-    },
-    spans: [
-      { name: 'Document Loading', startMs: 0, durationMs: 280, type: 'retrieval' },
-      { name: 'Summarization', startMs: 280, durationMs: 1050, type: 'generation' },
-      { name: 'Quality Check', startMs: 1330, durationMs: 150, type: 'processing' },
-    ],
+    id: 'alert-2',
+    severity: 'medium' as const,
+    title: 'Latency over 2s on checkout endpoint',
+    time: '12 minutes ago',
+    service: 'order-api',
   },
 ];
 
-// Mock time series data for charts
-const latencyData = [
-  { time: '14:00', latency: 1200 },
-  { time: '14:05', latency: 980 },
-  { time: '14:10', latency: 1450 },
-  { time: '14:15', latency: 2100 },
-  { time: '14:20', latency: 1650 },
-  { time: '14:25', latency: 1320 },
-  { time: '14:30', latency: 1580 },
-  { time: '14:35', latency: 1890 },
-  { time: '14:40', latency: 1420 },
-  { time: '14:45', latency: 1180 },
-  { time: '14:50', latency: 1350 },
-  { time: '14:55', latency: 1520 },
-];
-
-const costData = [
-  { time: '14:00', cost: 0.042 },
-  { time: '14:05', cost: 0.038 },
-  { time: '14:10', cost: 0.051 },
-  { time: '14:15', cost: 0.067 },
-  { time: '14:20', cost: 0.055 },
-  { time: '14:25', cost: 0.048 },
-  { time: '14:30', cost: 0.062 },
-  { time: '14:35', cost: 0.071 },
-  { time: '14:40', cost: 0.058 },
-  { time: '14:45', cost: 0.044 },
-  { time: '14:50', cost: 0.052 },
-  { time: '14:55', cost: 0.059 },
-];
-
-const latencyChartConfig = {
-  latency: {
-    label: 'Latency (ms)',
+const chartConfig = {
+  cost: {
+    label: 'Cost',
     color: 'hsl(var(--chart-1))',
   },
 } satisfies ChartConfig;
 
-const costChartConfig = {
-  cost: {
-    label: 'Cost ($)',
-    color: 'hsl(var(--chart-2))',
-  },
-} satisfies ChartConfig;
-
-function formatLatency(ms: number) {
-  return `${ms} ms`;
-}
-
-function formatCost(usd: number) {
-  return `$${usd.toFixed(3)}`;
-}
-
-function getRowVariant(status: Trace['status']) {
-  switch (status) {
-    case 'degraded':
-      return 'warning';
-    case 'error':
-      return 'error';
-    default:
-      return undefined;
-  }
-}
-
 export default function Home() {
-  // State management
-  const [selectedTrace, setSelectedTrace] = useState<Trace | null>(null);
-  const [showDetailDialog, setShowDetailDialog] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [lastRefresh, setLastRefresh] = useState(new Date());
+  const router = useRouter();
+  const [costTimeRange, setCostTimeRange] = useState<'24h' | '7days' | '30days'>('7days');
+  const [tracesTimeRange, setTracesTimeRange] = useState('15min');
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Filter state
-  const [serviceFilter, setServiceFilter] = useState<string>('all');
-  const [modelFilter, setModelFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [minCost, setMinCost] = useState<string>('');
-  const [maxCost, setMaxCost] = useState<string>('');
-  const [timeRange, setTimeRange] = useState<string>('all');
-
-  // Auto-refresh every 5 seconds
+  // Simulate initial load
   useEffect(() => {
-    const interval = setInterval(() => {
-      setIsRefreshing(true);
-      setTimeout(() => {
-        setLastRefresh(new Date());
-        setIsRefreshing(false);
-      }, 500);
-    }, 5000);
-
-    return () => clearInterval(interval);
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 800);
+    return () => clearTimeout(timer);
   }, []);
 
-  // Filter traces
-  const filteredTraces = mockTraces.filter((trace) => {
-    if (serviceFilter !== 'all' && trace.service !== serviceFilter) return false;
-    if (modelFilter !== 'all' && trace.model !== modelFilter) return false;
-    if (statusFilter !== 'all' && trace.status !== statusFilter) return false;
-    if (
-      searchQuery &&
-      !trace.endpoint.toLowerCase().includes(searchQuery.toLowerCase()) &&
-      !trace.id.toLowerCase().includes(searchQuery.toLowerCase())
-    ) {
-      return false;
-    }
+  const totalCost = 128.97;
+  const costChange = 9.2;
+  const totalRequests = 76;
 
-    // Cost range filter
-    if (minCost && parseFloat(minCost) > trace.costUsd) return false;
-    if (maxCost && parseFloat(maxCost) < trace.costUsd) return false;
-
-    // Time range filter
-    if (timeRange !== 'all') {
-      const traceTime = new Date(trace.createdAt).getTime();
-      const now = Date.now();
-      const ranges: Record<string, number> = {
-        '5m': 5 * 60 * 1000,
-        '1h': 60 * 60 * 1000,
-        '24h': 24 * 60 * 60 * 1000,
-        '7d': 7 * 24 * 60 * 60 * 1000,
-      };
-      if (ranges[timeRange] && now - traceTime > ranges[timeRange]) return false;
-    }
-
-    return true;
-  });
-
-  // Calculate metrics from filtered data
-  const totalTraces = filteredTraces.length;
-  const avgLatency =
-    filteredTraces.length > 0
-      ? Math.round(filteredTraces.reduce((sum, t) => sum + t.latencyMs, 0) / filteredTraces.length)
-      : 0;
-  const totalCost = filteredTraces.reduce((sum, t) => sum + t.costUsd, 0);
-  const errorCount = filteredTraces.filter((t) => t.status === 'error').length;
-  const errorRate = totalTraces > 0 ? ((errorCount / totalTraces) * 100).toFixed(1) : '0.0';
-
-  // Get unique values for filters
-  const services = Array.from(new Set(mockTraces.map((t) => t.service)));
-  const models = Array.from(new Set(mockTraces.map((t) => t.model)));
-
-  // Handle trace click
-  const handleTraceClick = (trace: Trace) => {
-    setSelectedTrace(trace);
-    setShowDetailDialog(true);
+  // Calculate growth metrics
+  const growthMetrics = {
+    last24h: 7.2,
+    weekOverWeek: 17,
+    monthOverMonth: 2.5,
   };
 
-  // Clear all filters
-  const clearFilters = () => {
-    setServiceFilter('all');
-    setModelFilter('all');
-    setStatusFilter('all');
-    setSearchQuery('');
-    setMinCost('');
-    setMaxCost('');
-    setTimeRange('all');
-  };
-
-  const hasActiveFilters =
-    serviceFilter !== 'all' ||
-    modelFilter !== 'all' ||
-    statusFilter !== 'all' ||
-    searchQuery.length > 0 ||
-    minCost.length > 0 ||
-    maxCost.length > 0 ||
-    timeRange !== 'all';
+  if (isLoading) {
+    return (
+      <div className="h-full overflow-auto bg-background">
+        <div className="p-6 space-y-6 max-w-400 mx-auto">
+          <div className="animate-pulse">
+            <div className="h-8 w-64 bg-muted rounded mb-2"></div>
+            <div className="h-4 w-96 bg-muted rounded"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      {/* Page header with actions */}
-      <div className="flex items-start justify-between">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Live Traces</h1>
-          <p className="text-sm text-muted-foreground">
-            Real-time monitoring of AI model requests and responses
+    <div className="h-full overflow-auto bg-background">
+      <div className="p-6 space-y-6 max-w-400 mx-auto">
+        {/* Header */}
+        <div className="animate-fade-in">
+          <h1 className="text-3xl font-bold tracking-tight">
+            Observe and optimize AI in production
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Lumina helps you monitor real-time traces, improve cost-efficiency, and ensure
+            reliability of your AI models and applications.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="soft" size="sm" disabled>
-            <RefreshCw className={cn('h-4 w-4', isRefreshing && 'animate-spin')} />
-            Auto-refresh: 5s
-          </Button>
-          <span className="text-xs text-muted-foreground">
-            Last: {lastRefresh.toLocaleTimeString()}
-          </span>
-          <Button variant="ghost" size="sm">
-            <Download className="h-4 w-4" />
-            Export
-          </Button>
-        </div>
-      </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {/* Total Requests */}
-        <Card className="p-4 border-(--sidebar-border)">
-          <div className="flex items-start justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Total Requests</p>
-              <p className="text-2xl font-semibold">{totalTraces.toLocaleString()}</p>
-              <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-500">
-                <TrendingUp className="h-3 w-3" />
-                <span>12.5% vs last hour</span>
-              </div>
-            </div>
-            <div className="rounded-lg bg-purple-100 p-2 dark:bg-purple-950">
-              <Activity className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-            </div>
-          </div>
-        </Card>
-
-        {/* Avg Latency */}
-        <Card className="p-4 border-(--sidebar-border)">
-          <div className="flex items-start justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Avg Latency</p>
-              <p className="text-2xl font-semibold">{avgLatency}ms</p>
-              <div className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-500">
-                <TrendingUp className="h-3 w-3" />
-                <span>8.2% vs last hour</span>
-              </div>
-            </div>
-            <div className="rounded-lg bg-blue-100 p-2 dark:bg-blue-950">
-              <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            </div>
-          </div>
-        </Card>
-
-        {/* Total Cost */}
-        <Card className="p-4 border-(--sidebar-border)">
-          <div className="flex items-start justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Total Cost</p>
-              <p className="text-2xl font-semibold">${totalCost.toFixed(3)}</p>
-              <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-500">
-                <TrendingDown className="h-3 w-3" />
-                <span>3.1% vs last hour</span>
-              </div>
-            </div>
-            <div className="rounded-lg bg-emerald-100 p-2 dark:bg-emerald-950">
-              <DollarSign className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-            </div>
-          </div>
-        </Card>
-
-        {/* Error Rate */}
-        <Card className="p-4 border-(--sidebar-border)">
-          <div className="flex items-start justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Error Rate</p>
-              <p className="text-2xl font-semibold">{errorRate}%</p>
-              <div className="flex items-center gap-1 text-xs text-red-600 dark:text-red-500">
-                <TrendingUp className="h-3 w-3" />
-                <span>2.3% vs last hour</span>
-              </div>
-            </div>
-            <div className="rounded-lg bg-red-100 p-2 dark:bg-red-950">
-              <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* Charts */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {/* Latency Chart */}
-        <Card className="p-6 border-(--sidebar-border)">
-          <div className="space-y-4">
-            <div className="space-y-1">
-              <h3 className="text-sm font-medium">Average Latency</h3>
-              <p className="text-xs text-muted-foreground">Last 60 minutes</p>
-            </div>
-            <ChartContainer config={latencyChartConfig} className="h-50 w-full">
-              <AreaChart data={latencyData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis
-                  dataKey="time"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                  tickFormatter={(value) => value}
-                />
-                <YAxis tickLine={false} axisLine={false} tickMargin={8} />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Area
-                  type="monotone"
-                  dataKey="latency"
-                  stroke="hsl(var(--chart-1))"
-                  fill="hsl(var(--chart-1))"
-                  fillOpacity={0.2}
-                  strokeWidth={2}
-                />
-              </AreaChart>
-            </ChartContainer>
-          </div>
-        </Card>
-
-        {/* Cost Chart */}
-        <Card className="p-6 border-(--sidebar-border)">
-          <div className="space-y-4">
-            <div className="space-y-1">
-              <h3 className="text-sm font-medium">Cost per Request</h3>
-              <p className="text-xs text-muted-foreground">Last 60 minutes</p>
-            </div>
-            <ChartContainer config={costChartConfig} className="h-[200px] w-full">
-              <LineChart data={costData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis
-                  dataKey="time"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                  tickFormatter={(value) => value}
-                />
-                <YAxis
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                  tickFormatter={(value) => `$${value}`}
-                />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Line
-                  type="monotone"
-                  dataKey="cost"
-                  stroke="hsl(var(--chart-2))"
-                  strokeWidth={2}
-                  dot={false}
-                />
-              </LineChart>
-            </ChartContainer>
-          </div>
-        </Card>
-      </div>
-
-      {/* Filters and Table */}
-      <Card className="p-6 border-(--sidebar-border)">
-        <div className="border-b border-border border-(--sidebar-border) p-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Button variant="soft" size="sm" onClick={() => setShowFilters(!showFilters)}>
-                <Filter className="h-4 w-4" />
-                Filters
-              </Button>
-              {hasActiveFilters && (
-                <>
-                  {serviceFilter !== 'all' && (
-                    <Badge variant="secondary">
-                      Service: {serviceFilter}
-                      <X
-                        className="h-3 w-3 ml-1 cursor-pointer"
-                        onClick={() => setServiceFilter('all')}
-                      />
-                    </Badge>
-                  )}
-                  {modelFilter !== 'all' && (
-                    <Badge variant="secondary">
-                      Model: {modelFilter}
-                      <X
-                        className="h-3 w-3 ml-1 cursor-pointer"
-                        onClick={() => setModelFilter('all')}
-                      />
-                    </Badge>
-                  )}
-                  {statusFilter !== 'all' && (
-                    <Badge variant="secondary">
-                      Status: {statusFilter}
-                      <X
-                        className="h-3 w-3 ml-1 cursor-pointer"
-                        onClick={() => setStatusFilter('all')}
-                      />
-                    </Badge>
-                  )}
-                  {searchQuery && (
-                    <Badge variant="secondary">
-                      Search: "{searchQuery}"
-                      <X
-                        className="h-3 w-3 ml-1 cursor-pointer"
-                        onClick={() => setSearchQuery('')}
-                      />
-                    </Badge>
-                  )}
-                  {(minCost || maxCost) && (
-                    <Badge variant="secondary">
-                      Cost: ${minCost || '0'} - ${maxCost || '∞'}
-                      <X
-                        className="h-3 w-3 ml-1 cursor-pointer"
-                        onClick={() => {
-                          setMinCost('');
-                          setMaxCost('');
-                        }}
-                      />
-                    </Badge>
-                  )}
-                  {timeRange !== 'all' && (
-                    <Badge variant="secondary">
-                      Time:{' '}
-                      {
-                        {
-                          '5m': 'Last 5 min',
-                          '1h': 'Last hour',
-                          '24h': 'Last 24h',
-                          '7d': 'Last 7 days',
-                        }[timeRange]
-                      }
-                      <X
-                        className="h-3 w-3 ml-1 cursor-pointer"
-                        onClick={() => setTimeRange('all')}
-                      />
-                    </Badge>
-                  )}
-                  <Button variant="ghost" size="sm" onClick={clearFilters}>
-                    Clear all
-                  </Button>
-                </>
-              )}
-            </div>
-            <div className="text-sm text-muted-foreground">
-              {filteredTraces.length} of {mockTraces.length} traces
-            </div>
-          </div>
-
-          {showFilters && (
-            <div className="space-y-3 pt-2">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                <Input
-                  placeholder="Search endpoint or ID..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full"
-                />
-
-                <Select value={serviceFilter} onValueChange={setServiceFilter}>
-                  <SelectTrigger size="sm">
-                    <SelectValue placeholder="Service" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Services</SelectItem>
-                    {services.map((service) => (
-                      <SelectItem key={service} value={service}>
-                        {service}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={modelFilter} onValueChange={setModelFilter}>
-                  <SelectTrigger size="sm">
-                    <SelectValue placeholder="Model" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Models</SelectItem>
-                    {models.map((model) => (
-                      <SelectItem key={model} value={model}>
-                        {model}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger size="sm">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="healthy">Healthy</SelectItem>
-                    <SelectItem value="degraded">Degraded</SelectItem>
-                    <SelectItem value="error">Error</SelectItem>
-                  </SelectContent>
-                </Select>
+        {/* Main Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Get Started Card */}
+          <Card className="p-6 border-(--accent) animate-scale-in stagger-1">
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-semibold mb-2">Get Started</h2>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <span>SDK installed. You're ready to go.</span>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {/* Cost Range */}
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    placeholder="Min cost"
-                    value={minCost}
-                    onChange={(e) => setMinCost(e.target.value)}
-                    className="w-full"
-                    step="0.001"
-                    min="0"
-                  />
-                  <span className="text-muted-foreground">-</span>
-                  <Input
-                    type="number"
-                    placeholder="Max cost"
-                    value={maxCost}
-                    onChange={(e) => setMaxCost(e.target.value)}
-                    className="w-full"
-                    step="0.001"
-                    min="0"
-                  />
+              {/* Checklist */}
+              <div className="space-y-3">
+                {/* Install SDK - Completed */}
+                <div className="flex items-start gap-3 opacity-50">
+                  <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-medium text-sm">Install SDK</p>
+                  </div>
                 </div>
 
-                {/* Time Range */}
-                <Select value={timeRange} onValueChange={setTimeRange}>
-                  <SelectTrigger size="sm">
-                    <SelectValue placeholder="Time Range" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Time</SelectItem>
-                    <SelectItem value="5m">Last 5 minutes</SelectItem>
-                    <SelectItem value="1h">Last hour</SelectItem>
-                    <SelectItem value="24h">Last 24 hours</SelectItem>
-                    <SelectItem value="7d">Last 7 days</SelectItem>
-                  </SelectContent>
-                </Select>
+                {/* View Live Traces - Active */}
+                <button
+                  onClick={() => router.push('/traces')}
+                  className="w-full flex items-start gap-3 text-left hover:bg-muted/50 p-2 -ml-2 rounded-lg transition-colors"
+                >
+                  <PlayCircle className="h-5 w-5 text-amber-500 mt-0.5 shrink-0" />
+                  <div className="flex-1">
+                    <p className="font-medium text-sm">View Live Traces</p>
+                    <p className="text-xs text-muted-foreground">Start streaming traces</p>
+                  </div>
+                </button>
+
+                {/* Compare in Replay Studio */}
+                <button
+                  onClick={() => router.push('/replay')}
+                  className="w-full flex items-start gap-3 text-left hover:bg-muted/50 p-2 -ml-2 rounded-lg transition-colors"
+                >
+                  <Circle className="h-5 w-5 text-purple-500 mt-0.5 shrink-0" />
+                  <div className="flex-1">
+                    <p className="font-medium text-sm">Compare in Replay Studio</p>
+                    <p className="text-xs text-muted-foreground">Re-run and optimize traces</p>
+                  </div>
+                </button>
+
+                {/* Invite Teammates */}
+                <button className="w-full flex items-start gap-3 text-left hover:bg-muted/50 p-2 -ml-2 rounded-lg transition-colors">
+                  <Circle className="h-5 w-5 text-blue-500 mt-0.5 shrink-0" />
+                  <div className="flex-1">
+                    <p className="font-medium text-sm">Invite Teammates</p>
+                    <p className="text-xs text-muted-foreground">Share Lumina with your team</p>
+                  </div>
+                </button>
+              </div>
+
+              {/* Progress Bar */}
+              <div>
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <span className="text-muted-foreground">Progress</span>
+                  <span className="font-medium">25% done</span>
+                </div>
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-blue-600 w-1/4 rounded-full transition-all duration-500"></div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="space-y-3 pt-4 border-t border-border">
+                <Button className="w-full" size="lg">
+                  <BookOpen className="h-4 w-4 mr-2" />
+                  Read the Docs
+                </Button>
+                <button className="w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors">
+                  <span className="flex items-center justify-center gap-2">
+                    <Key className="h-3.5 w-3.5" />
+                    Open API Key
+                  </span>
+                </button>
               </div>
             </div>
-          )}
-        </div>
+          </Card>
 
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Status</TableHead>
-                <TableHead>Service</TableHead>
-                <TableHead>Endpoint</TableHead>
-                <TableHead>Model</TableHead>
-                <TableHead className="text-right">Cost</TableHead>
-                <TableHead className="text-right">Latency</TableHead>
-                <TableHead>Time</TableHead>
-              </TableRow>
-            </TableHeader>
+          {/* Live Traces Card - Spans 2 columns */}
+          <Card className="lg:col-span-2 p-6 border-(--accent) animate-scale-in stagger-2">
+            <div className="space-y-4">
+              {/* Header */}
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="flex items-center gap-3 mb-1">
+                    <h2 className="text-xl font-semibold">Live Traces</h2>
+                    <Badge variant="secondary" className="gap-1.5">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                      </span>
+                      Live
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {totalRequests} requests in the last{' '}
+                    {tracesTimeRange === '15min' ? '15 minutes' : tracesTimeRange}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Select value={tracesTimeRange} onValueChange={setTracesTimeRange}>
+                    <SelectTrigger className="w-35 h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="15min">Last 15 min</SelectItem>
+                      <SelectItem value="1hour">Last hour</SelectItem>
+                      <SelectItem value="24hours">Last 24h</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button variant="ghost" size="icon" className="h-9 w-9">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
 
-            <TableBody>
-              {filteredTraces.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    No traces found matching your filters
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredTraces.map((trace) => (
-                  <TableRow
+              {/* Live Traces List */}
+              <div className="space-y-2">
+                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
+                  Live Traces
+                </div>
+                {recentTraces.map((trace) => (
+                  <button
                     key={trace.id}
-                    data-variant={getRowVariant(trace.status)}
-                    className="cursor-pointer hover:bg-muted/50 border-(--sidebar-border)"
-                    onClick={() => handleTraceClick(trace)}
+                    onClick={() => router.push(`/traces/${trace.id}`)}
+                    className="w-full flex items-center gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors text-left border border-transparent hover:border-border"
                   >
-                    <TableCell>
-                      <StatusDot status={trace.status} />
-                    </TableCell>
-                    <TableCell className="font-medium">{trace.service}</TableCell>
-                    <TableCell className="font-mono text-sm text-muted-foreground">
-                      {trace.endpoint}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className="rounded-md px-2 py-0.5">
-                        {trace.model}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">
-                      {formatCost(trace.costUsd)}
-                    </TableCell>
-                    <TableCell
-                      className={cn(
-                        'text-right font-mono tabular-nums',
-                        trace.latencyMs > 3000 && 'text-red-600 dark:text-red-400',
-                        trace.latencyMs > 1500 &&
-                          trace.latencyMs <= 3000 &&
-                          'text-amber-600 dark:text-amber-400'
-                      )}
-                    >
-                      {formatLatency(trace.latencyMs)}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {new Date(trace.createdAt).toLocaleTimeString()}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </Card>
+                    <div
+                      className={`h-2 w-2 rounded-full shrink-0 ${
+                        trace.status === 'success' ? 'bg-green-500' : 'bg-amber-500'
+                      }`}
+                    ></div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-sm">{trace.service}</span>
+                        <span className="text-muted-foreground text-sm font-mono">
+                          {trace.endpoint}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                        <span>{trace.latency} ms</span>
+                        <span>·</span>
+                        <span>${trace.cost.toFixed(3)}</span>
+                        <span>·</span>
+                        <span>{trace.model}</span>
+                      </div>
+                    </div>
+                    <div className="text-sm text-muted-foreground shrink-0">{trace.time}</div>
+                  </button>
+                ))}
+              </div>
 
-      {/* Trace Detail Dialog */}
-      <TraceDetailDialog
-        trace={selectedTrace}
-        open={showDetailDialog}
-        onOpenChange={setShowDetailDialog}
-      />
+              {/* Growth Metrics */}
+              <div className="flex items-center justify-between pt-4 border-t border-border">
+                <div className="text-center flex-1">
+                  <div className="text-2xl font-bold text-green-600 dark:text-green-500">
+                    +{growthMetrics.last24h}%
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Increase
+                    <br />
+                    last 24 hours
+                  </div>
+                </div>
+                <div className="h-12 w-px bg-border"></div>
+                <div className="text-center flex-1">
+                  <div className="text-2xl font-bold text-green-600 dark:text-green-500">
+                    +{growthMetrics.weekOverWeek}%
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Week over week
+                    <br />
+                    Gently
+                  </div>
+                </div>
+                <div className="h-12 w-px bg-border"></div>
+                <div className="text-center flex-1">
+                  <div className="text-2xl font-bold text-green-600 dark:text-green-500">
+                    +{growthMetrics.monthOverMonth}%
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Month over mon
+                    <br />
+                    Gently
+                  </div>
+                </div>
+              </div>
+
+              {/* View All Link */}
+              <div className="pt-2">
+                <Button
+                  variant="ghost"
+                  onClick={() => router.push('/traces')}
+                  className="w-full justify-center group"
+                >
+                  View Live Traces
+                  <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                </Button>
+              </div>
+            </div>
+          </Card>
+
+          {/* Cost This Month Card */}
+          <Card className="p-6 border-(--accent) animate-scale-in stagger-3">
+            <div className="space-y-4">
+              {/* Header */}
+              <div className="flex items-start justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold mb-1">Cost This Month</h2>
+                </div>
+                <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Cost Display */}
+              <div>
+                <div className="text-4xl font-bold mb-2">${totalCost.toFixed(2)}</div>
+                <div className="flex items-center gap-1 text-sm text-green-600 dark:text-green-500">
+                  <TrendingUp className="h-3.5 w-3.5" />
+                  <span>+${costChange.toFixed(2)} past 24h</span>
+                </div>
+              </div>
+
+              {/* Time Range Tabs */}
+              <div className="flex items-center gap-2 text-sm">
+                <button
+                  onClick={() => setCostTimeRange('24h')}
+                  className={`px-3 py-1.5 rounded transition-colors ${
+                    costTimeRange === '24h'
+                      ? 'bg-muted text-foreground font-medium'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  24h
+                </button>
+                <button
+                  onClick={() => setCostTimeRange('7days')}
+                  className={`px-3 py-1.5 rounded transition-colors ${
+                    costTimeRange === '7days'
+                      ? 'bg-muted text-foreground font-medium'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  7 days
+                </button>
+                <button
+                  onClick={() => setCostTimeRange('30days')}
+                  className={`px-3 py-1.5 rounded transition-colors ${
+                    costTimeRange === '30days'
+                      ? 'bg-muted text-foreground font-medium'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  30 days
+                </button>
+              </div>
+
+              {/* Chart */}
+              <div className="h-50 -mx-2">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={costChartData[costTimeRange]}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="hsl(var(--border))"
+                      vertical={false}
+                    />
+                    <XAxis
+                      dataKey="time"
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={11}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={11}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(value) => `$${value}`}
+                    />
+                    <ChartTooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const value = typeof payload[0].value === 'number' ? payload[0].value : 0;
+                          return (
+                            <div className="bg-card border border-border rounded-lg px-3 py-2 shadow-lg">
+                              <p className="text-sm font-semibold">
+                                ${value.toFixed(2)}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {payload[0].payload.time}
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="cost"
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </Card>
+
+          {/* Alerts Card */}
+          <Card className="p-6 border-(--accent) animate-scale-in stagger-4">
+            <div className="space-y-4">
+              {/* Header */}
+              <div className="flex items-start justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold mb-1">Alerts</h2>
+                  <p className="text-sm text-muted-foreground">{alerts.length} active</p>
+                </div>
+                <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Alerts List */}
+              <div className="space-y-3">
+                {alerts.map((alert) => (
+                  <div
+                    key={alert.id}
+                    className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer"
+                  >
+                    <div
+                      className={`rounded-full p-1.5 shrink-0 ${
+                        alert.severity === 'high'
+                          ? 'bg-red-100 dark:bg-red-950'
+                          : 'bg-amber-100 dark:bg-amber-950'
+                      }`}
+                    >
+                      {alert.severity === 'high' ? (
+                        <DollarSign className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
+                      ) : (
+                        <Zap className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium mb-1">{alert.title}</p>
+                      <p className="text-xs text-muted-foreground">{alert.time}</p>
+                      {alert.model && (
+                        <p className="text-xs text-muted-foreground mt-1">Model: {alert.model}</p>
+                      )}
+                      {alert.service && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Service: {alert.service}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* View All Link */}
+              <div className="pt-2">
+                <Button variant="ghost" className="w-full justify-center group">
+                  View Alerts
+                  <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

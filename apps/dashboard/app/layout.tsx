@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { DashboardLayout } from '@/components/layout';
 import { ThemeProvider } from '@/components/theme-provider';
+import { SkeletonThemeProvider } from '@/components/ui/skeleton-theme-provider';
 
 export const metadata: Metadata = {
   title: 'Lumina Dashboard',
@@ -28,7 +29,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="bg-background text-foreground antialiased">
         <ThemeProvider defaultTheme="light" storageKey="lumina-ui-theme">
-          <DashboardLayout>{children}</DashboardLayout>
+          <SkeletonThemeProvider>
+            <DashboardLayout>{children}</DashboardLayout>
+          </SkeletonThemeProvider>
         </ThemeProvider>
       </body>
     </html>
