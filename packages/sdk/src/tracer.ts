@@ -159,7 +159,7 @@ export class Tracer {
 
     // Extract common fields
     const model = obj.model || 'unknown';
-    let prompt = '';
+    const prompt = '';
     let responseText = '';
     let tokens = 0;
     let promptTokens = 0;
