@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -18,190 +18,113 @@ import {
   CheckCircle2,
   Clock,
   DollarSign,
-  TrendingUp,
   Eye,
   Check,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-type AlertSeverity = 'high' | 'medium' | 'low';
-type AlertType = 'cost_quality' | 'cost' | 'quality' | 'latency';
-type AlertStatus = 'active' | 'acknowledged' | 'resolved';
-
-interface Alert {
-  id: string;
-  severity: AlertSeverity;
-  type: AlertType;
-  title: string;
-  description: string;
-  endpoint: string;
-  triggeredAt: string;
-  status: AlertStatus;
-  metrics: {
-    current: number;
-    threshold: number;
-    unit: string;
-  };
-  relatedTraces: number;
-}
-
-// Mock alerts data
-const mockAlerts: Alert[] = [
-  {
-    id: 'alert_001',
-    severity: 'high',
-    type: 'cost_quality',
-    title: 'High Cost & Quality Degradation Detected',
-    description: 'Cost spike of 245% with 15% increase in error rate',
-    endpoint: '/chat/completions',
-    triggeredAt: '2024-12-18T10:30:00Z',
-    status: 'active',
-    metrics: { current: 1245.67, threshold: 500, unit: '$' },
-    relatedTraces: 234,
-  },
-  {
-    id: 'alert_002',
-    severity: 'high',
-    type: 'cost_quality',
-    title: 'Critical: Response Quality Drop',
-    description: 'Token generation quality score below 60% threshold',
-    endpoint: '/chat/stream',
-    triggeredAt: '2024-12-18T09:15:00Z',
-    status: 'active',
-    metrics: { current: 55, threshold: 60, unit: '%' },
-    relatedTraces: 156,
-  },
-  {
-    id: 'alert_003',
-    severity: 'medium',
-    type: 'cost',
-    title: 'Cost Threshold Exceeded',
-    description: 'Daily cost limit reached for gpt-4 model',
-    endpoint: '/completions',
-    triggeredAt: '2024-12-18T08:45:00Z',
-    status: 'active',
-    metrics: { current: 534.21, threshold: 400, unit: '$' },
-    relatedTraces: 89,
-  },
-  {
-    id: 'alert_004',
-    severity: 'medium',
-    type: 'cost',
-    title: 'Unusual Spending Pattern',
-    description: '150% increase in API costs compared to weekly average',
-    endpoint: '/embeddings',
-    triggeredAt: '2024-12-18T07:30:00Z',
-    status: 'acknowledged',
-    metrics: { current: 892.34, threshold: 600, unit: '$' },
-    relatedTraces: 445,
-  },
-  {
-    id: 'alert_005',
-    severity: 'high',
-    type: 'cost_quality',
-    title: 'High Latency & Cost Spike',
-    description: 'Response time increased 200% with cost spike',
-    endpoint: '/analyze',
-    triggeredAt: '2024-12-18T06:00:00Z',
-    status: 'acknowledged',
-    metrics: { current: 2340, threshold: 1000, unit: 'ms' },
-    relatedTraces: 67,
-  },
-  {
-    id: 'alert_006',
-    severity: 'medium',
-    type: 'cost',
-    title: 'Budget Alert: 80% Consumed',
-    description: 'Monthly budget for Claude models at 80% utilization',
-    endpoint: '/chat/message',
-    triggeredAt: '2024-12-17T23:00:00Z',
-    status: 'resolved',
-    metrics: { current: 4567.89, threshold: 5000, unit: '$' },
-    relatedTraces: 1234,
-  },
-  {
-    id: 'alert_007',
-    severity: 'low',
-    type: 'latency',
-    title: 'Elevated Response Times',
-    description: 'Average latency increased by 30%',
-    endpoint: '/summarize',
-    triggeredAt: '2024-12-17T20:15:00Z',
-    status: 'resolved',
-    metrics: { current: 650, threshold: 500, unit: 'ms' },
-    relatedTraces: 45,
-  },
-];
+import { getAlerts, acknowledgeAlert, type Alert } from '@/lib/api';
+import { formatDistanceToNow } from 'date-fns';
 
 export default function AlertsPage() {
   const router = useRouter();
-  const [alerts, setAlerts] = useState<Alert[]>(mockAlerts);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [filterSeverity, setFilterSeverity] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
 
-  const handleAcknowledge = (alertId: string) => {
-    setAlerts((prev) =>
-      prev.map((alert) =>
-        alert.id === alertId ? { ...alert, status: 'acknowledged' as AlertStatus } : alert
-      )
-    );
+  const fetchAlerts = async () => {
+    try {
+      setIsLoading(true);
+      const response = await getAlerts({
+        severity: filterSeverity !== 'all' ? filterSeverity.toUpperCase() : undefined,
+        status: filterStatus !== 'all' ? filterStatus : undefined,
+        limit: 100,
+      });
+      setAlerts(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch alerts:', error);
+      setAlerts([]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleViewTraces = (alert: Alert) => {
-    // Navigate to traces filtered by this alert's endpoint
-    router.push(`/traces?endpoint=${encodeURIComponent(alert.endpoint)}`);
+  useEffect(() => {
+    fetchAlerts();
+
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(() => {
+      fetchAlerts();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [filterSeverity, filterStatus]);
+
+  const handleAcknowledge = async (alertId: string) => {
+    try {
+      await acknowledgeAlert(alertId);
+      // Refresh alerts to get updated status
+      await fetchAlerts();
+    } catch (error) {
+      console.error('Failed to acknowledge alert:', error);
+    }
   };
 
   const filteredAlerts = alerts.filter((alert) => {
-    if (filterSeverity !== 'all' && alert.severity !== filterSeverity) return false;
+    if (!alert) return false;
+    if (filterSeverity !== 'all' && alert.severity !== filterSeverity.toUpperCase()) return false;
     if (filterStatus !== 'all' && alert.status !== filterStatus) return false;
     return true;
   });
 
   // Group alerts by severity
   const groupedAlerts = {
-    high: filteredAlerts.filter((a) => a.severity === 'high'),
-    medium: filteredAlerts.filter((a) => a.severity === 'medium'),
-    low: filteredAlerts.filter((a) => a.severity === 'low'),
+    HIGH: filteredAlerts.filter((a) => a?.severity === 'HIGH'),
+    MEDIUM: filteredAlerts.filter((a) => a?.severity === 'MEDIUM'),
+    LOW: filteredAlerts.filter((a) => a?.severity === 'LOW'),
   };
 
-  const getSeverityIcon = (severity: AlertSeverity) => {
+  const getSeverityIcon = (severity: string) => {
     switch (severity) {
-      case 'high':
+      case 'HIGH':
         return <AlertTriangle className="h-5 w-5" />;
-      case 'medium':
+      case 'MEDIUM':
         return <AlertCircle className="h-5 w-5" />;
-      case 'low':
+      case 'LOW':
+        return <AlertCircle className="h-5 w-5" />;
+      default:
         return <AlertCircle className="h-5 w-5" />;
     }
   };
 
-  const getSeverityBadgeVariant = (severity: AlertSeverity) => {
+  const getSeverityBadgeVariant = (severity: string) => {
     switch (severity) {
-      case 'high':
+      case 'HIGH':
         return 'destructive';
-      case 'medium':
+      case 'MEDIUM':
         return 'warning';
-      case 'low':
+      case 'LOW':
+        return 'secondary';
+      default:
         return 'secondary';
     }
   };
 
-  const getTypeBadge = (type: AlertType) => {
+  const getTypeBadge = (type: string) => {
     switch (type) {
-      case 'cost_quality':
+      case 'cost_and_quality':
         return (
           <Badge variant="destructive" className="text-xs">
             Cost + Quality
           </Badge>
         );
-      case 'cost':
+      case 'cost_spike':
         return (
           <Badge variant="warning" className="text-xs">
             Cost
           </Badge>
         );
-      case 'quality':
+      case 'quality_drop':
         return (
           <Badge variant="warning" className="text-xs">
             Quality
@@ -213,16 +136,22 @@ export default function AlertsPage() {
             Latency
           </Badge>
         );
+      default:
+        return (
+          <Badge variant="secondary" className="text-xs">
+            {type}
+          </Badge>
+        );
     }
   };
 
-  const getStatusBadge = (status: AlertStatus) => {
+  const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'active':
+      case 'pending':
         return (
           <Badge variant="destructive" className="text-xs gap-1">
             <Clock className="h-3 w-3" />
-            Active
+            Pending
           </Badge>
         );
       case 'acknowledged':
@@ -239,45 +168,53 @@ export default function AlertsPage() {
             Resolved
           </Badge>
         );
+      default:
+        return (
+          <Badge variant="secondary" className="text-xs gap-1">
+            {status}
+          </Badge>
+        );
     }
   };
 
-  const formatTimestamp = (timestamp: string) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor(diff / (1000 * 60));
-
-    if (hours > 24) {
-      return `${Math.floor(hours / 24)} days ago`;
-    } else if (hours > 0) {
-      return `${hours} hours ago`;
-    } else {
-      return `${minutes} minutes ago`;
+  const getAlertTitle = (alert: Alert) => {
+    switch (alert.alert_type) {
+      case 'cost_spike':
+        return 'Cost Spike Detected';
+      case 'quality_drop':
+        return 'Quality Drop Detected';
+      case 'cost_and_quality':
+        return 'Cost & Quality Issue';
+      case 'latency':
+        return 'Latency Issue';
+      default:
+        return alert.alert_type.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase());
     }
   };
 
-  const AlertCard = ({ alert }: { alert: Alert }) => (
-    <Card
-      className={cn(
-        'p-4 transition-all hover:shadow-md',
-        alert.severity === 'high' && 'border-red-500/50',
-        alert.severity === 'medium' && 'border-amber-500/50'
-      )}
-    >
-      <div className="space-y-3">
+  const AlertCard = ({ alert }: { alert: Alert }) => {
+    if (!alert) return null;
+
+    return (
+      <Card
+        className={cn(
+          'p-4 transition-all hover:shadow-md',
+          alert.severity === 'HIGH' && 'border-red-500/50',
+          alert.severity === 'MEDIUM' && 'border-amber-500/50'
+        )}
+      >
+        <div className="space-y-3">
         {/* Header */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3 flex-1">
             <div
               className={cn(
                 'rounded-lg p-2',
-                alert.severity === 'high' &&
+                alert.severity === 'HIGH' &&
                   'bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400',
-                alert.severity === 'medium' &&
+                alert.severity === 'MEDIUM' &&
                   'bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-400',
-                alert.severity === 'low' &&
+                alert.severity === 'LOW' &&
                   'bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400'
               )}
             >
@@ -285,17 +222,23 @@ export default function AlertsPage() {
             </div>
             <div className="flex-1 space-y-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="font-semibold">{alert.title}</h3>
-                {getTypeBadge(alert.type)}
+                <h3 className="font-semibold">{getAlertTitle(alert)}</h3>
+                {getTypeBadge(alert.alert_type)}
                 {getStatusBadge(alert.status)}
               </div>
-              <p className="text-sm text-muted-foreground">{alert.description}</p>
+              {alert.reasoning && (
+                <p className="text-sm text-muted-foreground">{alert.reasoning}</p>
+              )}
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                {alert.service_name && <span>{alert.service_name}</span>}
+                {alert.service_name && alert.endpoint && <span>•</span>}
                 <span className="font-mono">{alert.endpoint}</span>
                 <span>•</span>
-                <span>{formatTimestamp(alert.triggeredAt)}</span>
-                <span>•</span>
-                <span>{alert.relatedTraces} related traces</span>
+                <span>
+                  {alert.timestamp
+                    ? `${formatDistanceToNow(new Date(alert.timestamp))} ago`
+                    : 'Unknown time'}
+                </span>
               </div>
             </div>
           </div>
@@ -305,43 +248,54 @@ export default function AlertsPage() {
         </div>
 
         {/* Metrics */}
-        <div className="flex items-center gap-4 px-2 py-2 bg-muted/50 rounded-md">
-          <div className="flex items-center gap-2">
-            {alert.type.includes('cost') ? (
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            ) : (
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+        {(alert.current_cost !== undefined || alert.cost_usd !== undefined || alert.latency_ms !== undefined) && (
+          <div className="flex items-center gap-4 px-2 py-2 bg-muted/50 rounded-md flex-wrap">
+            {alert.current_cost !== undefined && alert.current_cost !== null && alert.baseline_cost !== undefined && alert.baseline_cost !== null && (
+              <>
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">
+                    Current: ${alert.current_cost.toFixed(4)}
+                  </span>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Baseline: ${alert.baseline_cost.toFixed(4)}
+                </div>
+                {alert.cost_increase_percent !== undefined && alert.cost_increase_percent !== null && (
+                  <div className="text-sm font-semibold text-red-600 dark:text-red-400">
+                    +{alert.cost_increase_percent.toFixed(0)}%
+                  </div>
+                )}
+              </>
             )}
-            <span className="text-sm font-medium">
-              Current: {alert.metrics.current}
-              {alert.metrics.unit}
-            </span>
-          </div>
-          <div className="text-sm text-muted-foreground">
-            Threshold: {alert.metrics.threshold}
-            {alert.metrics.unit}
-          </div>
-          <div
-            className={cn(
-              'text-sm font-semibold',
-              alert.metrics.current > alert.metrics.threshold
-                ? 'text-red-600 dark:text-red-400'
-                : 'text-green-600 dark:text-green-400'
+            {alert.cost_usd !== undefined && alert.cost_usd !== null && alert.current_cost === undefined && (
+              <div className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Cost: ${alert.cost_usd.toFixed(4)}</span>
+              </div>
             )}
-          >
-            {alert.metrics.current > alert.metrics.threshold ? '+' : ''}
-            {((alert.metrics.current / alert.metrics.threshold - 1) * 100).toFixed(0)}%
+            {alert.latency_ms !== undefined && alert.latency_ms !== null && (
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Latency: {alert.latency_ms}ms</span>
+              </div>
+            )}
+            {alert.model && (
+              <div className="text-sm text-muted-foreground">Model: {alert.model}</div>
+            )}
           </div>
-        </div>
+        )}
 
         {/* Actions */}
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => handleViewTraces(alert)}>
-            <Eye className="h-4 w-4 mr-2" />
-            View Traces ({alert.relatedTraces})
-          </Button>
-          {alert.status === 'active' && (
-            <Button size="sm" onClick={() => handleAcknowledge(alert.id)}>
+          {alert.trace_id && (
+            <Button variant="ghost" size="sm" onClick={() => router.push(`/traces?traceId=${alert.trace_id}`)}>
+              <Eye className="h-4 w-4 mr-2" />
+              View Trace
+            </Button>
+          )}
+          {alert.status === 'pending' && (
+            <Button size="sm" onClick={() => handleAcknowledge(alert.alert_id)}>
               <Check className="h-4 w-4 mr-2" />
               Acknowledge
             </Button>
@@ -355,12 +309,32 @@ export default function AlertsPage() {
         </div>
       </div>
     </Card>
-  );
+    );
+  };
 
-  const activeCount = alerts.filter((a) => a.status === 'active').length;
+  const activeCount = alerts.filter((a) => a?.status === 'pending').length;
   const highSeverityCount = alerts.filter(
-    (a) => a.severity === 'high' && a.status === 'active'
+    (a) => a?.severity === 'HIGH' && a?.status === 'pending'
   ).length;
+
+  if (isLoading && alerts.length === 0) {
+    return (
+      <div className="h-full overflow-auto">
+        <div className="p-6 space-y-6">
+          <div>
+            <h1 className="text-3xl font-bold">Alerts</h1>
+            <p className="text-muted-foreground">Monitor and manage system alerts</p>
+          </div>
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center space-y-3">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+              <p className="text-muted-foreground">Loading alerts...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full overflow-auto">
@@ -404,7 +378,7 @@ export default function AlertsPage() {
               <div className="space-y-2">
                 <p className="text-sm font-medium text-muted-foreground">Resolved (24h)</p>
                 <p className="text-3xl font-bold">
-                  {alerts.filter((a) => a.status === 'resolved').length}
+                  {alerts.filter((a) => a?.status === 'resolved').length}
                 </p>
                 <p className="text-sm text-muted-foreground">Recently resolved</p>
               </div>
@@ -435,7 +409,7 @@ export default function AlertsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
               <SelectItem value="acknowledged">Acknowledged</SelectItem>
               <SelectItem value="resolved">Resolved</SelectItem>
             </SelectContent>
@@ -447,43 +421,43 @@ export default function AlertsPage() {
         </div>
 
         {/* Alerts Grouped by Severity */}
-        {groupedAlerts.high.length > 0 && (
+        {groupedAlerts.HIGH.length > 0 && (
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-semibold">High Severity</h2>
-              <Badge variant="destructive">{groupedAlerts.high.length}</Badge>
+              <Badge variant="destructive">{groupedAlerts.HIGH.length}</Badge>
             </div>
             <div className="space-y-3">
-              {groupedAlerts.high.map((alert) => (
-                <AlertCard key={alert.id} alert={alert} />
+              {groupedAlerts.HIGH.map((alert: Alert) => (
+                <AlertCard key={alert.alert_id} alert={alert} />
               ))}
             </div>
           </div>
         )}
 
-        {groupedAlerts.medium.length > 0 && (
+        {groupedAlerts.MEDIUM.length > 0 && (
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-semibold">Medium Severity</h2>
-              <Badge variant="warning">{groupedAlerts.medium.length}</Badge>
+              <Badge variant="warning">{groupedAlerts.MEDIUM.length}</Badge>
             </div>
             <div className="space-y-3">
-              {groupedAlerts.medium.map((alert) => (
-                <AlertCard key={alert.id} alert={alert} />
+              {groupedAlerts.MEDIUM.map((alert: Alert) => (
+                <AlertCard key={alert.alert_id} alert={alert} />
               ))}
             </div>
           </div>
         )}
 
-        {groupedAlerts.low.length > 0 && (
+        {groupedAlerts.LOW.length > 0 && (
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-semibold">Low Severity</h2>
-              <Badge variant="secondary">{groupedAlerts.low.length}</Badge>
+              <Badge variant="secondary">{groupedAlerts.LOW.length}</Badge>
             </div>
             <div className="space-y-3">
-              {groupedAlerts.low.map((alert) => (
-                <AlertCard key={alert.id} alert={alert} />
+              {groupedAlerts.LOW.map((alert: Alert) => (
+                <AlertCard key={alert.alert_id} alert={alert} />
               ))}
             </div>
           </div>

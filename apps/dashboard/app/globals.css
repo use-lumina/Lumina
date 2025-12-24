@@ -1,5 +1,9 @@
 @import 'tailwindcss';
 
+@theme {
+  --font-family-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+}
+
 :root {
   --radius: 0.625rem;
 
@@ -236,4 +240,10 @@ button {
 
 .dark .custom-scrollbar {
   scrollbar-color: oklch(1 0 0 / 20%) transparent;
+}
+
+/* Grid background pattern */
+.bg-grid-white\/\[0\.2\] {
+  background-image: linear-gradient(to right, rgba(255, 255, 255, 0.2) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.2) 1px, transparent 1px);
 }

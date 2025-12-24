@@ -20,11 +20,23 @@ export async function requireAuth(c: Context, next: Next) {
   const authHeader = c.req.header('Authorization');
   const token = extractToken(authHeader);
 
-  if (!token) {
+  let finalToken = token;
+  // If no token in header, check cookie
+  if (!finalToken) {
+    const cookieHeader = c.req.header('cookie');
+    if (cookieHeader) {
+      const match = cookieHeader.match(/(?:^|; )lumina_token=([^;]+)/);
+      if (match) {
+        finalToken = match[1];
+      }
+    }
+  }
+
+  if (!finalToken) {
     return c.json({ error: 'Unauthorized', message: 'No token provided' }, 401);
   }
 
-  const payload = await verifyToken(token);
+  const payload = await verifyToken(finalToken);
 
   if (!payload) {
     return c.json({ error: 'Unauthorized', message: 'Invalid or expired token' }, 401);
@@ -48,8 +60,17 @@ export async function optionalAuth(c: Context, next: Next) {
   const authHeader = c.req.header('Authorization');
   const token = extractToken(authHeader);
 
-  if (token) {
-    const payload = await verifyToken(token);
+  let finalToken = token;
+  if (!finalToken) {
+    const cookieHeader = c.req.header('cookie');
+    if (cookieHeader) {
+      const match = cookieHeader.match(/(?:^|; )lumina_token=([^;]+)/);
+      if (match) finalToken = match[1];
+    }
+  }
+
+  if (finalToken) {
+    const payload = await verifyToken(finalToken);
     if (payload) {
       c.set('auth', {
         userId: payload.userId,

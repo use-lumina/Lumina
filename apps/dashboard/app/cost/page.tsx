@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,20 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from '@/components/ui/chart';
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { RealtimeIndicator } from '@/components/ui/realtime-indicator';
 import {
   KPICardSkeleton,
@@ -41,11 +27,12 @@ import {
   X,
   Filter,
   Search,
-  ChevronDown,
 } from 'lucide-react';
 import {
   LineChart,
   Line,
+  AreaChart,
+  Area,
   PieChart,
   Pie,
   Cell,
@@ -53,222 +40,244 @@ import {
   YAxis,
   CartesianGrid,
   ResponsiveContainer,
+  Tooltip,
 } from 'recharts';
 import { Input } from '@/components/ui/input';
+import { TablePagination } from '@/components/ui/table-pagination';
+import {
+  getCostTimeline,
+  getCostBreakdown,
+  getCostSummary,
+  getCostAnomalies,
+  getEndpointTrends,
+} from '@/lib/api';
+import { cn } from '@/lib/utils';
 
-// Mock data for cost over time
-const generateCostData = (view: 'hourly' | 'daily' | 'weekly') => {
-  if (view === 'hourly') {
-    return Array.from({ length: 24 }, (_, i) => ({
-      time: `${i}:00`,
-      cost: Math.random() * 50 + 20,
-      requests: Math.floor(Math.random() * 1000 + 500),
-    }));
-  } else if (view === 'daily') {
-    return Array.from({ length: 7 }, (_, i) => ({
-      time: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i],
-      cost: Math.random() * 500 + 200,
-      requests: Math.floor(Math.random() * 10000 + 5000),
-    }));
-  } else {
-    return Array.from({ length: 12 }, (_, i) => ({
-      time: `Week ${i + 1}`,
-      cost: Math.random() * 2000 + 1000,
-      requests: Math.floor(Math.random() * 50000 + 20000),
-    }));
-  }
-};
-
-// Mock data for top endpoints
-const topEndpoints = [
-  {
-    endpoint: '/chat/completions',
-    model: 'gpt-4',
-    requests: 45230,
-    totalCost: 1245.67,
-    avgCost: 0.0275,
-    trend: 'up',
-  },
-  {
-    endpoint: '/embeddings',
-    model: 'text-embedding-3-large',
-    requests: 89450,
-    totalCost: 892.34,
-    avgCost: 0.0099,
-    trend: 'down',
-  },
-  {
-    endpoint: '/chat/stream',
-    model: 'claude-3-opus',
-    requests: 12340,
-    totalCost: 678.9,
-    avgCost: 0.055,
-    trend: 'up',
-  },
-  {
-    endpoint: '/completions',
-    model: 'gpt-4-turbo',
-    requests: 8920,
-    totalCost: 534.21,
-    avgCost: 0.0599,
-    trend: 'up',
-  },
-  {
-    endpoint: '/chat/message',
-    model: 'gpt-3.5-turbo',
-    requests: 123450,
-    totalCost: 456.78,
-    avgCost: 0.0037,
-    trend: 'stable',
-  },
-  {
-    endpoint: '/analyze',
-    model: 'claude-3-sonnet',
-    requests: 5670,
-    totalCost: 234.56,
-    avgCost: 0.0414,
-    trend: 'down',
-  },
-  {
-    endpoint: '/summarize',
-    model: 'gpt-4',
-    requests: 3450,
-    totalCost: 189.23,
-    avgCost: 0.0548,
-    trend: 'up',
-  },
-  {
-    endpoint: '/translate',
-    model: 'gpt-3.5-turbo',
-    requests: 34560,
-    totalCost: 145.67,
-    avgCost: 0.0042,
-    trend: 'stable',
-  },
-  {
-    endpoint: '/code/review',
-    model: 'gpt-4-turbo',
-    requests: 2340,
-    totalCost: 123.45,
-    avgCost: 0.0527,
-    trend: 'up',
-  },
-  {
-    endpoint: '/search/semantic',
-    model: 'text-embedding-ada',
-    requests: 145670,
-    totalCost: 98.76,
-    avgCost: 0.0007,
-    trend: 'down',
-  },
-];
-
-// Mock data for model breakdown
-const modelBreakdown = [
-  { name: 'GPT-4', value: 1245.67, percentage: 35.2, color: 'hsl(var(--chart-1))' },
-  { name: 'GPT-4 Turbo', value: 657.66, percentage: 18.6, color: 'hsl(var(--chart-2))' },
-  { name: 'Claude 3 Opus', value: 678.9, percentage: 19.2, color: 'hsl(var(--chart-3))' },
-  { name: 'GPT-3.5 Turbo', value: 602.45, percentage: 17.0, color: 'hsl(var(--chart-4))' },
-  { name: 'Text Embedding', value: 991.1, percentage: 10.0, color: 'hsl(var(--chart-5))' },
-];
-
-// Cost spike alerts
-const costAlerts = [
-  { endpoint: '/chat/completions', spike: '+245%', time: '2 hours ago', severity: 'high' },
-  { endpoint: '/chat/stream', spike: '+156%', time: '4 hours ago', severity: 'medium' },
-];
-
-const chartConfig = {
-  cost: {
-    label: 'Cost',
-    color: 'hsl(var(--chart-1))',
-  },
-} satisfies ChartConfig;
+interface EndpointData {
+  endpoint: string;
+  model: string;
+  requests: number;
+  totalCost: number;
+  avgCost: number;
+  trend: string;
+}
 
 export default function CostPage() {
-  const router = useRouter();
-  const [timeView, setTimeView] = useState<'hourly' | 'daily' | 'weekly'>('daily');
+  const [timeView, setTimeView] = useState<'24h' | '7d' | '30d'>('7d');
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(new Date());
 
+  // Data state
+  const [costData, setCostData] = useState<any[]>([]);
+  const [endpoints, setEndpoints] = useState<EndpointData[]>([]);
+  const [modelBreakdown, setModelBreakdown] = useState<any[]>([]);
+  const [costSummary, setCostSummary] = useState<any>(null);
+  const [costAnomalies, setCostAnomalies] = useState<any[]>([]);
+
   // Filter state
   const [showFilters, setShowFilters] = useState(false);
-  const [dateRange, setDateRange] = useState<string>('all');
-  const [minCostFilter, setMinCostFilter] = useState<string>('');
-  const [maxCostFilter, setMaxCostFilter] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [serviceFilter, setServiceFilter] = useState<string[]>([]);
   const [modelFilter, setModelFilter] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [minCostFilter, setMinCostFilter] = useState('');
+  const [maxCostFilter, setMaxCostFilter] = useState('');
+  const [dateRange, setDateRange] = useState('all');
 
-  const costData = generateCostData(timeView);
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalEndpoints, setTotalEndpoints] = useState(0);
+  const ITEMS_PER_PAGE = 10;
 
-  const totalCost = topEndpoints.reduce((sum, e) => sum + e.totalCost, 0);
-  const totalRequests = topEndpoints.reduce((sum, e) => sum + e.requests, 0);
-  const avgCostPerRequest = totalCost / totalRequests;
+  // Fetch cost data
+  const fetchCostData = async () => {
+    try {
+      const now = new Date();
+      let startTime = new Date();
+      let granularity: 'hour' | 'day' | 'week' = 'day';
 
-  // Simulate initial load
+      if (timeView === '24h') {
+        startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        granularity = 'hour';
+      } else if (timeView === '7d') {
+        startTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        granularity = 'day';
+      } else {
+        startTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        granularity = 'day';
+      }
+
+      // Fetch timeline data
+      const timeline = await getCostTimeline({
+        startTime: startTime.toISOString(),
+        endTime: now.toISOString(),
+        granularity,
+      });
+
+      const chartData = timeline.data.map((item) => {
+        const date = new Date(item.time_bucket);
+        let timeLabel = '';
+
+        if (timeView === '24h') {
+          timeLabel = `${date.getHours().toString().padStart(2, '0')}:00`;
+        } else {
+          timeLabel = `${date.getMonth() + 1}/${date.getDate()}`;
+        }
+
+        return {
+          time: timeLabel,
+          cost: parseFloat(item.total_cost.toString()),
+          requests: item.request_count,
+        };
+      });
+      setCostData(chartData);
+
+      // Calculate offset for pagination
+      const offset = (currentPage - 1) * ITEMS_PER_PAGE;
+
+      // Fetch endpoint breakdown with pagination
+      const breakdownData = await getCostBreakdown({
+        groupBy: 'endpoint',
+        startTime: startTime.toISOString(),
+        endTime: now.toISOString(),
+        limit: ITEMS_PER_PAGE,
+        offset: offset,
+      });
+
+      // Fetch endpoint trends to get real trend data
+      const trendsData = await getEndpointTrends({
+        startTime: startTime.toISOString(),
+        endTime: now.toISOString(),
+        limit: 20,
+      });
+
+      // Create a map of trends by endpoint
+      const trendsMap = new Map();
+      trendsData.data.forEach((item) => {
+        trendsMap.set(item.endpoint, item.trend);
+      });
+
+      const formattedEndpoints: EndpointData[] = breakdownData.data.map((item: any) => ({
+        endpoint: item.group_name,
+        model: '-',
+        requests: item.request_count,
+        totalCost: parseFloat(item.total_cost.toString()),
+        avgCost: parseFloat(item.avg_cost.toString()),
+        trend: trendsMap.get(item.group_name) || 'stable',
+      }));
+      setEndpoints(formattedEndpoints);
+      setTotalEndpoints(breakdownData.pagination?.total || breakdownData.data.length);
+
+      // Fetch model breakdown
+      const modelData = await getCostBreakdown({
+        groupBy: 'model',
+        startTime: startTime.toISOString(),
+        endTime: now.toISOString(),
+      });
+
+      // Professional color palette for charts
+      const colors = [
+        'hsl(221, 83%, 53%)', // Blue
+        'hsl(142, 76%, 36%)', // Green
+        'hsl(262, 83%, 58%)', // Purple
+        'hsl(34, 100%, 50%)', // Orange
+        'hsl(346, 77%, 50%)', // Red
+        'hsl(199, 89%, 48%)', // Cyan
+      ];
+
+      const formattedModelBreakdown = modelData.data.map((item: any, index: number) => ({
+        name: item.group_name,
+        value: parseFloat(item.total_cost.toString()),
+        percentage: item.percentage,
+        color: colors[index % colors.length],
+      }));
+      setModelBreakdown(formattedModelBreakdown);
+
+      // Fetch cost summary
+      const summary = await getCostSummary({
+        startTime: startTime.toISOString(),
+        endTime: now.toISOString(),
+      });
+      setCostSummary(summary);
+
+      // Fetch anomalies
+      const anomalies = await getCostAnomalies({
+        limit: 5,
+      });
+      setCostAnomalies(anomalies.data);
+    } catch (error) {
+      console.error('Failed to fetch cost data:', error);
+    }
+  };
+
+  // Initial load and data fetching
   useEffect(() => {
-    const timer = setTimeout(() => {
+    async function loadData() {
+      setIsLoading(true);
+      await fetchCostData();
       setIsLoading(false);
-    }, 1200);
-    return () => clearTimeout(timer);
-  }, []);
+    }
+
+    loadData();
+  }, [timeView, currentPage]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [timeView, searchQuery, minCostFilter, maxCostFilter, selectedModel]);
 
   // Auto-refresh every 30 seconds
   useEffect(() => {
     if (isLoading) return;
-    const interval = setInterval(() => {
+    const interval = setInterval(async () => {
+      await fetchCostData();
       setLastUpdated(new Date());
     }, 30000);
     return () => clearInterval(interval);
-  }, [isLoading]);
+  }, [isLoading, timeView, currentPage]);
 
-  // Get unique services and models for filter options
-  const uniqueServices = Array.from(new Set(topEndpoints.map((e) => e.service)));
-  const uniqueModels = Array.from(new Set(topEndpoints.map((e) => e.model)));
+  // Handle edge case: if current page becomes invalid, go to last valid page
+  useEffect(() => {
+    const totalPages = Math.ceil(totalEndpoints / ITEMS_PER_PAGE);
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalEndpoints, currentPage, ITEMS_PER_PAGE]);
 
-  // Apply all filters
-  const filteredEndpoints = topEndpoints.filter((endpoint) => {
-    // Model filter from pie chart
-    if (selectedModel && !endpoint.model.includes(selectedModel)) return false;
+  const totalCost = costSummary?.summary?.total_cost || 0;
+  const totalRequests = costSummary?.summary?.total_requests || 0;
+  const avgCostPerRequest = costSummary?.summary?.avg_cost || 0;
 
-    // Service filter
-    if (serviceFilter.length > 0 && !serviceFilter.includes(endpoint.service)) return false;
-
-    // Model filter from advanced filters
-    if (modelFilter.length > 0 && !modelFilter.includes(endpoint.model)) return false;
-
-    // Search query
-    if (searchQuery && !endpoint.endpoint.toLowerCase().includes(searchQuery.toLowerCase()))
-      return false;
-
-    // Cost range filter
-    const minCost = minCostFilter ? parseFloat(minCostFilter) : 0;
-    const maxCost = maxCostFilter ? parseFloat(maxCostFilter) : Infinity;
-    if (endpoint.totalCost < minCost || endpoint.totalCost > maxCost) return false;
-
-    return true;
-  });
+  // Get unique services and models from endpoints
+  const uniqueServices = Array.from(
+    new Set(endpoints.map((e) => e.endpoint.split('/')[1] || 'unknown'))
+  );
+  const uniqueModels = Array.from(new Set(endpoints.map((e) => e.model).filter(Boolean)));
 
   // Check if any filters are active
   const hasActiveFilters =
-    dateRange !== 'all' ||
-    minCostFilter !== '' ||
-    maxCostFilter !== '' ||
+    searchQuery !== '' ||
     serviceFilter.length > 0 ||
     modelFilter.length > 0 ||
-    searchQuery !== '';
+    minCostFilter !== '' ||
+    maxCostFilter !== '';
 
-  // Clear all filters
+  // Apply filters
+  const filteredEndpoints = endpoints.filter((endpoint) => {
+    if (searchQuery && !endpoint.endpoint.toLowerCase().includes(searchQuery.toLowerCase()))
+      return false;
+    if (minCostFilter && endpoint.totalCost < parseFloat(minCostFilter)) return false;
+    if (maxCostFilter && endpoint.totalCost > parseFloat(maxCostFilter)) return false;
+    return true;
+  });
+
   const clearAllFilters = () => {
-    setDateRange('all');
-    setMinCostFilter('');
-    setMaxCostFilter('');
-    setServiceFilter([]);
-    setModelFilter([]);
     setSearchQuery('');
     setSelectedModel(null);
+    setServiceFilter([]);
+    setModelFilter([]);
+    setMinCostFilter('');
+    setMaxCostFilter('');
   };
 
   const handlePieClick = (data: any) => {
@@ -277,7 +286,8 @@ export default function CostPage() {
   };
 
   const handleEndpointClick = (endpoint: string) => {
-    router.push(`/traces?endpoint=${encodeURIComponent(endpoint)}`);
+    // Navigate to traces filtered by endpoint
+    window.location.href = `/traces?endpoint=${encodeURIComponent(endpoint)}`;
   };
 
   // Highlight search term in endpoint name
@@ -556,32 +566,38 @@ export default function CostPage() {
         )}
 
         {/* Cost Spike Alerts */}
-        {costAlerts.length > 0 && (
-          <Card className="p-4 border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
+        {costAnomalies.length > 0 && (
+          <Card className="p-4 border-amber-500/50 bg-amber-50 dark:bg-amber-950/20 animate-fade-in">
             <div className="flex items-start gap-3">
               <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5" />
               <div className="flex-1">
                 <h3 className="font-semibold text-amber-900 dark:text-amber-100 mb-2">
-                  Cost Spike Detected
+                  Cost Anomalies Detected
                 </h3>
                 <div className="space-y-2">
-                  {costAlerts.map((alert, i) => (
+                  {costAnomalies.slice(0, 3).map((alert, i) => (
                     <div
-                      key={i}
+                      key={alert.alert_id || i}
                       className="flex items-center justify-between text-sm bg-background/50 rounded-md p-2"
                     >
                       <div className="flex items-center gap-2">
                         <Badge
-                          variant={alert.severity === 'high' ? 'destructive' : 'warning'}
+                          variant={alert.severity === 'HIGH' ? 'destructive' : 'warning'}
                           className="font-mono"
                         >
-                          {alert.spike}
+                          +{alert.cost_increase_percent?.toFixed(0)}%
                         </Badge>
                         <span className="font-medium">{alert.endpoint}</span>
-                        <span className="text-muted-foreground">{alert.time}</span>
+                        <span className="text-muted-foreground">
+                          ${alert.current_cost?.toFixed(4)}
+                        </span>
                       </div>
-                      <Button variant="ghost" size="sm">
-                        Investigate
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => (window.location.href = `/alerts/${alert.alert_id}`)}
+                      >
+                        View
                         <ArrowRight className="h-4 w-4 ml-1" />
                       </Button>
                     </div>
@@ -597,12 +613,15 @@ export default function CostPage() {
           <Card className="p-6 border-(--accent)">
             <div className="flex items-start justify-between">
               <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">Total Cost (24h)</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Total Cost ({timeView === '24h' ? '24h' : timeView === '7d' ? '7d' : '30d'})
+                </p>
                 <p className="text-3xl font-bold">${totalCost.toFixed(2)}</p>
-                <div className="flex items-center gap-1 text-sm text-green-600 dark:text-green-500">
-                  <TrendingDown className="h-4 w-4" />
-                  <span>8.2% vs yesterday</span>
-                </div>
+                {totalCost > 0 && (
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <span>{totalRequests} requests</span>
+                  </div>
+                )}
               </div>
               <div className="rounded-lg bg-emerald-100 dark:bg-emerald-950 p-3">
                 <DollarSign className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
@@ -613,12 +632,15 @@ export default function CostPage() {
           <Card className="p-6  border-(--accent)">
             <div className="flex items-start justify-between">
               <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">Total Requests</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Total Requests ({timeView === '24h' ? '24h' : timeView === '7d' ? '7d' : '30d'})
+                </p>
                 <p className="text-3xl font-bold">{totalRequests.toLocaleString()}</p>
-                <div className="flex items-center gap-1 text-sm text-green-600 dark:text-green-500">
-                  <TrendingUp className="h-4 w-4" />
-                  <span>12.5% vs yesterday</span>
-                </div>
+                {totalCost > 0 && (
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <span>${totalCost.toFixed(2)} total</span>
+                  </div>
+                )}
               </div>
               <div className="rounded-lg bg-blue-100 dark:bg-blue-950 p-3">
                 <TrendingUp className="h-6 w-6 text-blue-600 dark:text-blue-400" />
@@ -631,10 +653,13 @@ export default function CostPage() {
               <div className="space-y-2">
                 <p className="text-sm font-medium text-muted-foreground">Avg Cost/Request</p>
                 <p className="text-3xl font-bold">${avgCostPerRequest.toFixed(4)}</p>
-                <div className="flex items-center gap-1 text-sm text-amber-600 dark:text-amber-500">
-                  <TrendingDown className="h-4 w-4" />
-                  <span>3.1% vs yesterday</span>
-                </div>
+                {costSummary?.summary?.p95_cost && (
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <span>
+                      P95: ${parseFloat(costSummary.summary.p95_cost.toString()).toFixed(4)}
+                    </span>
+                  </div>
+                )}
               </div>
               <div className="rounded-lg bg-purple-100 dark:bg-purple-950 p-3">
                 <DollarSign className="h-6 w-6 text-purple-600 dark:text-purple-400" />
@@ -646,122 +671,245 @@ export default function CostPage() {
         {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Cost Over Time Chart */}
-          <Card className="p-6 lg:col-span-2  border-(--accent)">
+          <Card className="p-6 lg:col-span-2 border-(--accent)">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-semibold">Cost Over Time</h3>
-                  <p className="text-sm text-muted-foreground">Track spending patterns</p>
+                  <p className="text-sm text-muted-foreground">
+                    Track spending patterns and trends
+                  </p>
                 </div>
                 <Select value={timeView} onValueChange={(v: any) => setTimeView(v)}>
                   <SelectTrigger className="w-32">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="hourly">Hourly</SelectItem>
-                    <SelectItem value="daily">Daily</SelectItem>
-                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="24h">Last 24h</SelectItem>
+                    <SelectItem value="7d">Last 7d</SelectItem>
+                    <SelectItem value="30d">Last 30d</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <ChartContainer config={chartConfig} className="h-75 w-full">
-                <LineChart data={costData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="time" tickLine={false} axisLine={false} tickMargin={8} />
-                  <YAxis
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={8}
-                    tickFormatter={(value) => `$${value}`}
-                  />
-                  <ChartTooltip
-                    content={
-                      <ChartTooltipContent formatter={(value) => `$${Number(value).toFixed(2)}`} />
-                    }
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="cost"
-                    stroke="hsl(var(--chart-1))"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
-              </ChartContainer>
+              <div className="h-75 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={costData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="costGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="hsl(var(--border))"
+                      vertical={false}
+                      opacity={0.3}
+                    />
+                    <XAxis
+                      dataKey="time"
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={10}
+                      height={40}
+                    />
+                    <YAxis
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={10}
+                      width={60}
+                      tickFormatter={(value) => `$${value.toFixed(2)}`}
+                    />
+                    <Tooltip
+                      content={({ active, payload }: any) => {
+                        if (active && payload && payload.length) {
+                          const value = typeof payload[0].value === 'number' ? payload[0].value : 0;
+                          const requests = payload[0].payload.requests || 0;
+                          return (
+                            <div className="bg-popover/95 backdrop-blur-sm border border-border rounded-lg px-4 py-3 shadow-xl">
+                              <p className="text-xs text-muted-foreground mb-1">
+                                {payload[0].payload.time}
+                              </p>
+                              <div className="flex items-baseline gap-2">
+                                <p className="text-lg font-bold text-primary">
+                                  ${value.toFixed(2)}
+                                </p>
+                                <p className="text-xs text-muted-foreground">total cost</p>
+                              </div>
+                              <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border">
+                                <div className="h-2 w-2 rounded-full bg-blue-500" />
+                                <p className="text-sm text-foreground">
+                                  {requests.toLocaleString()} requests
+                                </p>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                ${requests > 0 ? (value / requests).toFixed(4) : '0.0000'} avg per
+                                request
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                      cursor={{
+                        stroke: 'hsl(var(--primary))',
+                        strokeWidth: 1,
+                        strokeDasharray: '5 5',
+                      }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="cost"
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={2.5}
+                      fill="url(#costGradient)"
+                      activeDot={{ r: 6, strokeWidth: 2, stroke: 'hsl(var(--background))' }}
+                      animationDuration={1000}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+              {costData.length > 0 && (
+                <div className="flex items-center justify-between pt-2 border-t border-(--border)">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <div className="h-3 w-3 rounded-full bg-primary" />
+                      <span className="text-xs text-muted-foreground">Total Cost</span>
+                    </div>
+                  </div>
+                  <div className="text-xs text-muted-foreground">{costData.length} data points</div>
+                </div>
+              )}
             </div>
           </Card>
 
           {/* Model Breakdown Pie Chart */}
-          <Card className="p-6  border-(--accent)">
+          <Card className="p-6 border-(--accent)">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-semibold">Cost by Model</h3>
                   <p className="text-sm text-muted-foreground">
-                    {selectedModel ? 'Click to clear filter' : 'Click segments to filter table'}
+                    {selectedModel ? 'Click badge to clear' : 'Interactive breakdown'}
                   </p>
                 </div>
                 {selectedModel && (
-                  <Badge variant="secondary" className="gap-1">
-                    Filtered: {selectedModel}
-                    <X className="h-3 w-3 cursor-pointer" onClick={() => setSelectedModel(null)} />
+                  <Badge
+                    variant="secondary"
+                    className="gap-1 cursor-pointer hover:bg-secondary/80"
+                    onClick={() => setSelectedModel(null)}
+                  >
+                    {selectedModel}
+                    <X className="h-3 w-3" />
                   </Badge>
                 )}
               </div>
-              <div className="flex items-center justify-center">
-                <PieChart width={250} height={250}>
-                  <Pie
-                    data={modelBreakdown}
-                    cx={125}
-                    cy={125}
-                    innerRadius={60}
-                    outerRadius={90}
-                    paddingAngle={2}
-                    dataKey="value"
-                    onClick={handlePieClick}
-                    className="cursor-pointer"
-                  >
-                    {modelBreakdown.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={entry.color}
-                        opacity={selectedModel && selectedModel !== entry.name ? 0.3 : 1}
-                        className="transition-opacity hover:opacity-80"
-                      />
-                    ))}
-                  </Pie>
-                  <ChartTooltip
-                    content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
-                        const data = payload[0].payload;
-                        return (
-                          <div className="bg-card border border-(--sidebar-border) bg-(--background) border-border rounded-lg px-3 py-2 shadow-lg">
-                            <p className="font-semibold">{data.name}</p>
-                            <p className="text-sm text-muted-foreground">
-                              ${data.value.toFixed(2)} ({data.percentage}%)
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-1">Click to filter</p>
-                          </div>
-                        );
-                      }
-                      return null;
-                    }}
-                  />
-                </PieChart>
+              <div className="relative">
+                <div className="flex items-center justify-center">
+                  <PieChart width={280} height={280}>
+                    <defs>
+                      {modelBreakdown.map((entry, index) => (
+                        <filter key={`shadow-${index}`} id={`shadow-${index}`} height="200%">
+                          <feDropShadow
+                            dx="0"
+                            dy="2"
+                            stdDeviation="3"
+                            floodColor={entry.color}
+                            floodOpacity="0.3"
+                          />
+                        </filter>
+                      ))}
+                    </defs>
+                    <Pie
+                      data={modelBreakdown}
+                      cx={140}
+                      cy={140}
+                      innerRadius={70}
+                      outerRadius={100}
+                      paddingAngle={3}
+                      dataKey="value"
+                      onClick={handlePieClick}
+                      animationDuration={800}
+                      animationBegin={0}
+                    >
+                      {modelBreakdown.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={entry.color}
+                          opacity={selectedModel && selectedModel !== entry.name ? 0.2 : 1}
+                          className="cursor-pointer transition-all duration-200 hover:opacity-90"
+                          stroke="hsl(var(--background))"
+                          strokeWidth={2}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      content={({ active, payload }: any) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="bg-popover/95 backdrop-blur-sm border border-(--border) rounded-lg px-4 py-3 shadow-xl">
+                              <p className="font-semibold text-sm mb-1">{data.name}</p>
+                              <div className="space-y-1">
+                                <div className="flex items-baseline gap-2">
+                                  <p className="text-lg font-bold text-primary">
+                                    ${data.value.toFixed(2)}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {data.percentage.toFixed(1)}%
+                                  </p>
+                                </div>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-2 pt-2 border-t border-border">
+                                Click to filter table
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                  </PieChart>
+                </div>
+                {modelBreakdown.length > 0 && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="text-center">
+                      <p className="text-2xl font-bold">
+                        ${modelBreakdown.reduce((sum, m) => sum + m.value, 0).toFixed(2)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Total</p>
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2.5 pt-2 border-t border-(--border)">
                 {modelBreakdown.map((model, i) => (
-                  <div key={i} className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
+                  <div
+                    key={i}
+                    className={cn(
+                      'flex items-center justify-between p-2 rounded-md transition-all cursor-pointer hover:bg-muted/50',
+                      selectedModel === model.name && 'bg-muted'
+                    )}
+                    onClick={() => handlePieClick({ name: model.name })}
+                  >
+                    <div className="flex items-center gap-2.5 flex-1">
                       <div
-                        className="h-3 w-3 rounded-sm"
+                        className="h-3 w-3 rounded-full ring-2 ring-background shadow-sm"
                         style={{ backgroundColor: model.color }}
                       />
-                      <span>{model.name}</span>
+                      <span className="text-sm font-medium truncate">{model.name}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono">${model.value.toFixed(2)}</span>
-                      <span className="text-muted-foreground">{model.percentage}%</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-semibold tabular-nums">
+                        ${model.value.toFixed(2)}
+                      </span>
+                      <span className="text-xs text-muted-foreground font-medium min-w-[3rem] text-right">
+                        {model.percentage.toFixed(1)}%
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -779,11 +927,11 @@ export default function CostPage() {
                 <p className="text-sm text-muted-foreground">
                   {hasActiveFilters || selectedModel ? (
                     <>
-                      Showing {filteredEndpoints.length} of {topEndpoints.length} endpoints
+                      Showing {filteredEndpoints.length} of {endpoints.length} endpoints
                       {selectedModel && ` • Filtered by ${selectedModel}`}
                     </>
                   ) : (
-                    'Highest cost endpoints in the last 24 hours'
+                    'Highest cost endpoints in the selected time range'
                   )}
                 </p>
               </div>
@@ -795,8 +943,8 @@ export default function CostPage() {
               )}
             </div>
 
-            <div className="rounded-lg border  border-(--accent) border-border">
-              <Table>
+            <div className="relative w-full overflow-x-auto rounded-lg border border-(--border)">
+              <table className="w-full caption-bottom text-sm">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-10">#</TableHead>
@@ -879,7 +1027,24 @@ export default function CostPage() {
                     ))
                   )}
                 </TableBody>
-              </Table>
+              </table>
+
+              {/* Pagination */}
+              {filteredEndpoints.length > 0 && totalEndpoints > ITEMS_PER_PAGE && (
+                <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-background">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1} to{' '}
+                    {Math.min(currentPage * ITEMS_PER_PAGE, totalEndpoints)} of {totalEndpoints}{' '}
+                    endpoints
+                  </div>
+                  <TablePagination
+                    currentPage={currentPage}
+                    totalItems={totalEndpoints}
+                    itemsPerPage={ITEMS_PER_PAGE}
+                    onPageChange={setCurrentPage}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </Card>

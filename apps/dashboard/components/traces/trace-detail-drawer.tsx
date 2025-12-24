@@ -13,35 +13,10 @@ import {
 } from '@/components/ui/drawer';
 import { SpanTimeline } from './trace-timeline';
 import { Clock, DollarSign, User, Hash, Copy, Check, WrapText, Code2, X } from 'lucide-react';
-
-export type Trace = {
-  id: string;
-  service: string;
-  endpoint: string;
-  model: string;
-  status: 'healthy' | 'degraded' | 'error';
-  latencyMs: number;
-  costUsd: number;
-  createdAt: string;
-  prompt?: string;
-  response?: string;
-  spans?: Array<{
-    name: string;
-    startMs: number;
-    durationMs: number;
-    type: 'retrieval' | 'generation' | 'processing';
-  }>;
-  metadata?: {
-    tokensIn?: number;
-    tokensOut?: number;
-    temperature?: number;
-    userId?: string;
-    sessionId?: string;
-  };
-};
+import type { UITrace } from '@/types/trace';
 
 interface TraceDetailDrawerProps {
-  trace: Trace | null;
+  trace: UITrace | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }

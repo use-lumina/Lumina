@@ -1,23 +1,72 @@
-'use client';
+import { notFound } from 'next/navigation';
+import { getTraceById, type Trace } from '@/lib/api';
+import { TraceDetail } from '@/components/traces/trace-detail';
+import type { UITrace } from '@/types/trace';
 
-import { useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+export const dynamic = 'force-dynamic';
 
-export default function TraceDetailPage() {
-  const params = useParams();
-  const router = useRouter();
+interface Params {
+  params: { id: string };
+}
 
-  useEffect(() => {
-    // Redirect to traces page with traceId parameter to auto-open drawer
-    router.replace(`/traces?traceId=${params.id}`);
-  }, [params.id, router]);
+function mapApiTraceToUI(trace: Trace): UITrace {
+  return {
+    id: trace.trace_id,
+    service: trace.service_name,
+    endpoint: trace.endpoint,
+    model: trace.model,
+    status:
+      trace.status === 'ok' || trace.status === 'healthy'
+        ? 'healthy'
+        : (trace.status as 'healthy' | 'degraded' | 'error'),
+    latencyMs: trace.latency_ms,
+    costUsd: trace.cost_usd,
+    createdAt: trace.timestamp,
+    prompt: trace.prompt,
+    response: trace.response,
+    spans: (trace.metadata as any)?.spans,
+    metadata: {
+      tokensIn: trace.prompt_tokens,
+      tokensOut: trace.completion_tokens,
+      temperature: trace.metadata?.temperature,
+      userId: trace.metadata?.userId || trace.customer_id,
+      sessionId: trace.metadata?.sessionId,
+      ...trace.metadata,
+    },
+  };
+}
 
-  return (
-    <div className="flex h-full items-center justify-center">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-        <p className="text-muted-foreground">Loading trace details...</p>
+export default async function TraceDetailPage({ params }: Params) {
+  const { id } = params;
+
+  try {
+    const data = await getTraceById(id);
+
+    if (!data || !data.trace) {
+      return notFound();
+    }
+
+    const uiTrace = mapApiTraceToUI(data.trace);
+
+    return (
+      <div className="p-6">
+        <TraceDetail trace={uiTrace} />
       </div>
-    </div>
-  );
+    );
+  } catch (err) {
+    console.error('Failed to load trace:', err);
+    return (
+      <div className="p-6">
+        <div className="flex flex-col items-center justify-center min-h-100 space-y-4">
+          <div className="text-center">
+            <h2 className="text-lg font-semibold text-foreground">Trace not found</h2>
+            <p className="text-sm text-muted-foreground mt-2">
+              Unable to fetch trace details. The trace may not exist or there was an error loading
+              it.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 }

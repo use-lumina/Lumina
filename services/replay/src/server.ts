@@ -16,7 +16,8 @@ app.use('*', logger());
 app.use(
   '*',
   cors({
-    origin: ['http://localhost:3000', 'http://localhost:8081'],
+    // allow dashboard dev on both ports 3000 and 3001 plus the query/api host
+    origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:8081'],
     credentials: true,
   })
 );

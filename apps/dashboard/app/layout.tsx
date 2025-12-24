@@ -1,8 +1,15 @@
 import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
 import './globals.css';
 import { DashboardLayout } from '@/components/layout';
 import { ThemeProvider } from '@/components/theme-provider';
 import { SkeletonThemeProvider } from '@/components/ui/skeleton-theme-provider';
+
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-inter',
+});
 
 export const metadata: Metadata = {
   title: 'Lumina Dashboard',
@@ -11,7 +18,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={inter.variable}>
       <head>
         <script
           dangerouslySetInnerHTML={{
@@ -27,7 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
       </head>
-      <body className="bg-background text-foreground antialiased">
+      <body className="bg-background text-foreground antialiased font-sans">
         <ThemeProvider defaultTheme="light" storageKey="lumina-ui-theme">
           <SkeletonThemeProvider>
             <DashboardLayout>{children}</DashboardLayout>

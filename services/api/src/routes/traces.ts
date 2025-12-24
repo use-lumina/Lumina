@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { getDB } from '../database/postgres';
+import { requireAuth } from '../middleware/auth';
 
 const app = new Hono();
 
@@ -7,7 +8,7 @@ const app = new Hono();
  * GET /traces
  * List traces with filters
  */
-app.get('/', async (c) => {
+app.get('/', requireAuth, async (c) => {
   try {
     const db = getDB();
     const sql = db.getClient();
@@ -126,10 +127,140 @@ app.get('/', async (c) => {
 });
 
 /**
+ * GET /traces/trends
+ * Get trace metrics trends (current period vs previous period)
+ */
+app.get('/trends', requireAuth, async (c) => {
+  try {
+    const db = getDB();
+    const sql = db.getClient();
+
+    // Parse query parameters
+    const { startTime, endTime, service, endpoint, model, status } = c.req.query();
+
+    // Calculate time periods
+    const end = endTime ? new Date(endTime) : new Date();
+    const start = startTime ? new Date(startTime) : new Date(end.getTime() - 60 * 60 * 1000); // Default: last hour
+    const periodDuration = end.getTime() - start.getTime();
+    const previousStart = new Date(start.getTime() - periodDuration);
+    const previousEnd = start;
+
+    // Build filter conditions
+    const buildConditions = (timeStart: Date, timeEnd: Date) => {
+      const conditions: string[] = [
+        `timestamp >= '${timeStart.toISOString()}'`,
+        `timestamp <= '${timeEnd.toISOString()}'`,
+      ];
+      if (service) conditions.push(`service_name = '${service}'`);
+      if (endpoint) conditions.push(`endpoint = '${endpoint}'`);
+      if (model) conditions.push(`model = '${model}'`);
+      if (status) conditions.push(`status = '${status}'`);
+      return conditions.join(' AND ');
+    };
+
+    const currentConditions = buildConditions(start, end);
+    const previousConditions = buildConditions(previousStart, previousEnd);
+
+    // Get current period metrics
+    const currentMetrics = await sql.unsafe(`
+      SELECT
+        COUNT(*) as total_requests,
+        AVG(latency_ms) as avg_latency,
+        SUM(cost_usd) as total_cost,
+        COUNT(*) FILTER (WHERE status != 'ok' AND status != 'healthy') as error_count
+      FROM traces
+      WHERE ${currentConditions}
+    `);
+
+    // Get previous period metrics
+    const previousMetrics = await sql.unsafe(`
+      SELECT
+        COUNT(*) as total_requests,
+        AVG(latency_ms) as avg_latency,
+        SUM(cost_usd) as total_cost,
+        COUNT(*) FILTER (WHERE status != 'ok' AND status != 'healthy') as error_count
+      FROM traces
+      WHERE ${previousConditions}
+    `);
+
+    const current = currentMetrics[0] || {
+      total_requests: '0',
+      avg_latency: '0',
+      total_cost: '0',
+      error_count: '0',
+    };
+    const previous = previousMetrics[0] || {
+      total_requests: '0',
+      avg_latency: '0',
+      total_cost: '0',
+      error_count: '0',
+    };
+
+    // Calculate trends (percentage change)
+    const calculateTrend = (currentVal: number, previousVal: number) => {
+      if (!previousVal || previousVal === 0) return 0;
+      return ((currentVal - previousVal) / previousVal) * 100;
+    };
+
+    const currentRequests = parseInt(String(current.total_requests || '0'));
+    const previousRequests = parseInt(String(previous.total_requests || '0'));
+    const currentLatency = parseFloat(String(current.avg_latency || '0'));
+    const previousLatency = parseFloat(String(previous.avg_latency || '0'));
+    const currentCost = parseFloat(String(current.total_cost || '0'));
+    const previousCost = parseFloat(String(previous.total_cost || '0'));
+    const currentErrors = parseInt(String(current.error_count || '0'));
+    const previousErrors = parseInt(String(previous.error_count || '0'));
+
+    const currentErrorRate = currentRequests > 0 ? (currentErrors / currentRequests) * 100 : 0;
+    const previousErrorRate = previousRequests > 0 ? (previousErrors / previousRequests) * 100 : 0;
+
+    return c.json({
+      current: {
+        totalRequests: currentRequests,
+        avgLatency: currentLatency,
+        totalCost: currentCost,
+        errorRate: currentErrorRate,
+      },
+      previous: {
+        totalRequests: previousRequests,
+        avgLatency: previousLatency,
+        totalCost: previousCost,
+        errorRate: previousErrorRate,
+      },
+      trends: {
+        requestsTrend: calculateTrend(currentRequests, previousRequests),
+        latencyTrend: calculateTrend(currentLatency, previousLatency),
+        costTrend: calculateTrend(currentCost, previousCost),
+        errorRateTrend: calculateTrend(currentErrorRate, previousErrorRate),
+      },
+      timeRange: {
+        current: {
+          startTime: start.toISOString(),
+          endTime: end.toISOString(),
+        },
+        previous: {
+          startTime: previousStart.toISOString(),
+          endTime: previousEnd.toISOString(),
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching trace trends:', error);
+    return c.json(
+      {
+        error: 'Failed to fetch trace trends',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      500
+    );
+  }
+});
+
+/**
  * GET /traces/:id
  * Get full trace details
  */
-app.get('/:id', async (c) => {
+app.get('/:id', requireAuth, async (c) => {
   try {
     const traceId = c.req.param('id');
     const db = getDB();

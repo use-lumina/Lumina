@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { getDB } from '../database/postgres';
+import { requireAuth } from '../middleware/auth';
 
 const app = new Hono();
 
@@ -7,7 +8,7 @@ const app = new Hono();
  * GET /alerts/stats
  * Get alert statistics
  */
-app.get('/stats', async (c) => {
+app.get('/stats', requireAuth, async (c) => {
   try {
     const db = getDB();
     const sql = db.getClient();
@@ -75,7 +76,7 @@ app.get('/stats', async (c) => {
  * GET /alerts
  * List alerts with filters
  */
-app.get('/', async (c) => {
+app.get('/', requireAuth, async (c) => {
   try {
     const db = getDB();
     const sql = db.getClient();
@@ -199,7 +200,7 @@ app.get('/', async (c) => {
  * GET /alerts/:id
  * Get alert details
  */
-app.get('/:id', async (c) => {
+app.get('/:id', requireAuth, async (c) => {
   try {
     const alertId = c.req.param('id');
     const db = getDB();
@@ -263,7 +264,7 @@ app.get('/:id', async (c) => {
  * POST /alerts/:id/acknowledge
  * Acknowledge an alert
  */
-app.post('/:id/acknowledge', async (c) => {
+app.post('/:id/acknowledge', requireAuth, async (c) => {
   try {
     const alertId = c.req.param('id');
     const db = getDB();
