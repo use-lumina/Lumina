@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { getDB } from '../database/postgres';
+import { requireAuth } from '../middleware/auth';
 
 const app = new Hono();
 
@@ -7,7 +8,7 @@ const app = new Hono();
  * GET /cost/timeline
  * Get time-series cost data
  */
-app.get('/timeline', async (c) => {
+app.get('/timeline', requireAuth, async (c) => {
   try {
     const db = getDB();
     const sql = db.getClient();
@@ -70,7 +71,10 @@ app.get('/timeline', async (c) => {
         MIN(cost_usd) as min_cost,
         MAX(cost_usd) as max_cost,
         SUM(prompt_tokens) as total_prompt_tokens,
-        SUM(completion_tokens) as total_completion_tokens
+        SUM(completion_tokens) as total_completion_tokens,
+        AVG(latency_ms) as avg_latency_ms,
+        MIN(latency_ms) as min_latency_ms,
+        MAX(latency_ms) as max_latency_ms
       FROM traces
       WHERE ${whereClause}
       GROUP BY time_bucket
@@ -106,7 +110,7 @@ app.get('/timeline', async (c) => {
  * GET /cost/breakdown
  * Get cost breakdown by service, endpoint, or model
  */
-app.get('/breakdown', async (c) => {
+app.get('/breakdown', requireAuth, async (c) => {
   try {
     const db = getDB();
     const sql = db.getClient();
@@ -116,7 +120,9 @@ app.get('/breakdown', async (c) => {
 
     // Validate time range
     const end = endTime ? new Date(endTime) : new Date();
-    const start = startTime ? new Date(startTime) : new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const start = startTime
+      ? new Date(startTime)
+      : new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
 
     // Determine grouping column
     const groupColumn =
@@ -190,7 +196,7 @@ app.get('/breakdown', async (c) => {
  * GET /cost/anomalies
  * Get recent cost anomalies (traces with alerts)
  */
-app.get('/anomalies', async (c) => {
+app.get('/anomalies', requireAuth, async (c) => {
   try {
     const db = getDB();
     const sql = db.getClient();
@@ -283,7 +289,7 @@ app.get('/anomalies', async (c) => {
  * GET /cost/summary
  * Get overall cost summary statistics
  */
-app.get('/summary', async (c) => {
+app.get('/summary', requireAuth, async (c) => {
   try {
     const db = getDB();
     const sql = db.getClient();
@@ -293,7 +299,9 @@ app.get('/summary', async (c) => {
 
     // Validate time range - default to last 7 days
     const end = endTime ? new Date(endTime) : new Date();
-    const start = startTime ? new Date(startTime) : new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const start = startTime
+      ? new Date(startTime)
+      : new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
 
     // Get overall statistics
     const summary = await sql`
@@ -339,6 +347,127 @@ app.get('/summary', async (c) => {
     return c.json(
       {
         error: 'Failed to fetch cost summary',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * GET /cost/endpoint-trends
+ * Get cost trends for endpoints (current vs previous period)
+ */
+app.get('/endpoint-trends', requireAuth, async (c) => {
+  try {
+    const db = getDB();
+    const sql = db.getClient();
+
+    // Parse query parameters
+    const { startTime, endTime, limit = '20' } = c.req.query();
+
+    // Validate time range
+    const end = endTime ? new Date(endTime) : new Date();
+    const start = startTime
+      ? new Date(startTime)
+      : new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    const periodDuration = end.getTime() - start.getTime();
+    const previousStart = new Date(start.getTime() - periodDuration);
+    const previousEnd = start;
+
+    // Get current period endpoint costs
+    const currentPeriod = await sql.unsafe(
+      `
+      SELECT
+        endpoint,
+        COUNT(*) as request_count,
+        SUM(cost_usd) as total_cost,
+        AVG(cost_usd) as avg_cost
+      FROM traces
+      WHERE timestamp >= $1 AND timestamp <= $2
+      GROUP BY endpoint
+      ORDER BY total_cost DESC
+      LIMIT $3
+    `,
+      [start, end, parseInt(limit)]
+    );
+
+    // Get previous period endpoint costs
+    const previousPeriod = await sql.unsafe(
+      `
+      SELECT
+        endpoint,
+        SUM(cost_usd) as total_cost,
+        AVG(cost_usd) as avg_cost
+      FROM traces
+      WHERE timestamp >= $1 AND timestamp <= $2
+      GROUP BY endpoint
+    `,
+      [previousStart, previousEnd]
+    );
+
+    // Create a map for previous period data
+    const previousMap = new Map();
+    previousPeriod.forEach((item: any) => {
+      previousMap.set(item.endpoint, {
+        total_cost: parseFloat(item.total_cost || '0'),
+        avg_cost: parseFloat(item.avg_cost || '0'),
+      });
+    });
+
+    // Calculate trends
+    const endpointsWithTrends = currentPeriod.map((item: any) => {
+      const currentCost = parseFloat(item.total_cost || '0');
+      const previous = previousMap.get(item.endpoint);
+      const previousCost = previous?.total_cost || 0;
+
+      let trend: 'up' | 'down' | 'stable' = 'stable';
+      let trendPercent = 0;
+
+      if (previousCost > 0) {
+        trendPercent = ((currentCost - previousCost) / previousCost) * 100;
+        if (Math.abs(trendPercent) < 5) {
+          trend = 'stable';
+        } else if (trendPercent > 0) {
+          trend = 'up';
+        } else {
+          trend = 'down';
+        }
+      } else if (currentCost > 0) {
+        trend = 'up';
+        trendPercent = 100;
+      }
+
+      return {
+        endpoint: item.endpoint,
+        request_count: parseInt(String(item.request_count || '0')),
+        total_cost: currentCost,
+        avg_cost: parseFloat(item.avg_cost || '0'),
+        trend,
+        trend_percent: trendPercent,
+        previous_cost: previousCost,
+      };
+    });
+
+    return c.json({
+      data: endpointsWithTrends,
+      timeRange: {
+        current: {
+          startTime: start.toISOString(),
+          endTime: end.toISOString(),
+        },
+        previous: {
+          startTime: previousStart.toISOString(),
+          endTime: previousEnd.toISOString(),
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching endpoint trends:', error);
+    return c.json(
+      {
+        error: 'Failed to fetch endpoint trends',
         message: error instanceof Error ? error.message : 'Unknown error',
       },
       500

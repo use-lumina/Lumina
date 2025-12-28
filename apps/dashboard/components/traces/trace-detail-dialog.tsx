@@ -12,10 +12,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SpanTimeline } from './trace-timeline';
 
 import { Clock, DollarSign, User, Hash } from 'lucide-react';
-import { Trace } from '@/app/traces/page';
+import type { UITrace } from '@/types/trace';
 
 interface TraceDetailDialogProps {
-  trace: Trace | null;
+  trace: UITrace | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }

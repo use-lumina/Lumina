@@ -30,99 +30,60 @@ import {
   DrawerTitle,
 } from '@/components/ui/drawer';
 import { KPICardSkeleton, TableSkeleton } from '@/components/ui/loading-skeletons';
+import { TablePagination } from '@/components/ui/table-pagination';
 import {
   Play,
   Plus,
   GitCompare,
   Clock,
   DollarSign,
-  Hash,
   TrendingDown,
-  Copy,
-  Check,
   X,
   Sparkles,
   ArrowRight,
   FileText,
+  Check,
 } from 'lucide-react';
+import {
+  getReplaySets,
+  createReplaySet,
+  runReplay,
+  getTraces,
+  getReplayDetails,
+  getReplayDiff,
+  type ReplaySet,
+  type ReplayResult,
+  type ReplaySummary,
+} from '@/lib/api';
 
-// Mock data for replay sets
-const mockReplaySets = [
-  {
-    id: 'replay-1',
-    name: 'Customer Support Optimization',
-    description: 'Testing GPT-4 vs Claude for support responses',
-    traceCount: 12,
-    createdAt: '2025-12-15T10:30:00Z',
-    lastRun: '2025-12-17T14:20:00Z',
-    status: 'completed' as const,
-  },
-  {
-    id: 'replay-2',
-    name: 'Cost Reduction Experiment',
-    description: 'Compare GPT-4 with GPT-3.5 Turbo for summaries',
-    traceCount: 25,
-    createdAt: '2025-12-10T09:15:00Z',
-    lastRun: '2025-12-16T11:45:00Z',
-    status: 'completed' as const,
-  },
-  {
-    id: 'replay-3',
-    name: 'Temperature Testing',
-    description: 'Optimal temperature for creative writing tasks',
-    traceCount: 8,
-    createdAt: '2025-12-18T08:00:00Z',
-    lastRun: null,
-    status: 'draft' as const,
-  },
-];
-
-// Mock traces for selection
-const mockTraces = [
-  { id: 'tr_01', endpoint: '/chat/message', prompt: 'Explain quantum computing', model: 'gpt-4' },
-  {
-    id: 'tr_02',
-    endpoint: '/chat/message',
-    prompt: 'Write a product description',
-    model: 'claude-3',
-  },
-  { id: 'tr_03', endpoint: '/summarize', prompt: 'Summarize this article...', model: 'gpt-4' },
-  { id: 'tr_04', endpoint: '/chat/message', prompt: 'Debug this code...', model: 'claude-3' },
-  { id: 'tr_05', endpoint: '/translate', prompt: 'Translate to Spanish...', model: 'gpt-3.5' },
-];
-
-// Mock replay results
-const mockReplayResult = {
-  original: {
-    model: 'gpt-4',
-    temperature: 0.7,
-    output:
-      'Quantum computing is a revolutionary approach to computation that harnesses the unique properties of quantum mechanics. Unlike classical computers that use bits (0 or 1), quantum computers use quantum bits or "qubits" which can exist in multiple states simultaneously through a phenomenon called superposition.',
-    cost: 0.045,
-    tokensIn: 42,
-    tokensOut: 156,
-    latency: 2150,
-  },
-  new: {
-    model: 'claude-3',
-    temperature: 0.5,
-    output:
-      'Quantum computing represents a fundamental shift in how we process information. While traditional computers use binary bits that are either 0 or 1, quantum computers leverage quantum bits (qubits) that can exist in multiple states at once due to superposition, enabling parallel processing of vast amounts of data.',
-    cost: 0.028,
-    tokensIn: 42,
-    tokensOut: 148,
-    latency: 1890,
-  },
-  similarity: 94.5,
-};
+function formatDateISO(dateStr?: string) {
+  if (!dateStr) return '';
+  try {
+    return new Date(dateStr).toISOString().replace('T', ' ').replace('Z', '');
+  } catch {
+    return String(dateStr);
+  }
+}
 
 export default function ReplayPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
   const [runDrawerOpen, setRunDrawerOpen] = useState(false);
   const [resultsDrawerOpen, setResultsDrawerOpen] = useState(false);
-  const [selectedSet, setSelectedSet] = useState<string | null>(null);
+  const [selectedSet, setSelectedSet] = useState<ReplaySet | null>(null);
   const [selectedTraces, setSelectedTraces] = useState<string[]>([]);
+  const [replaySets, setReplaySets] = useState<ReplaySet[]>([]);
+  const [availableTraces, setAvailableTraces] = useState<any[]>([]);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isRunning, setIsRunning] = useState(false);
+  const [replayResults, setReplayResults] = useState<ReplayResult[]>([]);
+  const [replaySummary, setReplaySummary] = useState<ReplaySummary | null>(null);
+  const [isLoadingResults, setIsLoadingResults] = useState(false);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalReplaySets, setTotalReplaySets] = useState(0);
+  const ITEMS_PER_PAGE = 10;
 
   // Replay configuration
   const [replayName, setReplayName] = useState('');
@@ -132,16 +93,38 @@ export default function ReplayPage() {
   const [maxTokens, setMaxTokens] = useState('500');
   const [promptTemplate, setPromptTemplate] = useState('');
 
-  const [copiedOriginal, setCopiedOriginal] = useState(false);
-  const [copiedNew, setCopiedNew] = useState(false);
-
-  // Simulate initial load
+  // Fetch replay sets and traces
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 800);
-    return () => clearTimeout(timer);
-  }, []);
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        const offset = (currentPage - 1) * ITEMS_PER_PAGE;
+        const [replaySetsResponse, tracesResponse] = await Promise.all([
+          getReplaySets({ limit: ITEMS_PER_PAGE, offset }),
+          getTraces({ limit: 50 }),
+        ]);
+        setReplaySets(replaySetsResponse.data || []);
+        setTotalReplaySets(replaySetsResponse.pagination.total);
+        setAvailableTraces(tracesResponse.data || []);
+      } catch (error) {
+        console.error('Failed to fetch data:', error);
+        setReplaySets([]);
+        setAvailableTraces([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [currentPage]);
+
+  // Handle edge case: if current page becomes invalid, go to last valid page
+  useEffect(() => {
+    const totalPages = Math.ceil(totalReplaySets / ITEMS_PER_PAGE);
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalReplaySets, currentPage, ITEMS_PER_PAGE]);
 
   const handleToggleTrace = (traceId: string) => {
     setSelectedTraces((prev) =>
@@ -149,32 +132,131 @@ export default function ReplayPage() {
     );
   };
 
-  const handleCreateReplaySet = () => {
-    // Create replay set logic
-    setCreateDrawerOpen(false);
-    setSelectedTraces([]);
-    setReplayName('');
-    setReplayDescription('');
-  };
+  const handleCreateReplaySet = async () => {
+    if (!replayName || selectedTraces.length === 0) return;
 
-  const handleRunReplay = () => {
-    // Run replay logic
-    setRunDrawerOpen(false);
-    setTimeout(() => {
-      setResultsDrawerOpen(true);
-    }, 500);
-  };
+    try {
+      setIsCreating(true);
+      const response = await createReplaySet({
+        name: replayName,
+        description: replayDescription,
+        traceIds: selectedTraces,
+      });
 
-  const copyToClipboard = async (text: string, type: 'original' | 'new') => {
-    await navigator.clipboard.writeText(text);
-    if (type === 'original') {
-      setCopiedOriginal(true);
-      setTimeout(() => setCopiedOriginal(false), 2000);
-    } else {
-      setCopiedNew(true);
-      setTimeout(() => setCopiedNew(false), 2000);
+      if (response.success) {
+        // Refresh replay sets - reset to page 1
+        setCurrentPage(1);
+        const offset = 0; // First page
+        const replaySetsResponse = await getReplaySets({ limit: ITEMS_PER_PAGE, offset });
+        setReplaySets(replaySetsResponse.data || []);
+        setTotalReplaySets(replaySetsResponse.pagination.total);
+        setCreateDrawerOpen(false);
+        setSelectedTraces([]);
+        setReplayName('');
+        setReplayDescription('');
+      }
+    } catch (error) {
+      console.error('Failed to create replay set:', error);
+    } finally {
+      setIsCreating(false);
     }
   };
+
+  const handleRunReplay = async () => {
+    if (!selectedSet) return;
+
+    try {
+      setIsRunning(true);
+      await runReplay(selectedSet.replay_id);
+
+      // Refresh replay sets to get updated status
+      const replaySetsResponse = await getReplaySets({ limit: 50 });
+      setReplaySets(replaySetsResponse.data || []);
+
+      setRunDrawerOpen(false);
+      setTimeout(() => {
+        setResultsDrawerOpen(true);
+      }, 500);
+    } catch (error) {
+      console.error('Failed to run replay:', error);
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
+  const handleViewResults = async (replaySet: ReplaySet) => {
+    setSelectedSet(replaySet);
+    setResultsDrawerOpen(true);
+
+    try {
+      setIsLoadingResults(true);
+      const [detailsResponse, diffResponse] = await Promise.all([
+        getReplayDetails(replaySet.replay_id),
+        getReplayDiff(replaySet.replay_id, { limit: 50 }),
+      ]);
+
+      setReplaySummary(detailsResponse.summary);
+
+      // Normalize numeric fields on results (Postgres/JSON may return strings)
+      function normalizeResult(r: any) {
+        const normalized = { ...r };
+        normalized.original_cost = Number(r.original_cost) || 0;
+        normalized.replay_cost = Number(r.replay_cost) || 0;
+        normalized.original_latency = Number(r.original_latency) || 0;
+        normalized.replay_latency = Number(r.replay_latency) || 0;
+        normalized.hash_similarity = Number(r.hash_similarity) || 0;
+        normalized.semantic_score = Number(r.semantic_score) || 0;
+        // diff_summary may come as object or stringified JSON
+        const ds =
+          typeof r.diff_summary === 'string'
+            ? JSON.parse(r.diff_summary || '{}')
+            : r.diff_summary || {};
+        normalized.diff_summary = {
+          cost_diff: Number(ds.cost_diff) || 0,
+          cost_diff_percent: Number(ds.cost_diff_percent) || 0,
+          latency_diff: Number(ds.latency_diff) || 0,
+          latency_diff_percent: Number(ds.latency_diff_percent) || 0,
+          response_changed: Boolean(ds.response_changed),
+        };
+        // Ensure numeric fields used in UI exist
+        normalized.original_cost = normalized.original_cost;
+        normalized.replay_cost = normalized.replay_cost;
+        normalized.original_latency = normalized.original_latency;
+        normalized.replay_latency = normalized.replay_latency;
+        normalized.hash_similarity = normalized.hash_similarity;
+        normalized.semantic_score = normalized.semantic_score;
+        return normalized as ReplayResult;
+      }
+
+      setReplayResults((diffResponse.data || []).map(normalizeResult));
+    } catch (error) {
+      console.error('Failed to fetch replay results:', error);
+      setReplaySummary(null);
+      setReplayResults([]);
+    } finally {
+      setIsLoadingResults(false);
+    }
+  };
+
+  // Helper to normalize numeric fields returned from the API (postgres may return DECIMAL as strings)
+  function normalizeSummary(s: ReplaySummary | null) {
+    if (!s) return null;
+    return {
+      total_results: Number(s.total_results ?? s.total_results) || 0,
+      avg_hash_similarity: Number(s.avg_hash_similarity ?? 0) || 0,
+      avg_semantic_score: Number(s.avg_semantic_score ?? 0) || 0,
+      avg_cost_diff: Number(s.avg_cost_diff ?? 0) || 0,
+      avg_latency_diff: Number(s.avg_latency_diff ?? 0) || 0,
+      response_changes: Number(s.response_changes ?? 0) || 0,
+    } as {
+      total_results: number;
+      avg_hash_similarity: number;
+      avg_semantic_score: number;
+      avg_cost_diff: number;
+      avg_latency_diff: number;
+      response_changes: number;
+    };
+  }
 
   if (isLoading) {
     return (
@@ -199,8 +281,9 @@ export default function ReplayPage() {
     );
   }
 
-  const completedSets = mockReplaySets.filter((s) => s.status === 'completed').length;
-  const totalTraces = mockReplaySets.reduce((sum, s) => sum + s.traceCount, 0);
+  const completedSets = replaySets.filter((s) => s.status === 'completed').length;
+  const totalTraces = replaySets.reduce((sum, s) => sum + s.total_traces, 0);
+  const normalizedSummary = normalizeSummary(replaySummary);
 
   return (
     <div className="h-full overflow-auto">
@@ -225,7 +308,7 @@ export default function ReplayPage() {
             <div className="flex items-start justify-between">
               <div className="space-y-2">
                 <p className="text-sm font-medium text-muted-foreground">Total Replay Sets</p>
-                <p className="text-3xl font-bold">{mockReplaySets.length}</p>
+                <p className="text-3xl font-bold">{replaySets.length}</p>
                 <p className="text-sm text-muted-foreground">{completedSets} completed</p>
               </div>
               <div className="rounded-lg bg-blue-100 dark:bg-blue-950 p-3">
@@ -251,10 +334,12 @@ export default function ReplayPage() {
             <div className="flex items-start justify-between">
               <div className="space-y-2">
                 <p className="text-sm font-medium text-muted-foreground">Avg Cost Savings</p>
-                <p className="text-3xl font-bold">37.8%</p>
-                <div className="flex items-center gap-1 text-sm text-green-600 dark:text-green-500">
+                <p className="text-3xl font-bold">N/A</p>
+                <div className="flex items-center gap-1 text-sm text-muted-foreground">
                   <TrendingDown className="h-4 w-4" />
-                  <span>From optimization</span>
+                  <span>
+                    {completedSets > 0 ? 'Run replays to see data' : 'No completed replays'}
+                  </span>
                 </div>
               </div>
               <div className="rounded-lg bg-green-100 dark:bg-green-950 p-3">
@@ -274,8 +359,8 @@ export default function ReplayPage() {
               </p>
             </div>
 
-            <div className="rounded-lg border-(--border) border border-border overflow-auto max-h-[600px] custom-scrollbar">
-              <Table>
+            <div className="relative w-full overflow-x-auto rounded-lg border border-(--border)">
+              <table className="w-full caption-bottom text-sm">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
@@ -288,9 +373,9 @@ export default function ReplayPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {mockReplaySets.map((set) => (
+                  {replaySets.map((set) => (
                     <TableRow
-                      key={set.id}
+                      key={set.replay_id}
                       className="cursor-pointer hover:bg-muted/50 transition-colors border-(--accent)"
                     >
                       <TableCell className="font-medium">{set.name}</TableCell>
@@ -298,13 +383,15 @@ export default function ReplayPage() {
                         {set.description}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary">{set.traceCount} traces</Badge>
+                        <Badge variant="secondary">{set.total_traces} traces</Badge>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {new Date(set.createdAt).toLocaleDateString()}
+                        {formatDateISO(set.created_at)}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {set.lastRun ? new Date(set.lastRun).toLocaleDateString() : 'Never'}
+                        {set.completed_traces && set.completed_traces > 0
+                          ? formatDateISO(set.created_at)
+                          : 'Never'}
                       </TableCell>
                       <TableCell>
                         <Badge variant={set.status === 'completed' ? 'success' : 'secondary'}>
@@ -317,18 +404,19 @@ export default function ReplayPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() => {
-                              setSelectedSet(set.id);
+                              setSelectedSet(set);
                               setRunDrawerOpen(true);
                             }}
+                            disabled={set.status === 'running'}
                           >
                             <Play className="h-4 w-4 mr-1" />
-                            Run Replay
+                            {set.status === 'running' ? 'Running...' : 'Run Replay'}
                           </Button>
                           {set.status === 'completed' && (
                             <Button
                               variant="secondary"
                               size="sm"
-                              onClick={() => setResultsDrawerOpen(true)}
+                              onClick={() => handleViewResults(set)}
                             >
                               View Results
                               <ArrowRight className="h-4 w-4 ml-1" />
@@ -339,7 +427,24 @@ export default function ReplayPage() {
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
+              </table>
+
+              {/* Pagination */}
+              {replaySets.length > 0 && totalReplaySets > ITEMS_PER_PAGE && (
+                <div className="flex items-center justify-between px-4 py-3 border-t border-(--border )bg-background">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1} to{' '}
+                    {Math.min(currentPage * ITEMS_PER_PAGE, totalReplaySets)} of {totalReplaySets}{' '}
+                    replay sets
+                  </div>
+                  <TablePagination
+                    currentPage={currentPage}
+                    totalItems={totalReplaySets}
+                    itemsPerPage={ITEMS_PER_PAGE}
+                    onPageChange={setCurrentPage}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </Card>
@@ -396,40 +501,46 @@ export default function ReplayPage() {
                   <div>
                     <Label>Select Traces ({selectedTraces.length} selected)</Label>
                     <div className="mt-2 space-y-2 max-h-96 overflow-y-auto custom-scrollbar">
-                      {mockTraces.map((trace) => (
-                        <div
-                          key={trace.id}
-                          onClick={() => handleToggleTrace(trace.id)}
-                          className={`flex items-center justify-between p-3 rounded-lg border border-(--accent) cursor-pointer transition-colors ${
-                            selectedTraces.includes(trace.id)
-                              ? 'border-primary bg-primary/5'
-                              : 'border-border hover:border-primary/50'
-                          }`}
-                        >
-                          <div className="flex-1">
-                            <p className="font-medium text-sm">{trace.endpoint}</p>
-                            <p className="text-xs text-muted-foreground truncate max-w-md">
-                              {trace.prompt}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <Badge variant="secondary" className="text-xs">
-                              {trace.model}
-                            </Badge>
-                            <div
-                              className={`h-5 w-5 rounded border-2 flex items-center justify-center ${
-                                selectedTraces.includes(trace.id)
-                                  ? 'border-primary bg-primary'
-                                  : 'border-muted-foreground'
-                              }`}
-                            >
-                              {selectedTraces.includes(trace.id) && (
-                                <Check className="h-3 w-3 text-primary-foreground" />
-                              )}
+                      {availableTraces.length > 0 ? (
+                        availableTraces.map((trace) => (
+                          <div
+                            key={trace.trace_id}
+                            onClick={() => handleToggleTrace(trace.trace_id)}
+                            className={`flex items-center justify-between p-3 rounded-lg border border-(--accent) cursor-pointer transition-colors ${
+                              selectedTraces.includes(trace.trace_id)
+                                ? 'border-primary bg-primary/5'
+                                : 'border-(--border) hover:border-primary/50'
+                            }`}
+                          >
+                            <div className="flex-1">
+                              <p className="font-medium text-sm">{trace.endpoint}</p>
+                              <p className="text-xs text-muted-foreground truncate max-w-md">
+                                {trace.prompt || 'No prompt available'}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <Badge variant="secondary" className="text-xs">
+                                {trace.model}
+                              </Badge>
+                              <div
+                                className={`h-5 w-5 rounded border-2 flex items-center justify-center ${
+                                  selectedTraces.includes(trace.trace_id)
+                                    ? 'border-primary bg-primary'
+                                    : 'border-muted-foreground'
+                                }`}
+                              >
+                                {selectedTraces.includes(trace.trace_id) && (
+                                  <Check className="h-3 w-3 text-primary-foreground" />
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        ))
+                      ) : (
+                        <p className="text-sm text-muted-foreground text-center py-8">
+                          No traces available. Create some traces first.
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -438,15 +549,16 @@ export default function ReplayPage() {
                       variant="secondary"
                       onClick={() => setCreateDrawerOpen(false)}
                       className="flex-1"
+                      disabled={isCreating}
                     >
                       Cancel
                     </Button>
                     <Button
                       onClick={handleCreateReplaySet}
-                      disabled={selectedTraces.length === 0 || !replayName}
+                      disabled={selectedTraces.length === 0 || !replayName || isCreating}
                       className="flex-1"
                     >
-                      Create Replay Set
+                      {isCreating ? 'Creating...' : 'Create Replay Set'}
                     </Button>
                   </div>
                 </div>
@@ -546,17 +658,18 @@ export default function ReplayPage() {
                     </p>
                   </div>
 
-                  <div className="flex gap-3 pt-4 border-t border-border">
+                  <div className="flex gap-3 pt-4 border-t border-(--border)">
                     <Button
                       variant="secondary"
                       onClick={() => setRunDrawerOpen(false)}
                       className="flex-1"
+                      disabled={isRunning}
                     >
                       Cancel
                     </Button>
-                    <Button onClick={handleRunReplay} className="flex-1 gap-2">
+                    <Button onClick={handleRunReplay} className="flex-1 gap-2" disabled={isRunning}>
                       <Play className="h-4 w-4" />
-                      Run Replay
+                      {isRunning ? 'Running...' : 'Run Replay'}
                     </Button>
                   </div>
                 </div>
@@ -574,10 +687,13 @@ export default function ReplayPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <DrawerTitle>Replay Results</DrawerTitle>
-                      <Badge variant="success" className="gap-1.5">
-                        <Sparkles className="h-3 w-3" />
-                        {mockReplayResult.similarity}% Similar
-                      </Badge>
+                      {selectedSet && <Badge variant="secondary">{selectedSet.name}</Badge>}
+                      {normalizedSummary && (
+                        <Badge variant="success" className="gap-1.5">
+                          <Sparkles className="h-3 w-3" />
+                          {`${normalizedSummary.avg_semantic_score.toFixed(1)}% Avg Similarity`}
+                        </Badge>
+                      )}
                     </div>
                     <Button
                       variant="ghost"
@@ -591,152 +707,202 @@ export default function ReplayPage() {
                   <DrawerDescription>Compare original and replayed trace outputs</DrawerDescription>
                 </DrawerHeader>
 
-                {/* Comparison Metrics */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Card className="p-4 border-(--accent)">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1">Cost Savings</p>
-                        <p className="text-2xl font-bold text-green-600 dark:text-green-500">
-                          -37.8%
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          ${mockReplayResult.original.cost.toFixed(3)} → $
-                          {mockReplayResult.new.cost.toFixed(3)}
-                        </p>
-                      </div>
-                      <TrendingDown className="h-8 w-8 text-green-600 dark:text-green-500" />
-                    </div>
-                  </Card>
-
-                  <Card className="p-4 border-(--accent)">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1">Token Usage</p>
-                        <p className="text-2xl font-bold">{mockReplayResult.new.tokensOut}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {mockReplayResult.original.tokensOut} → {mockReplayResult.new.tokensOut}
-                        </p>
-                      </div>
-                      <Hash className="h-8 w-8 text-blue-600 dark:text-blue-400" />
-                    </div>
-                  </Card>
-
-                  <Card className="p-4 border-(--accent)">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1">Latency</p>
-                        <p className="text-2xl font-bold text-green-600 dark:text-green-500">
-                          -12.1%
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {mockReplayResult.original.latency}ms → {mockReplayResult.new.latency}ms
-                        </p>
-                      </div>
-                      <Clock className="h-8 w-8 text-purple-600 dark:text-purple-400" />
-                    </div>
-                  </Card>
-                </div>
-
-                {/* Side-by-Side Diff */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Output Comparison</h3>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    {/* Original Output */}
-                    <div className="rounded-lg border-(--border) border border-border bg-card overflow-hidden">
-                      <div className="flex items-center justify-between px-4 py-3 border-b border-(--accent) border-border bg-muted/30">
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full bg-blue-500"></div>
-                          <span className="text-sm font-medium">Original</span>
-                          <Badge variant="secondary" className="text-xs">
-                            {mockReplayResult.original.model}
-                          </Badge>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 gap-2"
-                          onClick={() =>
-                            copyToClipboard(mockReplayResult.original.output, 'original')
-                          }
-                        >
-                          {copiedOriginal ? (
-                            <>
-                              <Check className="h-3.5 w-3.5 text-green-500" />
-                              <span className="text-xs text-green-500">Copied</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="h-3.5 w-3.5" />
-                              <span className="text-xs">Copy</span>
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                      <div className="p-4 bg-muted/50 max-h-96 overflow-auto custom-scrollbar">
-                        <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                          {mockReplayResult.original.output}
-                        </p>
-                      </div>
-                      <div className="px-4 py-3 border-t border-(--accent) border-border bg-background">
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <span>
-                            {mockReplayResult.original.tokensIn} in /{' '}
-                            {mockReplayResult.original.tokensOut} out
-                          </span>
-                          <span>${mockReplayResult.original.cost.toFixed(4)}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* New Output */}
-                    <div className="rounded-lg border border-(--border)  border-border bg-card overflow-hidden">
-                      <div className="flex items-center justify-between px-4 py-3 border-b border-(--accent) border-border bg-muted/30">
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full bg-green-500"></div>
-                          <span className="text-sm font-medium">Replayed</span>
-                          <Badge variant="secondary" className="text-xs">
-                            {mockReplayResult.new.model}
-                          </Badge>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 gap-2"
-                          onClick={() => copyToClipboard(mockReplayResult.new.output, 'new')}
-                        >
-                          {copiedNew ? (
-                            <>
-                              <Check className="h-3.5 w-3.5 text-green-500" />
-                              <span className="text-xs text-green-500">Copied</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="h-3.5 w-3.5" />
-                              <span className="text-xs">Copy</span>
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                      <div className="p-4 bg-muted/50 max-h-96 overflow-auto custom-scrollbar">
-                        <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                          {mockReplayResult.new.output}
-                        </p>
-                      </div>
-                      <div className="px-4 py-3 border-t border-(--accent) border-border bg-background">
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <span>
-                            {mockReplayResult.new.tokensIn} in / {mockReplayResult.new.tokensOut}{' '}
-                            out
-                          </span>
-                          <span className="text-green-600 dark:text-green-500">
-                            ${mockReplayResult.new.cost.toFixed(4)}
-                          </span>
-                        </div>
-                      </div>
+                {isLoadingResults ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="text-center space-y-3">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+                      <p className="text-sm text-muted-foreground">Loading replay results...</p>
                     </div>
                   </div>
-                </div>
+                ) : replaySummary && replayResults.length > 0 ? (
+                  <>
+                    {/* Summary Metrics */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <Card className="p-4 border-(--accent)">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">Avg Cost Diff</p>
+                            <p
+                              className={`text-2xl font-bold ${normalizedSummary && normalizedSummary.avg_cost_diff < 0 ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}
+                            >
+                              {normalizedSummary && normalizedSummary.avg_cost_diff > 0 ? '+' : ''}
+                              {normalizedSummary
+                                ? `${(normalizedSummary.avg_cost_diff * 100).toFixed(1)}%`
+                                : 'N/A'}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {normalizedSummary
+                                ? `${normalizedSummary.total_results} traces`
+                                : '0 traces'}
+                            </p>
+                          </div>
+                          <TrendingDown
+                            className={`h-8 w-8 ${replaySummary.avg_cost_diff < 0 ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}
+                          />
+                        </div>
+                      </Card>
+
+                      <Card className="p-4 border-(--accent)">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">Avg Latency Diff</p>
+                            <p
+                              className={`text-2xl font-bold ${normalizedSummary && normalizedSummary.avg_latency_diff < 0 ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}
+                            >
+                              {normalizedSummary && normalizedSummary.avg_latency_diff > 0
+                                ? '+'
+                                : ''}
+                              {normalizedSummary
+                                ? `${(normalizedSummary.avg_latency_diff * 100).toFixed(1)}%`
+                                : 'N/A'}
+                            </p>
+                          </div>
+                          <Clock className="h-8 w-8 text-purple-600 dark:text-purple-400" />
+                        </div>
+                      </Card>
+
+                      <Card className="p-4 border-(--accent)">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">Semantic Score</p>
+                            <p className="text-2xl font-bold">
+                              {normalizedSummary
+                                ? `${normalizedSummary.avg_semantic_score.toFixed(1)}%`
+                                : 'N/A'}
+                            </p>
+                          </div>
+                          <Sparkles className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                        </div>
+                      </Card>
+
+                      <Card className="p-4 border-(--accent)">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">Response Changes</p>
+                            <p className="text-2xl font-bold">
+                              {normalizedSummary ? normalizedSummary.response_changes : 0}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {normalizedSummary && normalizedSummary.total_results > 0
+                                ? `${((normalizedSummary.response_changes / normalizedSummary.total_results) * 100).toFixed(1)}% changed`
+                                : '0.0% changed'}
+                            </p>
+                          </div>
+                          <GitCompare className="h-8 w-8 text-orange-600 dark:text-orange-400" />
+                        </div>
+                      </Card>
+                    </div>
+
+                    {/* Results List */}
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4">
+                        Individual Results ({replayResults.length})
+                      </h3>
+                      <div className="space-y-4 max-h-[600px] overflow-y-auto custom-scrollbar">
+                        {replayResults.map((result) => (
+                          <Card key={result.result_id} className="p-4 border-(--accent)">
+                            <div className="space-y-4">
+                              {/* Header */}
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <p className="font-medium">
+                                    {result.service_name || 'Unknown Service'}
+                                  </p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {result.endpoint || 'Unknown Endpoint'}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Badge
+                                    variant={
+                                      result.diff_summary.response_changed ? 'warning' : 'success'
+                                    }
+                                  >
+                                    {result.diff_summary.response_changed ? 'Changed' : 'Unchanged'}
+                                  </Badge>
+                                  <Badge variant="secondary">
+                                    {result.semantic_score.toFixed(1)}% similar
+                                  </Badge>
+                                </div>
+                              </div>
+
+                              {/* Metrics */}
+                              <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                  <p className="text-muted-foreground">Cost</p>
+                                  <p className="font-medium">
+                                    ${result.original_cost.toFixed(4)} → $
+                                    {result.replay_cost.toFixed(4)}
+                                    <span
+                                      className={`ml-2 ${result.diff_summary.cost_diff_percent < 0 ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}
+                                    >
+                                      ({result.diff_summary.cost_diff_percent > 0 ? '+' : ''}
+                                      {result.diff_summary.cost_diff_percent.toFixed(1)}%)
+                                    </span>
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground">Latency</p>
+                                  <p className="font-medium">
+                                    {result.original_latency.toFixed(0)}ms →{' '}
+                                    {result.replay_latency.toFixed(0)}ms
+                                    <span
+                                      className={`ml-2 ${result.diff_summary.latency_diff_percent < 0 ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}
+                                    >
+                                      ({result.diff_summary.latency_diff_percent > 0 ? '+' : ''}
+                                      {result.diff_summary.latency_diff_percent.toFixed(1)}%)
+                                    </span>
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Responses Comparison */}
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                {/* Original */}
+                                <div className="rounded-lg border border-(--border) bg-muted/30 overflow-hidden">
+                                  <div className="px-3 py-2 border-b border-(--border) bg-muted/50">
+                                    <div className="flex items-center gap-2">
+                                      <div className="h-2 w-2 rounded-full bg-blue-500"></div>
+                                      <span className="text-xs font-medium">Original</span>
+                                    </div>
+                                  </div>
+                                  <div className="p-3 max-h-48 overflow-auto custom-scrollbar">
+                                    <p className="text-xs leading-relaxed whitespace-pre-wrap">
+                                      {result.original_response}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                {/* Replay */}
+                                <div className="rounded-lg border border-(--border) bg-muted/30 overflow-hidden">
+                                  <div className="px-3 py-2 border-b border-(--border) bg-muted/50">
+                                    <div className="flex items-center gap-2">
+                                      <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                                      <span className="text-xs font-medium">Replayed</span>
+                                    </div>
+                                  </div>
+                                  <div className="p-3 max-h-48 overflow-auto custom-scrollbar">
+                                    <p className="text-xs leading-relaxed whitespace-pre-wrap">
+                                      {result.replay_response}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="text-center space-y-3">
+                      <FileText className="h-12 w-12 text-muted-foreground mx-auto" />
+                      <p className="text-sm text-muted-foreground">No replay results available</p>
+                      <p className="text-xs text-muted-foreground">Run a replay to see results</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </DrawerContent>

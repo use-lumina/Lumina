@@ -372,6 +372,116 @@ async function main() {
 
     console.log('✓ Created 3 sample alerts\n');
 
+    // ---------------------------
+    // Seed Replay Sets & Results
+    // ---------------------------
+    console.log('🎬 Creating sample replay sets...');
+
+    // Create two replay sets: one pending, one completed with results
+    const replayTraceIdsA = traces.slice(0, 5).map((t) => t.traceId);
+    const replayTraceIdsB = traces.slice(5, 20).map((t) => t.traceId);
+
+    const replayA = await sql`
+      INSERT INTO replay_sets (name, description, trace_ids, created_by, total_traces, status)
+      VALUES (
+        ${'Initial smoke test set'},
+        ${'Quick set for validating integration + smoke tests'},
+        ${replayTraceIdsA},
+        ${userId},
+        ${replayTraceIdsA.length},
+        'pending'
+      ) RETURNING replay_id
+    `;
+
+    const replayB = await sql`
+      INSERT INTO replay_sets (name, description, trace_ids, created_by, total_traces, status)
+      VALUES (
+        ${'Nightly regression set'},
+        ${'Larger set used for regression comparisons'},
+        ${replayTraceIdsB},
+        ${userId},
+        ${replayTraceIdsB.length},
+        'running'
+      ) RETURNING replay_id
+    `;
+
+    const replayAId = replayA[0]?.replay_id;
+    const replayBId = replayB[0]?.replay_id;
+
+    console.log(`  ✓ Created replay sets: ${replayAId} (pending), ${replayBId} (running)`);
+
+    // Simulate executing replayB for a subset and insert results
+    console.log('🎛️  Simulating replay execution for one set and inserting results...');
+
+    let completedCount = 0;
+    for (const t of traces.slice(5, 12)) {
+      try {
+        const replayCost = parseFloat((t.costUsd * (0.95 + Math.random() * 0.1)).toFixed(6));
+        const replayLatency = Math.max(1, Math.floor(t.latencyMs * (0.9 + Math.random() * 0.2)));
+        const hashSimilarity = t.response === t.response ? 1.0 : 0.95; // trivial equality
+        const semanticScore = t.semanticScore ?? 0.8 + Math.random() * 0.15;
+        const diffSummary = {
+          cost_diff: replayCost - t.costUsd,
+          cost_diff_percent: ((replayCost - t.costUsd) / (t.costUsd || 1)) * 100,
+          latency_diff: replayLatency - t.latencyMs,
+          latency_diff_percent: ((replayLatency - t.latencyMs) / (t.latencyMs || 1)) * 100,
+          response_changed: hashSimilarity < 1.0,
+        };
+
+        await sql`
+          INSERT INTO replay_results (
+            replay_id,
+            trace_id,
+            span_id,
+            original_response,
+            replay_response,
+            original_cost,
+            replay_cost,
+            original_latency,
+            replay_latency,
+            hash_similarity,
+            semantic_score,
+            diff_summary,
+            status
+          ) VALUES (
+            ${replayBId},
+            ${t.traceId},
+            ${t.spanId},
+            ${t.response},
+            ${t.response},
+            ${t.costUsd},
+            ${replayCost},
+            ${t.latencyMs},
+            ${replayLatency},
+            ${hashSimilarity},
+            ${semanticScore},
+            ${JSON.stringify(diffSummary)},
+            ${'completed'}
+          )
+        `;
+
+        completedCount++;
+
+        // update completed_traces counter on the replay set
+        await sql`
+          UPDATE replay_sets
+          SET completed_traces = ${completedCount}
+          WHERE replay_id = ${replayBId}
+        `;
+      } catch (err) {
+        console.error('Error inserting replay result for trace', t.traceId, err);
+      }
+    }
+
+    // mark replayB as completed
+    await sql`
+      UPDATE replay_sets
+      SET status = 'completed', completed_traces = ${completedCount}
+      WHERE replay_id = ${replayBId}
+    `;
+
+    console.log(`  ✓ Simulated ${completedCount} replay results for set ${replayBId}`);
+
     // Success output
     console.log('✅ Test data seeded successfully!\n');
     console.log('═══════════════════════════════════════════════════════════');

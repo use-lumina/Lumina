@@ -3,6 +3,7 @@
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
+import { ReplayDiff } from '@/components/replay/replay-diff';
 
 export default function ReplayDiffPage() {
   const params = useParams();
@@ -22,17 +23,8 @@ export default function ReplayDiffPage() {
           </div>
         </div>
 
-        {/* Placeholder content */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="rounded-lg border border-border bg-card p-8">
-            <h3 className="text-lg font-semibold mb-4">Original</h3>
-            <p className="text-muted-foreground">Original response will appear here</p>
-          </div>
-          <div className="rounded-lg border border-border bg-card p-8">
-            <h3 className="text-lg font-semibold mb-4">Replay</h3>
-            <p className="text-muted-foreground">Replay response will appear here</p>
-          </div>
-        </div>
+        {/* Diff Comparison */}
+        <ReplayDiff replayId={params.id as string} />
       </div>
     </div>
   );

@@ -1,36 +1,66 @@
-'use client';
-
-import { useParams, useRouter } from 'next/navigation';
+import { notFound } from 'next/navigation';
+import { getReplayDetails } from '@/lib/api';
+import { ReplayDetail } from '@/components/replay/replay-detail';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, GitCompare } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 
-export default function ReplayDetailPage() {
-  const params = useParams();
-  const router = useRouter();
+export const dynamic = 'force-dynamic';
 
-  return (
-    <div className="h-full overflow-auto">
-      <div className="max-w-6xl mx-auto p-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.push('/replay')}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold">Replay Execution</h1>
-            <p className="text-muted-foreground">Replay ID: {params.id}</p>
+interface Params {
+  params: { id: string };
+}
+
+export default async function ReplayDetailPage({ params }: Params) {
+  const { id } = params;
+
+  try {
+    const data = await getReplayDetails(id);
+
+    if (!data || !data.replaySet) {
+      return notFound();
+    }
+
+    return (
+      <div className="h-full overflow-auto">
+        <div className="max-w-6xl mx-auto p-6 space-y-6">
+          {/* Back Button */}
+          <div className="flex items-center gap-4">
+            <Link href="/replay">
+              <Button variant="ghost" size="icon">
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+            </Link>
           </div>
-          <Button onClick={() => router.push(`/replay/${params.id}/diff`)}>
-            <GitCompare className="h-4 w-4 mr-2" />
-            View Diff
-          </Button>
-        </div>
 
-        {/* Placeholder content */}
-        <div className="rounded-lg border border-border bg-card p-8 text-center">
-          <p className="text-muted-foreground">Replay execution view coming soon</p>
+          {/* Replay Details */}
+          <ReplayDetail replaySet={data.replaySet} summary={data.summary} />
         </div>
       </div>
-    </div>
-  );
+    );
+  } catch (err) {
+    console.error('Failed to load replay details:', err);
+    return (
+      <div className="h-full overflow-auto">
+        <div className="max-w-6xl mx-auto p-6">
+          <div className="flex items-center gap-4 mb-6">
+            <Link href="/replay">
+              <Button variant="ghost" size="icon">
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+            </Link>
+          </div>
+          <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+            <div className="text-center">
+              <h2 className="text-lg font-semibold text-foreground">Replay not found</h2>
+              <p className="text-sm text-muted-foreground mt-2">
+                Unable to fetch replay details. The replay may not exist or there was an error
+                loading it.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 }

@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { cn } from '@/lib/utils';
-import { Trace } from '@/app/page';
+import { Trace } from '@/app/traces/page';
 
 /* ----------------------------- Table Shell ----------------------------- */
 
@@ -97,7 +97,7 @@ function TableHead({ className, ...props }: React.ComponentProps<'th'>) {
         'h-10 px-2 text-left align-middle',
         'text-xs font-semibold uppercase tracking-wide text-muted-foreground',
         'whitespace-nowrap',
-        '[&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]',
+        '[&:has([role=checkbox])]:pr-0 *:[[role=checkbox]]:translate-y-0.5',
         className
       )}
       {...props}

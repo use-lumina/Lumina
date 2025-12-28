@@ -53,6 +53,16 @@ app.post('/login', async (c) => {
       email: user.email,
     });
 
+    // Set httpOnly cookie for the token. In production we mark Secure.
+    const maxAge = 7 * 24 * 60 * 60; // 7 days
+    const secureFlag = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+    const sameSite = 'Lax';
+    const cookie = `lumina_token=${token}; HttpOnly; Path=/; Max-Age=${maxAge}; SameSite=${sameSite}${secureFlag}`;
+
+    // Set cookie header
+    c.header('Set-Cookie', cookie);
+
+    // Return user info. Keep token in body for compatibility but clients should rely on cookie.
     return c.json({
       token,
       user: {
@@ -210,3 +220,25 @@ app.post('/refresh', requireAuth, async (c) => {
 });
 
 export default app;
+
+/**
+ * POST /auth/logout
+ * Clear the httpOnly token cookie
+ */
+app.post('/logout', async (c) => {
+  // Be defensive: always attempt to clear the cookie and return success.
+  try {
+    const secureFlag = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+    const cookie = `lumina_token=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax${secureFlag}`;
+
+    // Set cookie header to clear the cookie
+    c.header('Set-Cookie', cookie);
+
+    // Return success
+    return c.json({ ok: true });
+  } catch (error) {
+    console.error('Logout error:', error);
+    // Even if something fails, return success
+    return c.json({ ok: true });
+  }
+});

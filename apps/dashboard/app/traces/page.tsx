@@ -22,12 +22,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from '@/components/ui/chart';
 import { RealtimeIndicator } from '@/components/ui/realtime-indicator';
 import {
   TableSkeleton,
@@ -36,6 +30,7 @@ import {
 } from '@/components/ui/loading-skeletons';
 import { EmptyState } from '@/components/ui/empty-state';
 import { TraceDetailDrawer } from '@/components/traces/trace-detail-drawer';
+import { TablePagination } from '@/components/ui/table-pagination';
 import { cn } from '@/lib/utils';
 import {
   RefreshCw,
@@ -50,208 +45,57 @@ import {
   X,
   Inbox,
 } from 'lucide-react';
-import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts';
+import {
+  LineChart,
+  Line,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
+import {
+  getTraces,
+  getCostTimeline,
+  getTraceTrends,
+  type Trace as APITrace,
+  type TraceTrendsResponse,
+} from '@/lib/api';
+import { formatDistanceToNow } from 'date-fns';
+import type { UITrace } from '@/types/trace';
 
-export type TraceSpan = {
-  name: string;
-  startMs: number;
-  durationMs: number;
-  type: 'retrieval' | 'generation' | 'processing';
-};
+// API Trace type for this page (keeping snake_case from API)
+export type Trace = APITrace;
 
-export type Trace = {
-  id: string;
-  service: string;
-  endpoint: string;
-  model: 'gpt-4' | 'claude-3' | 'gpt-3.5';
-  latencyMs: number;
-  costUsd: number;
-  status: 'healthy' | 'degraded' | 'error';
-  createdAt: string;
-  // Detailed trace information
-  prompt?: string;
-  response?: string;
-  metadata?: {
-    userId?: string;
-    sessionId?: string;
-    tokensIn?: number;
-    tokensOut?: number;
-    temperature?: number;
+// Map API trace to UI trace
+function mapApiTraceToUI(trace: Trace): UITrace {
+  return {
+    id: trace.trace_id,
+    service: trace.service_name,
+    endpoint: trace.endpoint,
+    model: trace.model,
+    status:
+      trace.status === 'ok' || trace.status === 'healthy'
+        ? 'healthy'
+        : (trace.status as 'healthy' | 'degraded' | 'error'),
+    latencyMs: trace.latency_ms,
+    costUsd: trace.cost_usd,
+    createdAt: trace.timestamp,
+    prompt: trace.prompt,
+    response: trace.response,
+    spans: (trace.metadata as any)?.spans,
+    metadata: {
+      tokensIn: trace.prompt_tokens,
+      tokensOut: trace.completion_tokens,
+      temperature: trace.metadata?.temperature,
+      userId: trace.metadata?.userId || trace.customer_id,
+      sessionId: trace.metadata?.sessionId,
+      ...trace.metadata,
+    },
   };
-  spans?: TraceSpan[];
-};
-
-export const mockTraces: Trace[] = [
-  {
-    id: 'tr_01HX9A2F4K',
-    service: 'chat-api',
-    endpoint: '/chat/message',
-    model: 'gpt-4',
-    latencyMs: 2150,
-    costUsd: 0.044,
-    status: 'degraded',
-    createdAt: '2025-03-18T21:04:12Z',
-    prompt: 'Explain quantum computing in simple terms',
-    response:
-      'Quantum computing is a type of computing that uses quantum mechanics principles to process information. Unlike classical computers that use bits (0 or 1), quantum computers use qubits which can be in multiple states simultaneously...',
-    metadata: {
-      userId: 'user_abc123',
-      sessionId: 'sess_xyz789',
-      tokensIn: 42,
-      tokensOut: 156,
-      temperature: 0.7,
-    },
-    spans: [
-      { name: 'Context Retrieval', startMs: 0, durationMs: 320, type: 'retrieval' },
-      { name: 'LLM Generation', startMs: 320, durationMs: 1650, type: 'generation' },
-      { name: 'Post-processing', startMs: 1970, durationMs: 180, type: 'processing' },
-    ],
-  },
-  {
-    id: 'tr_01HX9A2J9P',
-    service: 'search-api',
-    endpoint: '/search/query',
-    model: 'claude-3',
-    latencyMs: 820,
-    costUsd: 0.012,
-    status: 'healthy',
-    createdAt: '2025-03-18T21:04:08Z',
-    prompt: 'Find documents about machine learning best practices',
-    response:
-      'Here are the top 5 documents about machine learning best practices:\n1. "ML Engineering Guide" - Covers data preprocessing and model validation\n2. "Production ML Systems"...',
-    metadata: {
-      userId: 'user_def456',
-      sessionId: 'sess_abc111',
-      tokensIn: 28,
-      tokensOut: 89,
-      temperature: 0.3,
-    },
-    spans: [
-      { name: 'Vector Search', startMs: 0, durationMs: 210, type: 'retrieval' },
-      { name: 'Reranking', startMs: 210, durationMs: 150, type: 'processing' },
-      { name: 'Summary Generation', startMs: 360, durationMs: 460, type: 'generation' },
-    ],
-  },
-  {
-    id: 'tr_01HX9A2NQ3',
-    service: 'order-api',
-    endpoint: '/checkout',
-    model: 'gpt-4',
-    latencyMs: 3120,
-    costUsd: 0.091,
-    status: 'error',
-    createdAt: '2025-03-18T21:03:59Z',
-    prompt: 'Process checkout for order #12345 with items...',
-    response: 'Error: Payment validation failed - insufficient funds',
-    metadata: {
-      userId: 'user_ghi789',
-      sessionId: 'sess_def222',
-      tokensIn: 187,
-      tokensOut: 23,
-      temperature: 0.0,
-    },
-    spans: [
-      { name: 'Order Validation', startMs: 0, durationMs: 450, type: 'processing' },
-      { name: 'Payment Check', startMs: 450, durationMs: 2100, type: 'processing' },
-      { name: 'Error Handling', startMs: 2550, durationMs: 570, type: 'generation' },
-    ],
-  },
-  {
-    id: 'tr_01HX9A2R1A',
-    service: 'chat-api',
-    endpoint: '/chat/message',
-    model: 'gpt-3.5',
-    latencyMs: 640,
-    costUsd: 0.004,
-    status: 'healthy',
-    createdAt: '2025-03-18T21:03:42Z',
-    prompt: 'What is the weather like today?',
-    response:
-      "I don't have access to real-time weather data. Please check a weather service like weather.com or use your device's weather app for current conditions.",
-    metadata: {
-      userId: 'user_jkl012',
-      sessionId: 'sess_ghi333',
-      tokensIn: 18,
-      tokensOut: 45,
-      temperature: 0.8,
-    },
-    spans: [
-      { name: 'Intent Detection', startMs: 0, durationMs: 120, type: 'processing' },
-      { name: 'Response Generation', startMs: 120, durationMs: 480, type: 'generation' },
-      { name: 'Formatting', startMs: 600, durationMs: 40, type: 'processing' },
-    ],
-  },
-  {
-    id: 'tr_01HX9A2T8C',
-    service: 'support-api',
-    endpoint: '/summarize',
-    model: 'claude-3',
-    latencyMs: 1480,
-    costUsd: 0.021,
-    status: 'degraded',
-    createdAt: '2025-03-18T21:03:31Z',
-    prompt: 'Summarize the following customer support conversation: [long text...]',
-    response:
-      'Summary: Customer reported login issues. Support agent verified credentials and reset password. Issue resolved in 15 minutes. Customer satisfaction: High.',
-    metadata: {
-      userId: 'agent_support_01',
-      sessionId: 'sess_jkl444',
-      tokensIn: 523,
-      tokensOut: 67,
-      temperature: 0.5,
-    },
-    spans: [
-      { name: 'Document Loading', startMs: 0, durationMs: 280, type: 'retrieval' },
-      { name: 'Summarization', startMs: 280, durationMs: 1050, type: 'generation' },
-      { name: 'Quality Check', startMs: 1330, durationMs: 150, type: 'processing' },
-    ],
-  },
-];
-
-// Mock time series data for charts
-const latencyData = [
-  { time: '14:00', latency: 1200 },
-  { time: '14:05', latency: 980 },
-  { time: '14:10', latency: 1450 },
-  { time: '14:15', latency: 2100 },
-  { time: '14:20', latency: 1650 },
-  { time: '14:25', latency: 1320 },
-  { time: '14:30', latency: 1580 },
-  { time: '14:35', latency: 1890 },
-  { time: '14:40', latency: 1420 },
-  { time: '14:45', latency: 1180 },
-  { time: '14:50', latency: 1350 },
-  { time: '14:55', latency: 1520 },
-];
-
-const costData = [
-  { time: '14:00', cost: 0.042 },
-  { time: '14:05', cost: 0.038 },
-  { time: '14:10', cost: 0.051 },
-  { time: '14:15', cost: 0.067 },
-  { time: '14:20', cost: 0.055 },
-  { time: '14:25', cost: 0.048 },
-  { time: '14:30', cost: 0.062 },
-  { time: '14:35', cost: 0.071 },
-  { time: '14:40', cost: 0.058 },
-  { time: '14:45', cost: 0.044 },
-  { time: '14:50', cost: 0.052 },
-  { time: '14:55', cost: 0.059 },
-];
-
-const latencyChartConfig = {
-  latency: {
-    label: 'Latency (ms)',
-    color: 'hsl(var(--chart-1))',
-  },
-} satisfies ChartConfig;
-
-const costChartConfig = {
-  cost: {
-    label: 'Cost ($)',
-    color: 'hsl(var(--chart-2))',
-  },
-} satisfies ChartConfig;
+}
 
 function formatLatency(ms: number) {
   return `${ms} ms`;
@@ -274,48 +118,191 @@ function getRowVariant(status: Trace['status']) {
 
 export default function Home() {
   // State management
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [showFilters, setShowFilters] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
+  // Data state
+  const [traces, setTraces] = useState<Trace[]>([]);
+  const [latencyChartData, setLatencyChartData] = useState<any[]>([]);
+  const [costChartData, setCostChartData] = useState<any[]>([]);
+  const [trends, setTrends] = useState<TraceTrendsResponse['trends'] | null>(null);
+
   // Filter state
   const [serviceFilter, setServiceFilter] = useState<string>('all');
   const [modelFilter, setModelFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [minCost, setMinCost] = useState<string>('');
-  const [maxCost, setMaxCost] = useState<string>('');
-  const [timeRange, setTimeRange] = useState<string>('all');
+  const [endpointFilter, setEndpointFilter] = useState<string>('');
+  const [timeRange, setTimeRange] = useState<string>('24h');
 
   // Drawer state
-  const [selectedTrace, setSelectedTrace] = useState<Trace | null>(null);
+  const [selectedTrace, setSelectedTrace] = useState<UITrace | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // Initial load
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalTraces, setTotalTraces] = useState(0);
+  const ITEMS_PER_PAGE = 10;
+
+  // Fetch traces data
+  const fetchTracesData = async () => {
+    try {
+      const now = new Date();
+      let startTime = new Date(now.getTime() - 60 * 60 * 1000); // Default 1 hour
+
+      // Calculate time range
+      const ranges: Record<string, number> = {
+        '5m': 5 * 60 * 1000,
+        '1h': 60 * 60 * 1000,
+        '24h': 24 * 60 * 60 * 1000,
+        '7d': 7 * 24 * 60 * 60 * 1000,
+      };
+
+      if (ranges[timeRange]) {
+        startTime = new Date(now.getTime() - ranges[timeRange]);
+      }
+
+      // Calculate offset for pagination
+      const offset = (currentPage - 1) * ITEMS_PER_PAGE;
+
+      // Fetch traces with filters and pagination
+      const tracesResponse = await getTraces({
+        service: serviceFilter !== 'all' ? serviceFilter : undefined,
+        model: modelFilter !== 'all' ? modelFilter : undefined,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+        endpoint: endpointFilter || undefined,
+        startTime: timeRange !== 'all' ? startTime.toISOString() : undefined,
+        limit: ITEMS_PER_PAGE,
+        offset: offset,
+      });
+
+      // Debug: log traces response
+      console.debug('getTraces response:', tracesResponse);
+      setTraces(tracesResponse.data);
+      setTotalTraces(tracesResponse.pagination.total);
+
+      // Fetch chart data
+      // Determine granularity to request from backend
+      const granularity = timeRange === '7d' ? 'day' : 'hour';
+
+      const timelineResponse = await getCostTimeline({
+        startTime: startTime.toISOString(),
+        endTime: now.toISOString(),
+        granularity,
+      });
+
+      // Transform data for charts - now includes latency from API
+      // Debug: log timeline response
+      console.debug('getCostTimeline response:', timelineResponse);
+
+      const chartData = timelineResponse.data.map((item: any) => {
+        const date = new Date(item.time_bucket);
+
+        // Choose label format depending on range
+        const timeLabel =
+          timeRange === '7d'
+            ? `${date.getMonth() + 1}/${date.getDate()}`
+            : `${date.getHours().toString().padStart(2, '0')}:${date
+                .getMinutes()
+                .toString()
+                .padStart(2, '0')}`;
+
+        // Backend returns numeric fields sometimes as strings (e.g. request_count)
+        const requests = item.request_count ? parseInt(String(item.request_count), 10) : 0;
+
+        // Prefer avg_cost if provided by backend, otherwise derive from total_cost/request_count
+        const avgCost = item.avg_cost
+          ? parseFloat(String(item.avg_cost))
+          : item.total_cost && requests > 0
+            ? parseFloat(String(item.total_cost)) / requests
+            : 0;
+
+        const avgLatency = item.avg_latency_ms ? parseFloat(String(item.avg_latency_ms)) : 0;
+
+        return {
+          time: timeLabel,
+          cost: avgCost,
+          latency: Math.round(avgLatency),
+          requests,
+        };
+      });
+
+      const latencyData = chartData.map((d) => ({ time: d.time, latency: d.latency }));
+      const costData = chartData.map((d) => ({ time: d.time, cost: d.cost }));
+
+      // Debug: log derived chart data
+      console.debug('derived chartData length:', chartData.length, {
+        latencyDataSample: latencyData.slice(0, 5),
+        costDataSample: costData.slice(0, 5),
+      });
+
+      setLatencyChartData(latencyData);
+      setCostChartData(costData);
+
+      // Fetch trends data
+      const trendsResponse = await getTraceTrends({
+        startTime: startTime.toISOString(),
+        endTime: now.toISOString(),
+        service: serviceFilter !== 'all' ? serviceFilter : undefined,
+        model: modelFilter !== 'all' ? modelFilter : undefined,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+        endpoint: endpointFilter || undefined,
+      });
+
+      console.debug('getTraceTrends response:', trendsResponse);
+      setTrends(trendsResponse.trends);
+    } catch (error) {
+      console.error('Failed to fetch traces data:', error);
+    }
+  };
+
+  // Initial load and filter changes
   useEffect(() => {
-    const timer = setTimeout(() => {
+    async function loadData() {
+      setIsInitialLoading(true);
+      await fetchTracesData();
       setIsInitialLoading(false);
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, []);
+    }
+
+    loadData();
+  }, [serviceFilter, modelFilter, statusFilter, endpointFilter, timeRange, currentPage]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [serviceFilter, modelFilter, statusFilter, endpointFilter, timeRange]);
 
   // Auto-refresh every 5 seconds
   useEffect(() => {
     if (isInitialLoading) return;
 
-    const interval = setInterval(() => {
+    const interval = setInterval(async () => {
       setIsRefreshing(true);
-      setTimeout(() => {
-        setLastRefresh(new Date());
-        setIsRefreshing(false);
-      }, 500);
+      await fetchTracesData();
+      setLastRefresh(new Date());
+      setIsRefreshing(false);
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [isInitialLoading]);
+  }, [
+    isInitialLoading,
+    serviceFilter,
+    modelFilter,
+    statusFilter,
+    endpointFilter,
+    timeRange,
+    currentPage,
+  ]);
+
+  // Handle edge case: if current page becomes invalid, go to last valid page
+  useEffect(() => {
+    const totalPages = Math.ceil(totalTraces / ITEMS_PER_PAGE);
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalTraces, currentPage, ITEMS_PER_PAGE]);
 
   // Handle deep linking - auto-open drawer if traceId is in URL
   useEffect(() => {
@@ -323,64 +310,35 @@ export default function Home() {
 
     const traceId = searchParams.get('traceId');
     if (traceId) {
-      const trace = mockTraces.find((t) => t.id === traceId);
+      const trace = traces.find((t) => t.trace_id === traceId);
       if (trace) {
-        setSelectedTrace(trace);
+        setSelectedTrace(mapApiTraceToUI(trace));
         setDrawerOpen(true);
       }
     }
-  }, [isInitialLoading, searchParams]);
+  }, [isInitialLoading, searchParams, traces]);
 
-  // Filter traces
-  const filteredTraces = mockTraces.filter((trace) => {
-    if (serviceFilter !== 'all' && trace.service !== serviceFilter) return false;
-    if (modelFilter !== 'all' && trace.model !== modelFilter) return false;
-    if (statusFilter !== 'all' && trace.status !== statusFilter) return false;
-    if (
-      searchQuery &&
-      !trace.endpoint.toLowerCase().includes(searchQuery.toLowerCase()) &&
-      !trace.id.toLowerCase().includes(searchQuery.toLowerCase())
-    ) {
-      return false;
-    }
-
-    // Cost range filter
-    if (minCost && parseFloat(minCost) > trace.costUsd) return false;
-    if (maxCost && parseFloat(maxCost) < trace.costUsd) return false;
-
-    // Time range filter
-    if (timeRange !== 'all') {
-      const traceTime = new Date(trace.createdAt).getTime();
-      const now = Date.now();
-      const ranges: Record<string, number> = {
-        '5m': 5 * 60 * 1000,
-        '1h': 60 * 60 * 1000,
-        '24h': 24 * 60 * 60 * 1000,
-        '7d': 7 * 24 * 60 * 60 * 1000,
-      };
-      if (ranges[timeRange] && now - traceTime > ranges[timeRange]) return false;
-    }
-
-    return true;
-  });
-
-  // Calculate metrics from filtered data
-  const totalTraces = filteredTraces.length;
+  // Calculate metrics from traces (all filters are server-side now)
+  const displayedTracesCount = traces.length;
   const avgLatency =
-    filteredTraces.length > 0
-      ? Math.round(filteredTraces.reduce((sum, t) => sum + t.latencyMs, 0) / filteredTraces.length)
+    traces.length > 0
+      ? Math.round(traces.reduce((sum, t) => sum + t.latency_ms, 0) / traces.length)
       : 0;
-  const totalCost = filteredTraces.reduce((sum, t) => sum + t.costUsd, 0);
-  const errorCount = filteredTraces.filter((t) => t.status === 'error').length;
-  const errorRate = totalTraces > 0 ? ((errorCount / totalTraces) * 100).toFixed(1) : '0.0';
+  const totalCost = traces.reduce((sum, t) => sum + t.cost_usd, 0);
+  const errorCount = traces.filter((t) => t.status === 'error').length;
+  const errorRate =
+    displayedTracesCount > 0 ? ((errorCount / displayedTracesCount) * 100).toFixed(1) : '0.0';
+
+  // Cost per request (average)
+  const avgCostPerRequest = displayedTracesCount > 0 ? totalCost / displayedTracesCount : 0;
 
   // Get unique values for filters
-  const services = Array.from(new Set(mockTraces.map((t) => t.service)));
-  const models = Array.from(new Set(mockTraces.map((t) => t.model)));
+  const services = Array.from(new Set(traces.map((t) => t.service_name)));
+  const models = Array.from(new Set(traces.map((t) => t.model)));
 
   // Handle trace click
   const handleTraceClick = (trace: Trace) => {
-    setSelectedTrace(trace);
+    setSelectedTrace(mapApiTraceToUI(trace));
     setDrawerOpen(true);
   };
 
@@ -389,9 +347,7 @@ export default function Home() {
     setServiceFilter('all');
     setModelFilter('all');
     setStatusFilter('all');
-    setSearchQuery('');
-    setMinCost('');
-    setMaxCost('');
+    setEndpointFilter('');
     setTimeRange('all');
   };
 
@@ -399,9 +355,7 @@ export default function Home() {
     serviceFilter !== 'all' ||
     modelFilter !== 'all' ||
     statusFilter !== 'all' ||
-    searchQuery.length > 0 ||
-    minCost.length > 0 ||
-    maxCost.length > 0 ||
+    endpointFilter.length > 0 ||
     timeRange !== 'all';
 
   if (isInitialLoading) {
@@ -465,11 +419,29 @@ export default function Home() {
           <div className="flex items-start justify-between">
             <div className="space-y-1">
               <p className="text-xs font-medium text-muted-foreground">Total Requests</p>
-              <p className="text-2xl font-semibold">{totalTraces.toLocaleString()}</p>
-              <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-500">
-                <TrendingUp className="h-3 w-3" />
-                <span>12.5% vs last hour</span>
-              </div>
+              <p className="text-2xl font-semibold">{displayedTracesCount.toLocaleString()}</p>
+              {trends && (
+                <div
+                  className={cn(
+                    'flex items-center gap-1 text-xs',
+                    trends.requestsTrend > 0
+                      ? 'text-green-600 dark:text-green-500'
+                      : trends.requestsTrend < 0
+                        ? 'text-red-600 dark:text-red-500'
+                        : 'text-muted-foreground'
+                  )}
+                >
+                  {trends.requestsTrend > 0 ? (
+                    <TrendingUp className="h-3 w-3" />
+                  ) : trends.requestsTrend < 0 ? (
+                    <TrendingDown className="h-3 w-3" />
+                  ) : null}
+                  <span>
+                    {trends.requestsTrend > 0 ? '+' : ''}
+                    {trends.requestsTrend.toFixed(1)}% vs prev period
+                  </span>
+                </div>
+              )}
             </div>
             <div className="rounded-lg bg-purple-100 p-2 dark:bg-purple-950">
               <Activity className="h-4 w-4 text-purple-600 dark:text-purple-400" />
@@ -483,10 +455,28 @@ export default function Home() {
             <div className="space-y-1">
               <p className="text-xs font-medium text-muted-foreground">Avg Latency</p>
               <p className="text-2xl font-semibold">{avgLatency}ms</p>
-              <div className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-500">
-                <TrendingUp className="h-3 w-3" />
-                <span>8.2% vs last hour</span>
-              </div>
+              {trends && (
+                <div
+                  className={cn(
+                    'flex items-center gap-1 text-xs',
+                    trends.latencyTrend > 0
+                      ? 'text-red-600 dark:text-red-500'
+                      : trends.latencyTrend < 0
+                        ? 'text-green-600 dark:text-green-500'
+                        : 'text-muted-foreground'
+                  )}
+                >
+                  {trends.latencyTrend > 0 ? (
+                    <TrendingUp className="h-3 w-3" />
+                  ) : trends.latencyTrend < 0 ? (
+                    <TrendingDown className="h-3 w-3" />
+                  ) : null}
+                  <span>
+                    {trends.latencyTrend > 0 ? '+' : ''}
+                    {trends.latencyTrend.toFixed(1)}% vs prev period
+                  </span>
+                </div>
+              )}
             </div>
             <div className="rounded-lg bg-blue-100 p-2 dark:bg-blue-950">
               <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
@@ -500,10 +490,31 @@ export default function Home() {
             <div className="space-y-1">
               <p className="text-xs font-medium text-muted-foreground">Total Cost</p>
               <p className="text-2xl font-semibold">${totalCost.toFixed(3)}</p>
-              <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-500">
-                <TrendingDown className="h-3 w-3" />
-                <span>3.1% vs last hour</span>
-              </div>
+              <p className="text-xs text-muted-foreground">
+                Cost / Request: <span className="font-medium">${avgCostPerRequest.toFixed(4)}</span>
+              </p>
+              {trends && (
+                <div
+                  className={cn(
+                    'flex items-center gap-1 text-xs',
+                    trends.costTrend > 0
+                      ? 'text-red-600 dark:text-red-500'
+                      : trends.costTrend < 0
+                        ? 'text-green-600 dark:text-green-500'
+                        : 'text-muted-foreground'
+                  )}
+                >
+                  {trends.costTrend > 0 ? (
+                    <TrendingUp className="h-3 w-3" />
+                  ) : trends.costTrend < 0 ? (
+                    <TrendingDown className="h-3 w-3" />
+                  ) : null}
+                  <span>
+                    {trends.costTrend > 0 ? '+' : ''}
+                    {trends.costTrend.toFixed(1)}% vs prev period
+                  </span>
+                </div>
+              )}
             </div>
             <div className="rounded-lg bg-emerald-100 p-2 dark:bg-emerald-950">
               <DollarSign className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
@@ -517,10 +528,28 @@ export default function Home() {
             <div className="space-y-1">
               <p className="text-xs font-medium text-muted-foreground">Error Rate</p>
               <p className="text-2xl font-semibold">{errorRate}%</p>
-              <div className="flex items-center gap-1 text-xs text-red-600 dark:text-red-500">
-                <TrendingUp className="h-3 w-3" />
-                <span>2.3% vs last hour</span>
-              </div>
+              {trends && (
+                <div
+                  className={cn(
+                    'flex items-center gap-1 text-xs',
+                    trends.errorRateTrend > 0
+                      ? 'text-red-600 dark:text-red-500'
+                      : trends.errorRateTrend < 0
+                        ? 'text-green-600 dark:text-green-500'
+                        : 'text-muted-foreground'
+                  )}
+                >
+                  {trends.errorRateTrend > 0 ? (
+                    <TrendingUp className="h-3 w-3" />
+                  ) : trends.errorRateTrend < 0 ? (
+                    <TrendingDown className="h-3 w-3" />
+                  ) : null}
+                  <span>
+                    {trends.errorRateTrend > 0 ? '+' : ''}
+                    {trends.errorRateTrend.toFixed(1)}% vs prev period
+                  </span>
+                </div>
+              )}
             </div>
             <div className="rounded-lg bg-red-100 p-2 dark:bg-red-950">
               <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
@@ -538,28 +567,55 @@ export default function Home() {
               <h3 className="text-sm font-medium">Average Latency</h3>
               <p className="text-xs text-muted-foreground">Last 60 minutes</p>
             </div>
-            <ChartContainer config={latencyChartConfig} className="h-50 w-full">
-              <AreaChart data={latencyData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis
-                  dataKey="time"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                  tickFormatter={(value) => value}
-                />
-                <YAxis tickLine={false} axisLine={false} tickMargin={8} />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Area
-                  type="monotone"
-                  dataKey="latency"
-                  stroke="hsl(var(--chart-1))"
-                  fill="hsl(var(--chart-1))"
-                  fillOpacity={0.2}
-                  strokeWidth={2}
-                />
-              </AreaChart>
-            </ChartContainer>
+            <div className="h-56 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={latencyChartData}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="hsl(var(--border))"
+                  />
+                  <XAxis
+                    dataKey="time"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                    fontSize={11}
+                    stroke="hsl(var(--muted-foreground))"
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                    fontSize={11}
+                    stroke="hsl(var(--muted-foreground))"
+                  />
+                  <Tooltip
+                    content={({ active, payload }: any) => {
+                      if (active && payload && payload.length) {
+                        return (
+                          <div className="bg-card border border-border rounded-lg px-3 py-2 shadow-lg">
+                            <p className="text-sm font-semibold">{payload[0].value} ms</p>
+                            <p className="text-xs text-muted-foreground">
+                              {payload[0].payload.time}
+                            </p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="latency"
+                    stroke="hsl(var(--primary))"
+                    fill="hsl(var(--primary))"
+                    fillOpacity={0.2}
+                    strokeWidth={2}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </Card>
 
@@ -570,32 +626,55 @@ export default function Home() {
               <h3 className="text-sm font-medium">Cost per Request</h3>
               <p className="text-xs text-muted-foreground">Last 60 minutes</p>
             </div>
-            <ChartContainer config={costChartConfig} className="h-50 w-full">
-              <LineChart data={costData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis
-                  dataKey="time"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                  tickFormatter={(value) => value}
-                />
-                <YAxis
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                  tickFormatter={(value) => `$${value}`}
-                />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Line
-                  type="monotone"
-                  dataKey="cost"
-                  stroke="hsl(var(--chart-2))"
-                  strokeWidth={2}
-                  dot={false}
-                />
-              </LineChart>
-            </ChartContainer>
+            <div className="h-56 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={costChartData}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="hsl(var(--border))"
+                  />
+                  <XAxis
+                    dataKey="time"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                    fontSize={11}
+                    stroke="hsl(var(--muted-foreground))"
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                    fontSize={11}
+                    stroke="hsl(var(--muted-foreground))"
+                    tickFormatter={(value) => `$${value.toFixed(3)}`}
+                  />
+                  <Tooltip
+                    content={({ active, payload }: any) => {
+                      if (active && payload && payload.length) {
+                        return (
+                          <div className="bg-card border border-border rounded-lg px-3 py-2 shadow-lg">
+                            <p className="text-sm font-semibold">${payload[0].value.toFixed(3)}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {payload[0].payload.time}
+                            </p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="cost"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </Card>
       </div>
@@ -638,24 +717,12 @@ export default function Home() {
                       />
                     </Badge>
                   )}
-                  {searchQuery && (
+                  {endpointFilter && (
                     <Badge variant="secondary">
-                      Search: "{searchQuery}"
+                      Endpoint: "{endpointFilter}"
                       <X
                         className="h-3 w-3 ml-1 cursor-pointer"
-                        onClick={() => setSearchQuery('')}
-                      />
-                    </Badge>
-                  )}
-                  {(minCost || maxCost) && (
-                    <Badge variant="secondary">
-                      Cost: ${minCost || '0'} - ${maxCost || '∞'}
-                      <X
-                        className="h-3 w-3 ml-1 cursor-pointer"
-                        onClick={() => {
-                          setMinCost('');
-                          setMaxCost('');
-                        }}
+                        onClick={() => setEndpointFilter('')}
                       />
                     </Badge>
                   )}
@@ -682,18 +749,16 @@ export default function Home() {
                 </>
               )}
             </div>
-            <div className="text-sm text-muted-foreground">
-              {filteredTraces.length} of {mockTraces.length} traces
-            </div>
+            <div className="text-sm text-muted-foreground">{totalTraces} total traces</div>
           </div>
 
           {showFilters && (
             <div className="space-y-3 pt-2">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <Input
-                  placeholder="Search endpoint or ID..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Filter by endpoint..."
+                  value={endpointFilter}
+                  onChange={(e) => setEndpointFilter(e.target.value)}
                   className="w-full"
                 />
 
@@ -736,33 +801,7 @@ export default function Home() {
                     <SelectItem value="error">Error</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {/* Cost Range */}
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    placeholder="Min cost"
-                    value={minCost}
-                    onChange={(e) => setMinCost(e.target.value)}
-                    className="w-full"
-                    step="0.001"
-                    min="0"
-                  />
-                  <span className="text-muted-foreground">-</span>
-                  <Input
-                    type="number"
-                    placeholder="Max cost"
-                    value={maxCost}
-                    onChange={(e) => setMaxCost(e.target.value)}
-                    className="w-full"
-                    step="0.001"
-                    min="0"
-                  />
-                </div>
-
-                {/* Time Range */}
                 <Select value={timeRange} onValueChange={setTimeRange}>
                   <SelectTrigger size="sm">
                     <SelectValue placeholder="Time Range" />
@@ -780,8 +819,8 @@ export default function Home() {
           )}
         </div>
 
-        <div className="overflow-x-auto">
-          <Table>
+        <div className="relative w-full overflow-x-auto rounded-lg border border-(--border)">
+          <table className="w-full caption-bottom text-sm">
             <TableHeader>
               <TableRow>
                 <TableHead>Status</TableHead>
@@ -795,7 +834,7 @@ export default function Home() {
             </TableHeader>
 
             <TableBody>
-              {filteredTraces.length === 0 ? (
+              {traces.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="p-0">
                     <EmptyState
@@ -818,9 +857,9 @@ export default function Home() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredTraces.map((trace) => (
+                traces.map((trace) => (
                   <TableRow
-                    key={trace.id}
+                    key={trace.trace_id}
                     data-variant={getRowVariant(trace.status)}
                     className="cursor-pointer hover:bg-muted/50 border-(--border)"
                     onClick={() => handleTraceClick(trace)}
@@ -828,7 +867,7 @@ export default function Home() {
                     <TableCell>
                       <StatusDot status={trace.status} />
                     </TableCell>
-                    <TableCell className="font-medium">{trace.service}</TableCell>
+                    <TableCell className="font-medium">{trace.service_name}</TableCell>
                     <TableCell className="font-mono text-sm text-muted-foreground">
                       {trace.endpoint}
                     </TableCell>
@@ -838,27 +877,43 @@ export default function Home() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right font-mono tabular-nums">
-                      {formatCost(trace.costUsd)}
+                      {formatCost(trace.cost_usd)}
                     </TableCell>
                     <TableCell
                       className={cn(
                         'text-right font-mono tabular-nums',
-                        trace.latencyMs > 3000 && 'text-red-600 dark:text-red-400',
-                        trace.latencyMs > 1500 &&
-                          trace.latencyMs <= 3000 &&
+                        trace.latency_ms > 3000 && 'text-red-600 dark:text-red-400',
+                        trace.latency_ms > 1500 &&
+                          trace.latency_ms <= 3000 &&
                           'text-amber-600 dark:text-amber-400'
                       )}
                     >
-                      {formatLatency(trace.latencyMs)}
+                      {formatLatency(trace.latency_ms)}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {new Date(trace.createdAt).toLocaleTimeString()}
+                      {new Date(trace.timestamp).toLocaleTimeString()}
                     </TableCell>
                   </TableRow>
                 ))
               )}
             </TableBody>
-          </Table>
+          </table>
+
+          {/* Pagination */}
+          {totalTraces > ITEMS_PER_PAGE && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-(--border) bg-background">
+              <div className="text-sm text-muted-foreground">
+                Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1} to{' '}
+                {Math.min(currentPage * ITEMS_PER_PAGE, totalTraces)} of {totalTraces} traces
+              </div>
+              <TablePagination
+                currentPage={currentPage}
+                totalItems={totalTraces}
+                itemsPerPage={ITEMS_PER_PAGE}
+                onPageChange={setCurrentPage}
+              />
+            </div>
+          )}
         </div>
       </Card>
 

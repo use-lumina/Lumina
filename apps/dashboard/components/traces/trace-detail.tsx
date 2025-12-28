@@ -2,10 +2,10 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SpanTimeline } from './trace-timeline';
 import { Clock, DollarSign, User, Hash } from 'lucide-react';
-import type { Trace } from '@/app/traces/page';
+import type { UITrace } from '@/types/trace';
 
 interface TraceDetailProps {
-  trace: Trace;
+  trace: UITrace;
 }
 
 export function TraceDetail({ trace }: TraceDetailProps) {
@@ -50,7 +50,7 @@ export function TraceDetail({ trace }: TraceDetailProps) {
           <p className="text-2xl font-semibold">{trace.model}</p>
         </div>
 
-        <div className="rounded-lg border border-border bg-card p-4">
+        <div className="rounded-lg border border-(--border) bg-card p-4">
           <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
             <User className="h-4 w-4" />
             <span>Status</span>
@@ -88,7 +88,7 @@ export function TraceDetail({ trace }: TraceDetailProps) {
         </TabsList>
 
         <TabsContent value="prompt" className="mt-4">
-          <div className="rounded-lg border border-border bg-muted p-6">
+          <div className="rounded-lg border border-(--sidebar-border) bg-muted p-6">
             <pre className="whitespace-pre-wrap text-sm font-mono">
               {trace.prompt || 'No prompt data available'}
             </pre>
@@ -96,7 +96,7 @@ export function TraceDetail({ trace }: TraceDetailProps) {
         </TabsContent>
 
         <TabsContent value="response" className="mt-4">
-          <div className="rounded-lg border border-border bg-muted p-6">
+          <div className="rounded-lg border border-(--sidebar-border) bg-muted p-6">
             <pre className="whitespace-pre-wrap text-sm font-mono">
               {trace.response || 'No response data available'}
             </pre>
@@ -104,7 +104,7 @@ export function TraceDetail({ trace }: TraceDetailProps) {
         </TabsContent>
 
         <TabsContent value="metadata" className="mt-4">
-          <div className="rounded-lg border border-border bg-card p-6">
+          <div className="rounded-lg border border-(--sidebar-border) bg-card p-6">
             <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {trace.metadata?.userId && (
                 <>

@@ -1,6 +1,10 @@
 import { Hono } from 'hono';
 import { getDB } from '../database/postgres';
-import { compareTraces, type TraceData } from '@lumina/core';
+import {
+  calculateHashSimilarity,
+  calculateSemanticSimilarity,
+  simulateResponseVariation,
+} from '../utils/similarity';
 
 const app = new Hono();
 
@@ -154,22 +158,22 @@ app.post('/run', async (c) => {
 
     for (const trace of traces) {
       try {
-        // Simulate replay execution
+        // Simulate replay execution with realistic variations
         // In production, this would:
         // 1. Send the original prompt to the LLM endpoint
         // 2. Get the new response
         // 3. Compare with original
 
-        // For now, simulate with slight variations
-        const replayResponse = trace.response; // In reality, get from API
-        const replayCost = parseFloat(trace.cost_usd) * (0.95 + Math.random() * 0.1); // Simulate cost variation
-        const replayLatency = Math.floor(trace.latency_ms * (0.9 + Math.random() * 0.2)); // Simulate latency variation
+        // For MVP: Simulate LLM non-determinism with slight response variations
+        const replayResponse = simulateResponseVariation(trace.response, 0.15); // 15% chance of variation
+        const replayCost = parseFloat(trace.cost_usd) * (0.95 + Math.random() * 0.1); // Cost variation ±5%
+        const replayLatency = Math.floor(trace.latency_ms * (0.9 + Math.random() * 0.2)); // Latency variation ±10%
 
-        // Calculate hash similarity (simple comparison for MVP)
-        const hashSimilarity = trace.response === replayResponse ? 1.0 : 0.95;
+        // Calculate REAL hash similarity (character-level comparison)
+        const hashSimilarity = calculateHashSimilarity(trace.response, replayResponse);
 
-        // Calculate semantic score (placeholder - would use embeddings in production)
-        const semanticScore = 0.98;
+        // Calculate REAL semantic similarity (word-level comparison)
+        const semanticScore = calculateSemanticSimilarity(trace.response, replayResponse);
 
         // Create diff summary
         const diffSummary = {
