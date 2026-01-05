@@ -167,7 +167,8 @@ app.post('/run', async (c) => {
         // For MVP: Simulate LLM non-determinism with slight response variations
         const replayResponse = simulateResponseVariation(trace.response, 0.15); // 15% chance of variation
         const replayCost = parseFloat(trace.cost_usd) * (0.95 + Math.random() * 0.1); // Cost variation ±5%
-        const replayLatency = Math.floor(trace.latency_ms * (0.9 + Math.random() * 0.2)); // Latency variation ±10%
+        const originalLatency = Math.floor(parseFloat(trace.latency_ms)); // Ensure integer
+        const replayLatency = Math.floor(originalLatency * (0.9 + Math.random() * 0.2)); // Latency variation ±10%
 
         // Calculate REAL hash similarity (character-level comparison)
         const hashSimilarity = calculateHashSimilarity(trace.response, replayResponse);
@@ -179,8 +180,8 @@ app.post('/run', async (c) => {
         const diffSummary = {
           cost_diff: replayCost - parseFloat(trace.cost_usd),
           cost_diff_percent: ((replayCost - parseFloat(trace.cost_usd)) / parseFloat(trace.cost_usd)) * 100,
-          latency_diff: replayLatency - trace.latency_ms,
-          latency_diff_percent: ((replayLatency - trace.latency_ms) / trace.latency_ms) * 100,
+          latency_diff: replayLatency - originalLatency,
+          latency_diff_percent: ((replayLatency - originalLatency) / originalLatency) * 100,
           response_changed: hashSimilarity < 1.0,
         };
 
@@ -209,7 +210,7 @@ app.post('/run', async (c) => {
             ${replayResponse},
             ${trace.cost_usd},
             ${replayCost},
-            ${trace.latency_ms},
+            ${originalLatency},
             ${replayLatency},
             ${hashSimilarity},
             ${semanticScore},

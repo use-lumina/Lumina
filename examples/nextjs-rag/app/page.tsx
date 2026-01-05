@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { MessageSquare, Send } from 'lucide-react';
 
 export default function Home() {
   const [message, setMessage] = useState('');
@@ -37,84 +38,85 @@ export default function Home() {
   };
 
   return (
-    <main style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
-      <h1>Lumina SDK Test - Next.js RAG Example</h1>
-      <p style={{ color: '#666', marginBottom: '2rem' }}>
-        This app tests the @lumina/sdk by wrapping OpenAI calls with lumina.trace()
-      </p>
-
-      <div style={{ marginBottom: '1rem' }}>
-        <textarea
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder="Enter your message..."
-          style={{
-            width: '100%',
-            minHeight: '100px',
-            padding: '0.75rem',
-            fontSize: '1rem',
-            border: '1px solid #ddd',
-            borderRadius: '4px',
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              sendMessage();
-            }
-          }}
-        />
-      </div>
-
-      <button
-        onClick={sendMessage}
-        disabled={loading || !message.trim()}
-        style={{
-          padding: '0.75rem 2rem',
-          fontSize: '1rem',
-          backgroundColor: loading ? '#ccc' : '#0070f3',
-          color: 'white',
-          border: 'none',
-          borderRadius: '4px',
-          cursor: loading ? 'not-allowed' : 'pointer',
-          marginBottom: '2rem',
-        }}
-      >
-        {loading ? 'Sending...' : 'Send Message'}
-      </button>
-
-      {response && (
-        <div
-          style={{
-            padding: '1rem',
-            backgroundColor: '#f5f5f5',
-            borderRadius: '4px',
-            marginTop: '1rem',
-          }}
-        >
-          <h3>Response:</h3>
-          <p style={{ whiteSpace: 'pre-wrap' }}>{response}</p>
+    <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-6">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-100 p-8 mb-6">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl">
+              <MessageSquare className="h-6 w-6 text-white" />
+            </div>
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              Lumina SDK Test
+            </h1>
+          </div>
+          <p className="text-gray-600 text-lg">
+            Simple chat interface testing Lumina SDK integration
+          </p>
         </div>
-      )}
 
-      <div
-        style={{
-          marginTop: '2rem',
-          padding: '1rem',
-          backgroundColor: '#fffbea',
-          borderRadius: '4px',
-          border: '1px solid #f7dc6f',
-        }}
-      >
-        <h3>Testing Instructions:</h3>
-        <ol>
-          <li>Open browser console (F12)</li>
-          <li>Send a few messages</li>
-          <li>Look for [Lumina SDK] logs in console</li>
-          <li>
-            Expected: SDK will try to send to localhost:8080 (will fail until ingestion service is
-            built)
-          </li>
-        </ol>
+        {/* Navigation Links */}
+        <div className="flex gap-4 mb-6">
+          <a
+            href="/"
+            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl font-medium shadow-md hover:shadow-lg transition-all duration-200"
+          >
+            Simple Chat
+          </a>
+          <a
+            href="/rag"
+            className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-700 text-white rounded-xl font-medium shadow-md hover:shadow-lg transition-all duration-200"
+          >
+            RAG Demo
+          </a>
+        </div>
+
+        {/* Chat Interface */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-100 p-6">
+          <div className="mb-4">
+            <label className="text-sm font-medium text-gray-700 mb-2 block">Your Message</label>
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Enter your message..."
+              className="w-full min-h-[120px] p-4 border border-gray-200 rounded-xl resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  sendMessage();
+                }
+              }}
+            />
+          </div>
+
+          <button
+            onClick={sendMessage}
+            disabled={loading || !message.trim()}
+            className="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 font-medium shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <>
+                <div className="animate-spin h-5 w-5 border-3 border-white border-t-transparent rounded-full"></div>
+                Sending...
+              </>
+            ) : (
+              <>
+                <Send className="h-5 w-5" />
+                Send Message
+              </>
+            )}
+          </button>
+
+          {response && (
+            <div className="mt-6 p-6 bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl border border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <MessageSquare className="h-5 w-5 text-blue-600" />
+                Response:
+              </h3>
+              <p className="text-gray-800 whitespace-pre-wrap leading-relaxed">{response}</p>
+            </div>
+          )}
+        </div>
       </div>
     </main>
   );

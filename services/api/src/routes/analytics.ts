@@ -134,9 +134,28 @@ app.get('/breakdown', requireAuth, async (c) => {
             ? 'customer_id'
             : 'service_name';
 
-    // Execute query
-    const breakdown = await sql.unsafe(
-      `
+    // Execute query - include model when grouping by endpoint
+    const selectClause =
+      groupBy === 'endpoint'
+        ? `
+      SELECT
+        ${groupColumn} as group_name,
+        MODE() WITHIN GROUP (ORDER BY model) as model,
+        COUNT(*) as request_count,
+        SUM(cost_usd) as total_cost,
+        AVG(cost_usd) as avg_cost,
+        MIN(cost_usd) as min_cost,
+        MAX(cost_usd) as max_cost,
+        SUM(prompt_tokens) as total_prompt_tokens,
+        SUM(completion_tokens) as total_completion_tokens,
+        AVG(latency_ms) as avg_latency_ms
+      FROM traces
+      WHERE timestamp >= $1 AND timestamp <= $2
+      GROUP BY ${groupColumn}
+      ORDER BY total_cost DESC
+      LIMIT $3
+    `
+        : `
       SELECT
         ${groupColumn} as group_name,
         COUNT(*) as request_count,
@@ -152,9 +171,9 @@ app.get('/breakdown', requireAuth, async (c) => {
       GROUP BY ${groupColumn}
       ORDER BY total_cost DESC
       LIMIT $3
-    `,
-      [start, end, parseInt(limit)]
-    );
+    `;
+
+    const breakdown = await sql.unsafe(selectClause, [start, end, parseInt(limit)]);
 
     // Calculate total for percentage
     const totalResult = await sql`

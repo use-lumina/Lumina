@@ -23,6 +23,8 @@ app.get('/', requireAuth, async (c) => {
       endTime,
       limit = '100',
       offset = '0',
+      sortBy = 'timestamp',
+      sortOrder = 'desc',
     } = c.req.query();
 
     // Build dynamic query
@@ -68,6 +70,11 @@ app.get('/', requireAuth, async (c) => {
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
+    // Validate and sanitize sortBy to prevent SQL injection
+    const allowedSortColumns = ['timestamp', 'cost_usd', 'latency_ms', 'model', 'endpoint'];
+    const sortColumn = allowedSortColumns.includes(sortBy) ? sortBy : 'timestamp';
+    const sortDirection = sortOrder.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+
     // Execute query with pagination
     const traces = await sql.unsafe(
       `
@@ -87,7 +94,7 @@ app.get('/', requireAuth, async (c) => {
         environment
       FROM traces
       ${whereClause}
-      ORDER BY timestamp DESC
+      ORDER BY ${sortColumn} ${sortDirection}
       LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
     `,
       [...params, parseInt(limit), parseInt(offset)]

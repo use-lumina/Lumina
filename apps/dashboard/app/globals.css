@@ -247,3 +247,111 @@ button {
   background-image: linear-gradient(to right, rgba(255, 255, 255, 0.2) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(255, 255, 255, 0.2) 1px, transparent 1px);
 }
+
+/* Custom Cursor Styles */
+/* Default cursor for body */
+body {
+  cursor: default;
+}
+
+/* Pointer cursor for interactive elements */
+button,
+a,
+[role="button"],
+[role="link"],
+.cursor-pointer,
+summary {
+  cursor: pointer;
+}
+
+/* Text cursor for input fields */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="search"],
+input[type="tel"],
+input[type="url"],
+input[type="number"],
+textarea,
+[contenteditable="true"] {
+  cursor: text;
+}
+
+/* Not-allowed cursor for disabled elements */
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Move cursor for draggable elements */
+[draggable="true"] {
+  cursor: move;
+}
+
+/* Help cursor for elements with tooltips */
+[title]:not(input):not(textarea),
+.cursor-help {
+  cursor: help;
+}
+
+/* Crosshair for precise selection */
+.cursor-crosshair {
+  cursor: crosshair;
+}
+
+/* Wait cursor for loading states */
+.cursor-wait {
+  cursor: wait;
+}
+
+/* Progress cursor */
+.cursor-progress {
+  cursor: progress;
+}
+
+/* Grab cursors for draggable areas */
+.cursor-grab {
+  cursor: grab;
+}
+
+.cursor-grab:active,
+.cursor-grabbing {
+  cursor: grabbing;
+}
+
+/* Resize cursors */
+.cursor-resize-n {
+  cursor: n-resize;
+}
+
+.cursor-resize-s {
+  cursor: s-resize;
+}
+
+.cursor-resize-e {
+  cursor: e-resize;
+}
+
+.cursor-resize-w {
+  cursor: w-resize;
+}
+
+.cursor-resize-ne {
+  cursor: ne-resize;
+}
+
+.cursor-resize-nw {
+  cursor: nw-resize;
+}
+
+.cursor-resize-se {
+  cursor: se-resize;
+}
+
+.cursor-resize-sw {
+  cursor: sw-resize;
+}

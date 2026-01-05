@@ -31,6 +31,8 @@ export interface TraceFilters extends PaginationParams, TimeRangeParams {
   endpoint?: string;
   model?: string;
   status?: string;
+  sortBy?: string;
+  sortOrder?: string;
 }
 
 export interface Trace {

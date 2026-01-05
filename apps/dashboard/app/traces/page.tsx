@@ -58,6 +58,7 @@ import {
 } from 'recharts';
 import {
   getTraces,
+  getTraceById,
   getCostTimeline,
   getTraceTrends,
   type Trace as APITrace,
@@ -337,9 +338,18 @@ export default function Home() {
   const models = Array.from(new Set(traces.map((t) => t.model)));
 
   // Handle trace click
-  const handleTraceClick = (trace: Trace) => {
-    setSelectedTrace(mapApiTraceToUI(trace));
-    setDrawerOpen(true);
+  const handleTraceClick = async (trace: Trace) => {
+    // Fetch full trace details with prompt and response
+    try {
+      const fullTrace = await getTraceById(trace.trace_id);
+      setSelectedTrace(mapApiTraceToUI(fullTrace.trace));
+      setDrawerOpen(true);
+    } catch (error) {
+      console.error('Failed to fetch trace details:', error);
+      // Fallback to list data if fetch fails
+      setSelectedTrace(mapApiTraceToUI(trace));
+      setDrawerOpen(true);
+    }
   };
 
   // Clear all filters
@@ -574,6 +584,7 @@ export default function Home() {
                     strokeDasharray="3 3"
                     vertical={false}
                     stroke="hsl(var(--border))"
+                    opacity={0.5}
                   />
                   <XAxis
                     dataKey="time"
@@ -581,14 +592,16 @@ export default function Home() {
                     axisLine={false}
                     tickMargin={8}
                     fontSize={11}
-                    stroke="hsl(var(--muted-foreground))"
+                    stroke="hsl(var(--foreground))"
+                    opacity={0.7}
                   />
                   <YAxis
                     tickLine={false}
                     axisLine={false}
                     tickMargin={8}
                     fontSize={11}
-                    stroke="hsl(var(--muted-foreground))"
+                    stroke="hsl(var(--foreground))"
+                    opacity={0.7}
                   />
                   <Tooltip
                     content={({ active, payload }: any) => {
@@ -633,6 +646,7 @@ export default function Home() {
                     strokeDasharray="3 3"
                     vertical={false}
                     stroke="hsl(var(--border))"
+                    opacity={0.5}
                   />
                   <XAxis
                     dataKey="time"
@@ -640,14 +654,16 @@ export default function Home() {
                     axisLine={false}
                     tickMargin={8}
                     fontSize={11}
-                    stroke="hsl(var(--muted-foreground))"
+                    stroke="hsl(var(--foreground))"
+                    opacity={0.7}
                   />
                   <YAxis
                     tickLine={false}
                     axisLine={false}
                     tickMargin={8}
                     fontSize={11}
-                    stroke="hsl(var(--muted-foreground))"
+                    stroke="hsl(var(--foreground))"
+                    opacity={0.7}
                     tickFormatter={(value) => `$${value.toFixed(3)}`}
                   />
                   <Tooltip

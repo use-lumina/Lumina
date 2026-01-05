@@ -8,10 +8,9 @@ const anthropic = new Anthropic({
 // Initialize Lumina SDK
 const lumina = initLumina({
   api_key: process.env.LUMINA_API_KEY || 'lumina_test123_abc',
-  endpoint: process.env.LUMINA_ENDPOINT || 'http://localhost:9411/v1/traces',
+  endpoint: process.env.LUMINA_ENDPOINT || 'http://localhost:8080/v1/traces',
   service_name: 'nextjs-rag-example',
-  customer_id: 'test123',
-  environment: 'test',
+  environment: 'live',
 });
 
 export async function POST(req: Request) {
@@ -19,7 +18,7 @@ export async function POST(req: Request) {
     const body = (await req.json()) as { message: string };
     const { message } = body;
 
-    // Wrap the Anthropic call with lumina.traceLLM() for automatic token tracking
+    // Wrap the Anthropic call with lumina.traceLLM()
     const response = await lumina.traceLLM(
       async () => {
         return await anthropic.messages.create({

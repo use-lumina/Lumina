@@ -255,18 +255,17 @@ export default function Home() {
             Observe and optimize AI in production
           </h1>
           <p className="text-muted-foreground mt-2">
-            Lumina helps you monitor real-time traces, improve cost-efficiency, and ensure
-            reliability of your AI models and applications.
+            Real-time performance monitoring, cost analysis, and quality insights for your AI applications
           </p>
         </div>
 
         {/* Main Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Get Started Card */}
+          {/* Quick Actions Card */}
           <Card className="p-6 border-(--accent) animate-scale-in stagger-1">
             <div className="space-y-6">
               <div>
-                <h2 className="text-xl font-semibold mb-2">Get Started</h2>
+                <h2 className="text-xl font-semibold mb-2">Quick Actions</h2>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <CheckCircle2 className="h-4 w-4 text-green-500" />
                   <span>SDK installed. You're ready to go.</span>
@@ -286,7 +285,7 @@ export default function Home() {
                 {/* View Live Traces - Active */}
                 <button
                   onClick={() => router.push('/traces')}
-                  className="w-full flex items-start gap-3 text-left hover:bg-muted/50 p-2 -ml-2 rounded-lg transition-colors"
+                  className="w-full flex items-start gap-3 text-left hover:bg-muted/50 p-2 -ml-2 rounded-lg transition-colors cursor-pointer"
                 >
                   <PlayCircle className="h-5 w-5 text-amber-500 mt-0.5 shrink-0" />
                   <div className="flex-1">
@@ -298,7 +297,7 @@ export default function Home() {
                 {/* Compare in Replay Studio */}
                 <button
                   onClick={() => router.push('/replay')}
-                  className="w-full flex items-start gap-3 text-left hover:bg-muted/50 p-2 -ml-2 rounded-lg transition-colors"
+                  className="w-full flex items-start gap-3 text-left hover:bg-muted/50 p-2 -ml-2 rounded-lg transition-colors cursor-pointer"
                 >
                   <Circle className="h-5 w-5 text-purple-500 mt-0.5 shrink-0" />
                   <div className="flex-1">
@@ -308,7 +307,7 @@ export default function Home() {
                 </button>
 
                 {/* Invite Teammates */}
-                <button className="w-full flex items-start gap-3 text-left hover:bg-muted/50 p-2 -ml-2 rounded-lg transition-colors">
+                <button className="w-full flex items-start gap-3 text-left hover:bg-muted/50 p-2 -ml-2 rounded-lg transition-colors cursor-pointer">
                   <Circle className="h-5 w-5 text-blue-500 mt-0.5 shrink-0" />
                   <div className="flex-1">
                     <p className="font-medium text-sm">Invite Teammates</p>
@@ -395,10 +394,9 @@ export default function Home() {
                 </div>
                 {recentTraces.length > 0 ? (
                   recentTraces.map((trace) => (
-                    <button
+                    <div
                       key={trace.trace_id}
-                      onClick={() => router.push(`/traces/${trace.trace_id}`)}
-                      className="w-full flex items-center gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors text-left border border-transparent hover:border-(--border)"
+                      className="w-full flex items-center gap-4 p-3 rounded-lg bg-muted/30 border border-(--border)"
                     >
                       <div
                         className={`h-2 w-2 rounded-full shrink-0 ${
@@ -423,7 +421,7 @@ export default function Home() {
                       <div className="text-sm text-muted-foreground shrink-0">
                         {formatDistanceToNow(new Date(trace.timestamp), { addSuffix: true })}
                       </div>
-                    </button>
+                    </div>
                   ))
                 ) : (
                   <div className="text-center py-8 text-muted-foreground text-sm space-y-3">
@@ -483,7 +481,7 @@ export default function Home() {
                 <Button
                   variant="ghost"
                   onClick={() => router.push('/traces')}
-                  className="w-full justify-center group"
+                  className="w-full justify-center group cursor-pointer"
                 >
                   View Live Traces
                   <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />

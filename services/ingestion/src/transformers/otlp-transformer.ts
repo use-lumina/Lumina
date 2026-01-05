@@ -181,8 +181,29 @@ function extractMetadata(span: ParsedOTLPSpan): Record<string, unknown> | undefi
 }
 
 /**
+ * Check if a span is an LLM span (has gen_ai attributes or prompt/completion)
+ */
+function isLLMSpan(span: ParsedOTLPSpan): boolean {
+  // Check if span has any gen_ai.* attributes
+  const hasGenAIAttributes = Object.keys(span.attributes).some((key) => key.startsWith('gen_ai.'));
+
+  // Check if span has prompt or completion
+  const hasPrompt = getStringAttribute(span, 'gen_ai.prompt', '') !== '';
+  const hasCompletion = getStringAttribute(span, 'gen_ai.completion', '') !== '';
+
+  // Check if span has token usage
+  const hasTokens = getNumberAttribute(span, 'gen_ai.usage.total_tokens', 0) > 0;
+
+  return hasGenAIAttributes || hasPrompt || hasCompletion || hasTokens;
+}
+
+/**
  * Batch transform multiple OTLP spans
+ * Filters to only include LLM-related spans
  */
 export function transformOTLPBatch(spans: ParsedOTLPSpan[], customerId: string): Trace[] {
-  return spans.map((span) => transformOTLPToTrace(span, customerId));
+  // Filter to only LLM spans before transforming
+  const llmSpans = spans.filter(isLLMSpan);
+
+  return llmSpans.map((span) => transformOTLPToTrace(span, customerId));
 }

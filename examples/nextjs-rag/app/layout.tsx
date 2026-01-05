@@ -1,3 +1,5 @@
+import './globals.css';
+
 export const metadata = {
   title: 'Lumina SDK Test',
   description: 'Testing @lumina/sdk with Next.js',

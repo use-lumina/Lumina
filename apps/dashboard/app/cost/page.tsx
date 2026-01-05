@@ -50,8 +50,13 @@ import {
   getCostSummary,
   getCostAnomalies,
   getEndpointTrends,
+  getTraces,
+  getTraceById,
+  type Trace as APITrace,
 } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { TraceDetailDrawer } from '@/components/traces/trace-detail-drawer';
+import type { UITrace } from '@/types/trace';
 
 interface EndpointData {
   endpoint: string;
@@ -88,6 +93,10 @@ export default function CostPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalEndpoints, setTotalEndpoints] = useState(0);
   const ITEMS_PER_PAGE = 10;
+
+  // Trace drawer state
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selectedTrace, setSelectedTrace] = useState<UITrace | null>(null);
 
   // Fetch cost data
   const fetchCostData = async () => {
@@ -159,7 +168,7 @@ export default function CostPage() {
 
       const formattedEndpoints: EndpointData[] = breakdownData.data.map((item: any) => ({
         endpoint: item.group_name,
-        model: '-',
+        model: item.model || '-',
         requests: item.request_count,
         totalCost: parseFloat(item.total_cost.toString()),
         avgCost: parseFloat(item.avg_cost.toString()),
@@ -285,9 +294,53 @@ export default function CostPage() {
     setSelectedModel(selectedModel === modelName ? null : modelName);
   };
 
-  const handleEndpointClick = (endpoint: string) => {
-    // Navigate to traces filtered by endpoint
-    window.location.href = `/traces?endpoint=${encodeURIComponent(endpoint)}`;
+  const handleEndpointClick = async (endpoint: string) => {
+    try {
+      // Fetch the most expensive trace for this endpoint
+      const tracesResponse = await getTraces({
+        endpoint,
+        limit: 1,
+        sortBy: 'cost',
+        sortOrder: 'desc',
+      });
+
+      if (tracesResponse.data && tracesResponse.data.length > 0) {
+        const trace = tracesResponse.data[0];
+        // Fetch full trace details
+        const fullTrace = await getTraceById(trace.trace_id);
+
+        // Map API trace to UI trace format (matching traces page mapping)
+        const mappedTrace: UITrace = {
+          id: fullTrace.trace.trace_id,
+          service: fullTrace.trace.service_name,
+          endpoint: fullTrace.trace.endpoint,
+          model: fullTrace.trace.model,
+          status:
+            fullTrace.trace.status === 'ok' || fullTrace.trace.status === 'healthy'
+              ? 'healthy'
+              : (fullTrace.trace.status as 'healthy' | 'degraded' | 'error'),
+          latencyMs: fullTrace.trace.latency_ms,
+          costUsd: fullTrace.trace.cost_usd,
+          createdAt: fullTrace.trace.timestamp,
+          prompt: fullTrace.trace.prompt,
+          response: fullTrace.trace.response,
+          spans: (fullTrace.trace.metadata as any)?.spans,
+          metadata: {
+            tokensIn: fullTrace.trace.prompt_tokens,
+            tokensOut: fullTrace.trace.completion_tokens,
+            temperature: fullTrace.trace.metadata?.temperature,
+            userId: fullTrace.trace.metadata?.userId || fullTrace.trace.customer_id,
+            sessionId: fullTrace.trace.metadata?.sessionId,
+            ...fullTrace.trace.metadata,
+          },
+        };
+
+        setSelectedTrace(mappedTrace);
+        setDrawerOpen(true);
+      }
+    } catch (error) {
+      console.error('Failed to fetch trace:', error);
+    }
   };
 
   // Highlight search term in endpoint name
@@ -704,25 +757,27 @@ export default function CostPage() {
                       strokeDasharray="3 3"
                       stroke="hsl(var(--border))"
                       vertical={false}
-                      opacity={0.3}
+                      opacity={0.5}
                     />
                     <XAxis
                       dataKey="time"
-                      stroke="hsl(var(--muted-foreground))"
+                      stroke="hsl(var(--foreground))"
                       fontSize={12}
                       tickLine={false}
                       axisLine={false}
                       tickMargin={10}
                       height={40}
+                      opacity={0.7}
                     />
                     <YAxis
-                      stroke="hsl(var(--muted-foreground))"
+                      stroke="hsl(var(--foreground))"
                       fontSize={12}
                       tickLine={false}
                       axisLine={false}
                       tickMargin={10}
                       width={60}
                       tickFormatter={(value) => `$${value.toFixed(2)}`}
+                      opacity={0.7}
                     />
                     <Tooltip
                       content={({ active, payload }: any) => {
@@ -1049,6 +1104,9 @@ export default function CostPage() {
           </div>
         </Card>
       </div>
+
+      {/* Trace Details Drawer */}
+      <TraceDetailDrawer trace={selectedTrace} open={drawerOpen} onOpenChange={setDrawerOpen} />
     </div>
   );
 }

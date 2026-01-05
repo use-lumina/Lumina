@@ -33,9 +33,9 @@ function parseArgs() {
 }
 
 // Generate API key
-function generateApiKey(environment: 'live' | 'test'): string {
+function generateApiKey(customerId: string, environment: 'live' | 'test'): string {
   const randomString = randomBytes(20).toString('hex');
-  return `lumina_${environment}_${randomString}`;
+  return `lumina_${customerId}_${randomString}`;
 }
 
 // Generate customer ID
@@ -109,8 +109,8 @@ async function main() {
     // Generate IDs and keys
     const customerId = generateCustomerId();
     const userId = generateUserId();
-    const liveApiKey = generateApiKey('live');
-    const testApiKey = generateApiKey('test');
+    const liveApiKey = generateApiKey(customerId, 'live');
+    const testApiKey = generateApiKey(customerId, 'test');
     const tempPassword = generateTempPassword();
     const passwordHash = await hashPassword(tempPassword);
 

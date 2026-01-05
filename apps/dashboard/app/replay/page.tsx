@@ -174,9 +174,9 @@ export default function ReplayPage() {
       setReplaySets(replaySetsResponse.data || []);
 
       setRunDrawerOpen(false);
-      setTimeout(() => {
-        setResultsDrawerOpen(true);
-      }, 500);
+
+      // Fetch and display results
+      await handleViewResults(selectedSet);
     } catch (error) {
       console.error('Failed to run replay:', error);
     } finally {

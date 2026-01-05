@@ -218,6 +218,25 @@ export class Lumina {
       if (result.id) {
         span.setAttribute(SemanticConventions.LLM_RESPONSE_ID, result.id);
       }
+
+      // Extract completion/response text
+      // Handle both OpenAI and Anthropic response formats
+      let completion = '';
+      if ('choices' in result && Array.isArray(result.choices)) {
+        // OpenAI format: result.choices[0].message.content
+        completion = (result as any).choices[0]?.message?.content || '';
+      } else if ('content' in result && Array.isArray(result.content)) {
+        // Anthropic format: result.content[0].text
+        const firstContent = (result as any).content[0];
+        if (firstContent && firstContent.type === 'text') {
+          completion = firstContent.text || '';
+        }
+      }
+
+      if (completion) {
+        span.setAttribute(SemanticConventions.LLM_COMPLETION, completion);
+      }
+
       if (result.usage) {
         // Support both OpenAI (prompt_tokens/completion_tokens) and Anthropic (input_tokens/output_tokens) naming
         const promptTokens = result.usage.prompt_tokens || result.usage.input_tokens;
