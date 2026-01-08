@@ -257,6 +257,13 @@ export default function CostPage() {
   const totalRequests = costSummary?.summary?.total_requests || 0;
   const avgCostPerRequest = costSummary?.summary?.avg_cost || 0;
 
+  // Helper function to format cost with appropriate decimal places
+  const formatCost = (cost: number): string => {
+    if (cost === 0) return '$0.00';
+    if (cost < 0.01) return `$${cost.toFixed(4)}`;
+    return `$${cost.toFixed(2)}`;
+  };
+
   // Get unique services and models from endpoints
   const uniqueServices = Array.from(
     new Set(endpoints.map((e) => e.endpoint.split('/')[1] || 'unknown'))
@@ -669,7 +676,7 @@ export default function CostPage() {
                 <p className="text-sm font-medium text-muted-foreground">
                   Total Cost ({timeView === '24h' ? '24h' : timeView === '7d' ? '7d' : '30d'})
                 </p>
-                <p className="text-3xl font-bold">${totalCost.toFixed(2)}</p>
+                <p className="text-3xl font-bold">{formatCost(totalCost)}</p>
                 {totalCost > 0 && (
                   <div className="flex items-center gap-1 text-sm text-muted-foreground">
                     <span>{totalRequests} requests</span>
@@ -691,7 +698,7 @@ export default function CostPage() {
                 <p className="text-3xl font-bold">{totalRequests.toLocaleString()}</p>
                 {totalCost > 0 && (
                   <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <span>${totalCost.toFixed(2)} total</span>
+                    <span>{formatCost(totalCost)} total</span>
                   </div>
                 )}
               </div>
@@ -776,7 +783,7 @@ export default function CostPage() {
                       axisLine={false}
                       tickMargin={10}
                       width={60}
-                      tickFormatter={(value) => `$${value.toFixed(2)}`}
+                      tickFormatter={(value) => formatCost(value).replace('$', '$')}
                       opacity={0.7}
                     />
                     <Tooltip
@@ -791,7 +798,7 @@ export default function CostPage() {
                               </p>
                               <div className="flex items-baseline gap-2">
                                 <p className="text-lg font-bold text-primary">
-                                  ${value.toFixed(2)}
+                                  {formatCost(value)}
                                 </p>
                                 <p className="text-xs text-muted-foreground">total cost</p>
                               </div>
@@ -912,7 +919,7 @@ export default function CostPage() {
                               <div className="space-y-1">
                                 <div className="flex items-baseline gap-2">
                                   <p className="text-lg font-bold text-primary">
-                                    ${data.value.toFixed(2)}
+                                    {formatCost(data.value)}
                                   </p>
                                   <p className="text-xs text-muted-foreground">
                                     {data.percentage.toFixed(1)}%
@@ -934,7 +941,7 @@ export default function CostPage() {
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <div className="text-center">
                       <p className="text-2xl font-bold">
-                        ${modelBreakdown.reduce((sum, m) => sum + m.value, 0).toFixed(2)}
+                        {formatCost(modelBreakdown.reduce((sum, m) => sum + m.value, 0))}
                       </p>
                       <p className="text-xs text-muted-foreground">Total</p>
                     </div>
@@ -960,7 +967,7 @@ export default function CostPage() {
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-sm font-semibold tabular-nums">
-                        ${model.value.toFixed(2)}
+                        {formatCost(model.value)}
                       </span>
                       <span className="text-xs text-muted-foreground font-medium min-w-[3rem] text-right">
                         {model.percentage.toFixed(1)}%
@@ -1041,10 +1048,10 @@ export default function CostPage() {
                           {endpoint.requests.toLocaleString()}
                         </TableCell>
                         <TableCell className="text-right font-mono tabular-nums font-semibold">
-                          ${endpoint.totalCost.toFixed(2)}
+                          {formatCost(endpoint.totalCost)}
                         </TableCell>
                         <TableCell className="text-right font-mono tabular-nums text-sm text-muted-foreground">
-                          ${endpoint.avgCost.toFixed(4)}
+                          {formatCost(endpoint.avgCost)}
                         </TableCell>
                         <TableCell className="text-center">
                           {endpoint.trend === 'up' && (

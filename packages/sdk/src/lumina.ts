@@ -225,11 +225,16 @@ export class Lumina {
       if ('choices' in result && Array.isArray(result.choices)) {
         // OpenAI format: result.choices[0].message.content
         completion = (result as any).choices[0]?.message?.content || '';
-      } else if ('content' in result && Array.isArray(result.content)) {
-        // Anthropic format: result.content[0].text
-        const firstContent = (result as any).content[0];
-        if (firstContent && firstContent.type === 'text') {
-          completion = firstContent.text || '';
+      } else if ('content' in result) {
+        if (Array.isArray(result.content)) {
+          // Anthropic format: result.content[0].text
+          const firstContent = (result as any).content[0];
+          if (firstContent && firstContent.type === 'text') {
+            completion = firstContent.text || '';
+          }
+        } else if (typeof result.content === 'string') {
+          // Simple string content format
+          completion = result.content;
         }
       }
 

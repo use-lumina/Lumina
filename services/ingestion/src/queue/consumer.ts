@@ -14,7 +14,7 @@ const CONSUMER_NAME = 'alert-processor';
 export async function startConsumer(): Promise<void> {
   const nc = getNATSConnection();
   if (!nc) {
-    console.error('❌ NATS connection not available - consumer cannot start');
+    console.error('NATS connection not available - consumer cannot start');
     return;
   }
 
@@ -91,22 +91,20 @@ async function processTraceMessage(msg: JsMsg): Promise<void> {
       offset: 0,
     });
 
-    console.log(
-      `📊 Found ${baselineTraces.length} baseline traces for ${trace.service_name}:${trace.endpoint}`
-    );
-
     // Skip alert analysis if no baseline data
     if (baselineTraces.length === 0) {
-      console.log(`⏭️  Skipping alert analysis - no baseline data available`);
       msg.ack();
       return;
     }
 
     // Filter baseline traces for same endpoint
-    const endpointBaseline = baselineTraces.filter((t) => t.endpoint === trace.endpoint);
+    // IMPORTANT: Exclude current trace and any traces from same batch (same timestamp)
+    const currentTimestamp = new Date(trace.timestamp).getTime();
+    const endpointBaseline = baselineTraces.filter(
+      (t) => t.endpoint === trace.endpoint && new Date(t.timestamp).getTime() < currentTimestamp
+    );
 
     if (endpointBaseline.length === 0) {
-      console.log(`⏭️  Skipping alert analysis - no baseline data for endpoint ${trace.endpoint}`);
       msg.ack();
       return;
     }
@@ -126,6 +124,17 @@ async function processTraceMessage(msg: JsMsg): Promise<void> {
       `📈 Baseline calculated: P50=${baseline.p50Cost.toFixed(4)}, P95=${baseline.p95Cost.toFixed(4)}, P99=${baseline.p99Cost.toFixed(4)} (${baseline.sampleCount} samples)`
     );
 
+    // Calculate reference response for quality detection
+    // Use the most recent response from baseline as reference
+    const referenceResponse =
+      endpointBaseline.length > 0
+        ? endpointBaseline[endpointBaseline.length - 1].response
+        : undefined;
+
+    console.log(
+      `[CONSUMER] referenceResponse: ${referenceResponse ? referenceResponse.substring(0, 50) + '...' : 'undefined'}`
+    );
+
     // Run hybrid alert analysis
     const alerts = await analyzeTrace({
       traceId: trace.trace_id,
@@ -136,6 +145,7 @@ async function processTraceMessage(msg: JsMsg): Promise<void> {
       response: trace.response || '',
       costUsd: trace.cost_usd || 0,
       baseline,
+      referenceResponse,
     });
 
     if (alerts.length > 0) {

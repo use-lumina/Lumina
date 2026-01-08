@@ -105,9 +105,7 @@ export async function analyzeTrace(
   const hasCostSpike = costAlert !== null;
 
   // Step 2: Check hash similarity (always run - fast)
-  const hashAlert = input.referenceResponse
-    ? await checkHashSimilarity(input, cfg)
-    : null;
+  const hashAlert = input.referenceResponse ? await checkHashSimilarity(input, cfg) : null;
   const hasHashDrop = hashAlert !== null;
 
   // Step 3: Determine if we need semantic scoring
@@ -127,25 +125,20 @@ export async function analyzeTrace(
 
   // Step 4: Generate final alerts
   // Priority: Combined alert > Individual alerts
-  if ((hasCostSpike || hasHashDrop || semanticAlert) && (hasCostSpike || semanticAlert)) {
+  if (hasCostSpike && (hasHashDrop || semanticAlert)) {
     // If we have both cost and quality issues, create a combined alert
-    if (hasCostSpike && (hasHashDrop || semanticAlert)) {
-      alerts.push(
-        createCombinedAlert(input, costAlert!, hashAlert, semanticAlert, semanticScore)
-      );
-    } else {
-      // Add individual alerts
-      if (costAlert) alerts.push(costAlert);
-      if (semanticAlert) {
-        alerts.push(semanticAlert);
-      } else if (hashAlert && !needsSemanticScoring) {
-        // Only add hash alert if we didn't run semantic scoring
-        alerts.push(hashAlert);
-      }
+    alerts.push(createCombinedAlert(input, costAlert!, hashAlert, semanticAlert, semanticScore));
+  } else {
+    // Add individual alerts
+    if (costAlert) alerts.push(costAlert);
+
+    // Add quality alert (prefer semantic over hash if both exist)
+    if (semanticAlert) {
+      alerts.push(semanticAlert);
+    } else if (hashAlert) {
+      // Add hash alert even if semantic scoring was attempted but failed/returned null
+      alerts.push(hashAlert);
     }
-  } else if (hashAlert && !needsSemanticScoring) {
-    // Only hash drop, no cost spike
-    alerts.push(hashAlert);
   }
 
   return alerts;
@@ -199,6 +192,10 @@ async function checkHashSimilarity(
   const currentHash = hashResponse(input.response);
   const referenceHash = hashResponse(input.referenceResponse);
   const similarity = calculateHashSimilarity(currentHash, [referenceHash]);
+
+  console.log(
+    `[QUALITY CHECK] Hash similarity=${similarity.toFixed(3)}, threshold=${config.hashSimilarityThreshold}, qualityDrop=${similarity < config.hashSimilarityThreshold}`
+  );
 
   if (similarity >= config.hashSimilarityThreshold) return null;
 
@@ -281,7 +278,9 @@ function createCombinedAlert(
     Boolean
   ) as Array<'LOW' | 'MEDIUM' | 'HIGH'>;
   const severityOrder = { LOW: 1, MEDIUM: 2, HIGH: 3 };
-  const maxSeverity = severities.reduce((max, s) => (severityOrder[s] > severityOrder[max] ? s : max));
+  const maxSeverity = severities.reduce((max, s) =>
+    severityOrder[s] > severityOrder[max] ? s : max
+  );
 
   return {
     alertId: randomUUID(),

@@ -99,7 +99,8 @@ export function isAnomalous(
   const thresholdValue = baselineValue * (1 + marginPercent / 100);
 
   const isAnomaly = cost > thresholdValue;
-  const percentageAbove = baseline.p50Cost > 0 ? ((cost - baseline.p50Cost) / baseline.p50Cost) * 100 : 0;
+  const percentageAbove =
+    baseline.p50Cost > 0 ? ((cost - baseline.p50Cost) / baseline.p50Cost) * 100 : 0;
 
   return {
     isAnomaly,
