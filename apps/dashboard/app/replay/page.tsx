@@ -43,6 +43,7 @@ import {
   ArrowRight,
   FileText,
   Check,
+  Trash2,
 } from 'lucide-react';
 import {
   getReplaySets,
@@ -51,6 +52,7 @@ import {
   getTraces,
   getReplayDetails,
   getReplayDiff,
+  deleteReplaySet,
   type ReplaySet,
   type ReplayResult,
   type ReplaySummary,
@@ -181,6 +183,25 @@ export default function ReplayPage() {
       console.error('Failed to run replay:', error);
     } finally {
       setIsRunning(false);
+    }
+  };
+
+  const handleDeleteReplaySet = async (replayId: string) => {
+    if (!confirm('Are you sure you want to delete this replay set? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await deleteReplaySet(replayId);
+
+      // Refresh the list
+      const offset = (currentPage - 1) * ITEMS_PER_PAGE;
+      const replaySetsResponse = await getReplaySets({ limit: ITEMS_PER_PAGE, offset });
+      setReplaySets(replaySetsResponse.data || []);
+      setTotalReplaySets(replaySetsResponse.pagination.total);
+    } catch (error) {
+      console.error('Failed to delete replay set:', error);
+      alert('Failed to delete replay set. Please try again.');
     }
   };
 
@@ -422,6 +443,17 @@ export default function ReplayPage() {
                               <ArrowRight className="h-4 w-4 ml-1" />
                             </Button>
                           )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteReplaySet(set.replay_id);
+                            }}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>

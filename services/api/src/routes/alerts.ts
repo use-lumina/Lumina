@@ -300,4 +300,45 @@ app.post('/:id/acknowledge', requireAuth, async (c) => {
   }
 });
 
+/**
+ * POST /alerts/:id/resolve
+ * Resolve an alert
+ */
+app.post('/:id/resolve', requireAuth, async (c) => {
+  try {
+    const alertId = c.req.param('id');
+    const db = getDB();
+    const sql = db.getClient();
+
+    // Update alert resolution
+    const result = await sql`
+      UPDATE alerts
+      SET
+        status = 'resolved',
+        resolved_at = NOW(),
+        acknowledged_at = COALESCE(acknowledged_at, NOW())
+      WHERE alert_id = ${alertId}
+      RETURNING alert_id, status, acknowledged_at, resolved_at
+    `;
+
+    if (result.length === 0) {
+      return c.json({ error: 'Alert not found' }, 404);
+    }
+
+    return c.json({
+      success: true,
+      alert: result[0],
+    });
+  } catch (error) {
+    console.error('Error resolving alert:', error);
+    return c.json(
+      {
+        error: 'Failed to resolve alert',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      500
+    );
+  }
+});
+
 export default app;

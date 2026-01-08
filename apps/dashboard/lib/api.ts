@@ -589,6 +589,20 @@ export async function acknowledgeAlert(id: string): Promise<{ success: boolean; 
   return response.json();
 }
 
+export async function resolveAlert(id: string): Promise<{ success: boolean; alert: Alert }> {
+  const response = await fetch(`${API_BASE_URL}/alerts/${id}/resolve`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...buildHeaders() },
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to resolve alert: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
 // ============================================================================
 // Health Check
 // ============================================================================
@@ -792,6 +806,22 @@ export async function getReplayDiff(
   });
   if (!response.ok) {
     throw new Error(`Failed to fetch replay diff: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+export async function deleteReplaySet(
+  replayId: string
+): Promise<{ success: boolean; message: string }> {
+  const response = await fetch(`${REPLAY_API_BASE_URL}/replay/${replayId}`, {
+    method: 'DELETE',
+    headers: buildHeaders(),
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to delete replay set: ${response.statusText}`);
   }
 
   return response.json();

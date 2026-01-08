@@ -14,7 +14,7 @@ import {
   Activity,
 } from 'lucide-react';
 import type { Alert } from '@/lib/api';
-import { acknowledgeAlert } from '@/lib/api';
+import { acknowledgeAlert, resolveAlert } from '@/lib/api';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -25,10 +25,11 @@ interface AlertDetailProps {
 export function AlertDetail({ alert }: AlertDetailProps) {
   const [status, setStatus] = useState(alert.status);
   const [isAcknowledging, setIsAcknowledging] = useState(false);
+  const [isResolving, setIsResolving] = useState(false);
   const router = useRouter();
 
   const handleAcknowledge = async () => {
-    if (status === 'acknowledged') return;
+    if (status === 'acknowledged' || status === 'resolved') return;
 
     setIsAcknowledging(true);
     try {
@@ -39,6 +40,21 @@ export function AlertDetail({ alert }: AlertDetailProps) {
       console.error('Failed to acknowledge alert:', error);
     } finally {
       setIsAcknowledging(false);
+    }
+  };
+
+  const handleResolve = async () => {
+    if (status === 'resolved') return;
+
+    setIsResolving(true);
+    try {
+      const result = await resolveAlert(alert.alert_id);
+      setStatus(result.alert.status);
+      router.refresh();
+    } catch (error) {
+      console.error('Failed to resolve alert:', error);
+    } finally {
+      setIsResolving(false);
     }
   };
 
@@ -81,12 +97,24 @@ export function AlertDetail({ alert }: AlertDetailProps) {
               {alert.alert_id}
             </Badge>
           </div>
-          {status === 'pending' && (
-            <Button onClick={handleAcknowledge} disabled={isAcknowledging}>
-              <CheckCircle className="h-4 w-4 mr-2" />
-              {isAcknowledging ? 'Acknowledging...' : 'Acknowledge Alert'}
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {status === 'pending' && (
+              <Button onClick={handleAcknowledge} disabled={isAcknowledging}>
+                <CheckCircle className="h-4 w-4 mr-2" />
+                {isAcknowledging ? 'Acknowledging...' : 'Acknowledge'}
+              </Button>
+            )}
+            {status !== 'resolved' && (
+              <Button
+                onClick={handleResolve}
+                disabled={isResolving}
+                variant={status === 'pending' ? 'secondary' : 'default'}
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                {isResolving ? 'Resolving...' : 'Resolve'}
+              </Button>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2 text-muted-foreground">
           <span>{alert.service_name}</span>
@@ -120,7 +148,12 @@ export function AlertDetail({ alert }: AlertDetailProps) {
             <CheckCircle className="h-4 w-4" />
             <span>Status</span>
           </div>
-          <Badge variant={status === 'acknowledged' ? 'success' : 'warning'} className="text-sm">
+          <Badge
+            variant={
+              status === 'resolved' ? 'success' : status === 'acknowledged' ? 'secondary' : 'warning'
+            }
+            className="text-sm"
+          >
             {status}
           </Badge>
         </div>

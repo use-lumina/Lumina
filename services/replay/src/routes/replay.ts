@@ -489,4 +489,52 @@ app.get('/', async (c) => {
   }
 });
 
+/**
+ * DELETE /replay/:id
+ * Delete a replay set and its results
+ */
+app.delete('/:id', async (c) => {
+  try {
+    const replayId = c.req.param('id');
+    const db = getDB();
+    const sql = db.getClient();
+
+    // Check if replay set exists
+    const replaySet = await sql`
+      SELECT replay_id FROM replay_sets
+      WHERE replay_id = ${replayId}
+    `;
+
+    if (replaySet.length === 0) {
+      return c.json({ error: 'Replay set not found' }, 404);
+    }
+
+    // Delete replay results first (foreign key constraint)
+    await sql`
+      DELETE FROM replay_results
+      WHERE replay_id = ${replayId}
+    `;
+
+    // Delete replay set
+    await sql`
+      DELETE FROM replay_sets
+      WHERE replay_id = ${replayId}
+    `;
+
+    return c.json({
+      success: true,
+      message: 'Replay set deleted successfully',
+    });
+  } catch (error) {
+    console.error('Error deleting replay set:', error);
+    return c.json(
+      {
+        error: 'Failed to delete replay set',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      500
+    );
+  }
+});
+
 export default app;
