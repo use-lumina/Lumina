@@ -78,6 +78,7 @@ Lumina is a microservices-based observability platform for LLM applications, con
 ### 1. Client Applications
 
 Any application instrumented with the Lumina SDK:
+
 - Next.js web applications
 - Node.js backend services
 - Python services (via OpenTelemetry)
@@ -90,6 +91,7 @@ Any application instrumented with the Lumina SDK:
 **Responsibility:** Client-side instrumentation
 
 **Key Features:**
+
 - Wraps LLM API calls with `traceLLM()`
 - Automatically extracts token usage, cost, latency
 - Sends traces to Ingestion Service
@@ -97,6 +99,7 @@ Any application instrumented with the Lumina SDK:
 - Configurable endpoints and metadata
 
 **Example:**
+
 ```typescript
 const lumina = initLumina({
   endpoint: 'http://localhost:9411/v1/traces',
@@ -116,16 +119,19 @@ const result = await lumina.traceLLM(
 **Responsibility:** Receive and store traces
 
 **Data Flow:**
+
 1. **Receive** - Accept OpenTelemetry JSON traces via POST
 2. **Validate** - Check required fields, data types
 3. **Enrich** - Calculate costs, extract tokens, add timestamps
 4. **Store** - Insert into PostgreSQL `traces` table
 
 **Key Endpoints:**
+
 - `POST /v1/traces` - Ingest traces
 - `GET /health` - Health check
 
 **Storage Schema:**
+
 ```sql
 CREATE TABLE traces (
   trace_id VARCHAR(255),
@@ -152,6 +158,7 @@ CREATE TABLE traces (
 **Responsibility:** Async message queue for trace processing
 
 **Key Features:**
+
 - Persistent message storage (file-based)
 - At-least-once delivery guarantee
 - Message replay capability
@@ -159,6 +166,7 @@ CREATE TABLE traces (
 - Stream configuration with retention policies
 
 **Configuration:**
+
 ```typescript
 // Stream: TRACES
 // Subject: traces.ingest
@@ -168,6 +176,7 @@ CREATE TABLE traces (
 ```
 
 **Use Cases:**
+
 1. **Async Trace Processing** - Decouples ingestion from database writes
 2. **Buffer Spike Traffic** - Handles bursts of traces without overwhelming database
 3. **Replay Failed Messages** - Automatically retries failed trace insertions
@@ -182,12 +191,14 @@ CREATE TABLE traces (
 **Responsibility:** Caching layer for semantic scores and frequent queries
 
 **Key Features:**
+
 - In-memory key-value store
 - Fast read/write operations
 - Persistence with AOF (Append-Only File)
 - TTL support for cache expiration
 
 **Use Cases:**
+
 1. **Semantic Score Caching** - Cache embedding-based similarity scores
 2. **Query Result Caching** - Cache frequent analytics queries
 3. **Session Storage** - Store temporary session data (future)
@@ -202,6 +213,7 @@ CREATE TABLE traces (
 **Responsibility:** Query traces and generate analytics
 
 **Key Features:**
+
 - Flexible filtering (service, model, tags, date range, cost, latency)
 - Pagination support
 - Cost analytics with aggregation
@@ -209,12 +221,14 @@ CREATE TABLE traces (
 - Tag-based search
 
 **Key Endpoints:**
+
 - `GET /api/traces` - Query traces with filters
 - `GET /api/traces/{traceId}` - Get specific trace
 - `GET /api/analytics/cost` - Cost analytics
 - `GET /api/analytics/latency` - Latency analytics
 
 **Analytics Capabilities:**
+
 ```javascript
 // Cost Analytics
 - Total cost across time ranges
@@ -236,12 +250,14 @@ CREATE TABLE traces (
 **Responsibility:** Regression testing via trace replay
 
 **Data Flow:**
+
 1. **Capture** - Select traces and create replay set
 2. **Execute** - Re-run prompts through LLM APIs
 3. **Compare** - Calculate diffs using Diff Engine
 4. **Store** - Save results to `replay_results` table
 
 **Key Endpoints:**
+
 - `POST /replay/capture` - Create replay set
 - `POST /replay/run` - Execute replay
 - `GET /replay/{id}` - Get status and summary
@@ -249,6 +265,7 @@ CREATE TABLE traces (
 - `GET /replay` - List all replay sets
 
 **Storage Schema:**
+
 ```sql
 CREATE TABLE replay_sets (
   replay_id UUID PRIMARY KEY,
@@ -289,38 +306,43 @@ CREATE TABLE replay_results (
 **Modules:**
 
 #### Cost Calculator
+
 ```typescript
 // Token-based cost calculation for various models
-calculateCost(model, promptTokens, completionTokens)
+calculateCost(model, promptTokens, completionTokens);
 ```
 
 #### Hash/Similarity
+
 ```typescript
 // Text similarity using Levenshtein distance
-textSimilarity(original, replay) // 0.0 - 1.0
+textSimilarity(original, replay); // 0.0 - 1.0
 ```
 
 #### Diff Engine
+
 ```typescript
 // Comprehensive comparison logic
-compareTraces(original, replay) // Returns DiffResult
-calculateSemanticScore(original, replay)
-calculateCostDelta(originalCost, replayCost)
-calculateLatencyDelta(originalLatency, replayLatency)
+compareTraces(original, replay); // Returns DiffResult
+calculateSemanticScore(original, replay);
+calculateCostDelta(originalCost, replayCost);
+calculateLatencyDelta(originalLatency, replayLatency);
 ```
 
 #### Baseline Engine
+
 ```typescript
 // Track performance baselines
-calculateBaseline(traces)
-detectDrift(current, baseline)
+calculateBaseline(traces);
+detectDrift(current, baseline);
 ```
 
 #### Alert Engine
+
 ```typescript
 // Threshold-based alerting
-checkCostThreshold(cost, threshold)
-checkLatencyThreshold(latency, threshold)
+checkCostThreshold(cost, threshold);
+checkLatencyThreshold(latency, threshold);
 ```
 
 ## Data Flow Diagrams
@@ -455,19 +477,23 @@ checkLatencyThreshold(latency, threshold)
 ## Technology Stack
 
 ### Runtime & Language
+
 - **Bun** - Fast JavaScript runtime (alternative to Node.js)
 - **TypeScript** - Type-safe development
 
 ### Web Framework
+
 - **Hono** - Lightweight, fast web framework
 
 ### Database & Storage
+
 - **PostgreSQL 14+** - Relational database with JSONB support
 - **postgres** library - SQL client for Bun
 - **NATS JetStream 2.10** - Message queue with persistence
 - **Redis 7** - In-memory cache with AOF persistence
 
 ### Client SDKs
+
 - **Anthropic SDK** - For Claude API integration
 - **OpenTelemetry** - For trace format compatibility
 - **NATS.js** - NATS client for Node.js/Bun
@@ -475,6 +501,7 @@ checkLatencyThreshold(latency, threshold)
 ## Scalability Considerations
 
 ### Current MVP Architecture
+
 - Single PostgreSQL instance
 - Services run on localhost
 - No caching layer
@@ -508,11 +535,13 @@ checkLatencyThreshold(latency, threshold)
 ## Security Considerations
 
 ### Current MVP
+
 - No authentication
 - No encryption in transit
 - No rate limiting
 
 ### Production Requirements
+
 1. **Authentication & Authorization**
    - API key management
    - JWT tokens for user sessions
@@ -535,13 +564,13 @@ checkLatencyThreshold(latency, threshold)
 
 ## Port Allocation
 
-| Service | Port | Purpose |
-|---------|------|---------|
-| Ingestion | 9411 | OpenTelemetry compatibility (Zipkin port) |
-| Query API | 8081 | Query and analytics |
-| Replay Engine | 8082 | Replay testing |
-| PostgreSQL | 5432 | Database (default) |
-| Example App | 3000 | Next.js demo application |
+| Service       | Port | Purpose                                   |
+| ------------- | ---- | ----------------------------------------- |
+| Ingestion     | 9411 | OpenTelemetry compatibility (Zipkin port) |
+| Query API     | 8081 | Query and analytics                       |
+| Replay Engine | 8082 | Replay testing                            |
+| PostgreSQL    | 5432 | Database (default)                        |
+| Example App   | 3000 | Next.js demo application                  |
 
 ## File Structure
 

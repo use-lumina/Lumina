@@ -41,21 +41,25 @@ By participating in this project, you agree to maintain a respectful and inclusi
 ### Installation
 
 1. **Install dependencies**:
+
    ```bash
    bun install
    ```
 
 2. **Create database**:
+
    ```bash
    createdb lumina
    ```
 
 3. **Set environment variables**:
+
    ```bash
    export DATABASE_URL="postgres://localhost:5432/lumina"
    ```
 
 4. **Start development services**:
+
    ```bash
    # Terminal 1: Ingestion service
    cd services/ingestion && bun run dev
@@ -133,16 +137,19 @@ describe('calculateCost', () => {
 ### Before Submitting
 
 1. **Run linting**:
+
    ```bash
    bun run lint:fix
    ```
 
 2. **Run formatting**:
+
    ```bash
    bun run format
    ```
 
 3. **Run tests**:
+
    ```bash
    bun run test
    ```
@@ -165,6 +172,7 @@ Fixes #123
 ```
 
 **Types**:
+
 - `feat`: New feature
 - `fix`: Bug fix
 - `docs`: Documentation changes
@@ -174,6 +182,7 @@ Fixes #123
 - `chore`: Maintenance tasks
 
 **Examples**:
+
 ```
 feat(sdk): add support for streaming LLM calls
 fix(ingestion): handle malformed trace payloads
@@ -184,6 +193,7 @@ test(core): add tests for cost calculator
 ### Create Pull Request
 
 1. **Push your branch**:
+
    ```bash
    git push origin feature/your-feature-name
    ```

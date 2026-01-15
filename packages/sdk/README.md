@@ -225,6 +225,7 @@ app.post('/api/chat', async (req, res) => {
 Initialize the Lumina SDK.
 
 **Parameters:**
+
 - `config` (optional): SDK configuration object
 
 **Returns:** `Lumina` instance
@@ -234,6 +235,7 @@ Initialize the Lumina SDK.
 Trace an async function that makes LLM calls.
 
 **Parameters:**
+
 - `fn`: Async function to trace
 - `options` (optional):
   - `name`: Endpoint or operation name
@@ -247,6 +249,7 @@ Trace an async function that makes LLM calls.
 Manually create a trace.
 
 **Parameters:**
+
 - `data`: Trace data object
   - `prompt`: Input prompt
   - `response`: LLM response

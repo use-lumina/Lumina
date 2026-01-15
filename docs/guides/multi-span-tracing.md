@@ -5,6 +5,7 @@ Learn how to create parent-child span hierarchies to trace complex AI workflows 
 ## What are Spans?
 
 A **span** represents a single operation in your application:
+
 - An LLM API call
 - A vector database query
 - A function execution
@@ -29,6 +30,7 @@ User Request
 ```
 
 **Benefits:**
+
 - 🔍 **Pinpoint bottlenecks**: Which step is slow?
 - 💰 **Track costs**: How much does each step cost?
 - 🐛 **Debug failures**: Which step failed?
@@ -49,40 +51,51 @@ const lumina = initLumina({
 
 async function processRequest(input: string) {
   // Parent span: Wraps entire operation
-  return await lumina.trace(async () => {
+  return await lumina.trace(
+    async () => {
+      // Child span 1: Validation
+      const validated = await lumina.trace(
+        async () => {
+          return validateInput(input);
+        },
+        {
+          name: 'input-validation',
+          attributes: {
+            'input.length': input.length,
+          },
+        }
+      );
 
-    // Child span 1: Validation
-    const validated = await lumina.trace(async () => {
-      return validateInput(input);
-    }, {
-      name: 'input-validation',
+      // Child span 2: Processing
+      const processed = await lumina.trace(
+        async () => {
+          return processData(validated);
+        },
+        {
+          name: 'data-processing',
+        }
+      );
+
+      // Child span 3: LLM call
+      const result = await lumina.trace(
+        async () => {
+          return await llm.generate(processed);
+        },
+        {
+          name: 'llm-generation',
+        }
+      );
+
+      return result;
+    },
+    {
+      name: 'process-request', // Parent span name
       attributes: {
-        'input.length': input.length,
-      }
-    });
-
-    // Child span 2: Processing
-    const processed = await lumina.trace(async () => {
-      return processData(validated);
-    }, {
-      name: 'data-processing',
-    });
-
-    // Child span 3: LLM call
-    const result = await lumina.trace(async () => {
-      return await llm.generate(processed);
-    }, {
-      name: 'llm-generation',
-    });
-
-    return result;
-  }, {
-    name: 'process-request', // Parent span name
-    attributes: {
-      'request.id': generateId(),
-      'request.type': 'user-query',
+        'request.id': generateId(),
+        'request.type': 'user-query',
+      },
     }
-  });
+  );
 }
 ```
 
@@ -108,25 +121,36 @@ When steps must happen in order:
 
 ```typescript
 async function chatbot(message: string) {
-  return await lumina.trace(async () => {
+  return await lumina.trace(
+    async () => {
+      // Step 1: Classify intent
+      const intent = await lumina.trace(
+        async () => {
+          return await classifyIntent(message);
+        },
+        { name: 'intent-classification' }
+      );
 
-    // Step 1: Classify intent
-    const intent = await lumina.trace(async () => {
-      return await classifyIntent(message);
-    }, { name: 'intent-classification' });
+      // Step 2: Retrieve context (based on intent)
+      const context = await lumina.trace(
+        async () => {
+          return await fetchContext(intent);
+        },
+        { name: 'context-retrieval' }
+      );
 
-    // Step 2: Retrieve context (based on intent)
-    const context = await lumina.trace(async () => {
-      return await fetchContext(intent);
-    }, { name: 'context-retrieval' });
+      // Step 3: Generate response
+      const response = await lumina.trace(
+        async () => {
+          return await generateResponse(message, context);
+        },
+        { name: 'response-generation' }
+      );
 
-    // Step 3: Generate response
-    const response = await lumina.trace(async () => {
-      return await generateResponse(message, context);
-    }, { name: 'response-generation' });
-
-    return response;
-  }, { name: 'chatbot-request' });
+      return response;
+    },
+    { name: 'chatbot-request' }
+  );
 }
 ```
 
@@ -136,22 +160,27 @@ When steps can run concurrently:
 
 ```typescript
 async function multiModelInference(input: string) {
-  return await lumina.trace(async () => {
+  return await lumina.trace(
+    async () => {
+      // Run multiple models in parallel
+      const [gpt4Result, claudeResult, mistralResult] = await Promise.all([
+        lumina.trace(() => callGPT4(input), { name: 'gpt4-inference' }),
+        lumina.trace(() => callClaude(input), { name: 'claude-inference' }),
+        lumina.trace(() => callMistral(input), { name: 'mistral-inference' }),
+      ]);
 
-    // Run multiple models in parallel
-    const [gpt4Result, claudeResult, mistralResult] = await Promise.all([
-      lumina.trace(() => callGPT4(input), { name: 'gpt4-inference' }),
-      lumina.trace(() => callClaude(input), { name: 'claude-inference' }),
-      lumina.trace(() => callMistral(input), { name: 'mistral-inference' }),
-    ]);
+      // Aggregate results
+      const final = await lumina.trace(
+        async () => {
+          return aggregateResults([gpt4Result, claudeResult, mistralResult]);
+        },
+        { name: 'result-aggregation' }
+      );
 
-    // Aggregate results
-    const final = await lumina.trace(async () => {
-      return aggregateResults([gpt4Result, claudeResult, mistralResult]);
-    }, { name: 'result-aggregation' });
-
-    return final;
-  }, { name: 'multi-model-inference' });
+      return final;
+    },
+    { name: 'multi-model-inference' }
+  );
 }
 ```
 
@@ -161,45 +190,54 @@ When operations have multiple levels:
 
 ```typescript
 async function complexWorkflow(query: string) {
-  return await lumina.trace(async () => {
+  return await lumina.trace(
+    async () => {
+      // Level 1: Research phase
+      const research = await lumina.trace(
+        async () => {
+          // Level 2: Multiple research sources
+          const webSearch = await lumina.trace(() => searchWeb(query), {
+            name: 'web-search',
+          });
 
-    // Level 1: Research phase
-    const research = await lumina.trace(async () => {
+          const dbLookup = await lumina.trace(() => queryDatabase(query), {
+            name: 'database-lookup',
+          });
 
-      // Level 2: Multiple research sources
-      const webSearch = await lumina.trace(() => searchWeb(query), {
-        name: 'web-search'
-      });
+          return { webSearch, dbLookup };
+        },
+        { name: 'research-phase' }
+      );
 
-      const dbLookup = await lumina.trace(() => queryDatabase(query), {
-        name: 'database-lookup'
-      });
+      // Level 1: Analysis phase
+      const analysis = await lumina.trace(
+        async () => {
+          // Level 2: Analyze each source
+          const webAnalysis = await lumina.trace(() => analyzeWeb(research.webSearch), {
+            name: 'web-analysis',
+          });
 
-      return { webSearch, dbLookup };
-    }, { name: 'research-phase' });
+          const dbAnalysis = await lumina.trace(() => analyzeDB(research.dbLookup), {
+            name: 'db-analysis',
+          });
 
-    // Level 1: Analysis phase
-    const analysis = await lumina.trace(async () => {
+          return { webAnalysis, dbAnalysis };
+        },
+        { name: 'analysis-phase' }
+      );
 
-      // Level 2: Analyze each source
-      const webAnalysis = await lumina.trace(() => analyzeWeb(research.webSearch), {
-        name: 'web-analysis'
-      });
+      // Level 1: Synthesis
+      const final = await lumina.trace(
+        async () => {
+          return synthesize(analysis);
+        },
+        { name: 'synthesis-phase' }
+      );
 
-      const dbAnalysis = await lumina.trace(() => analyzeDB(research.dbLookup), {
-        name: 'db-analysis'
-      });
-
-      return { webAnalysis, dbAnalysis };
-    }, { name: 'analysis-phase' });
-
-    // Level 1: Synthesis
-    const final = await lumina.trace(async () => {
-      return synthesize(analysis);
-    }, { name: 'synthesis-phase' });
-
-    return final;
-  }, { name: 'complex-workflow' });
+      return final;
+    },
+    { name: 'complex-workflow' }
+  );
 }
 ```
 
@@ -211,14 +249,26 @@ async function complexWorkflow(query: string) {
 
 ```typescript
 // ✅ Good: Clear, descriptive names
-{ name: 'user-auth-verification' }
-{ name: 'product-recommendation-llm' }
-{ name: 'payment-processing' }
+{
+  name: 'user-auth-verification';
+}
+{
+  name: 'product-recommendation-llm';
+}
+{
+  name: 'payment-processing';
+}
 
 // ❌ Bad: Vague names
-{ name: 'step1' }
-{ name: 'process' }
-{ name: 'do-stuff' }
+{
+  name: 'step1';
+}
+{
+  name: 'process';
+}
+{
+  name: 'do-stuff';
+}
 ```
 
 ### 2. Add Rich Attributes
@@ -260,11 +310,14 @@ Parent
 
 ```typescript
 // ✅ Good: Logical grouping
-lumina.trace(async () => {
-  await lumina.trace(embeddingStep, { name: 'embedding' });
-  await lumina.trace(vectorSearch, { name: 'search' });
-  await lumina.trace(reranking, { name: 'rerank' });
-}, { name: 'retrieval-phase' }); // Groups retrieval steps
+lumina.trace(
+  async () => {
+    await lumina.trace(embeddingStep, { name: 'embedding' });
+    await lumina.trace(vectorSearch, { name: 'search' });
+    await lumina.trace(reranking, { name: 'rerank' });
+  },
+  { name: 'retrieval-phase' }
+); // Groups retrieval steps
 
 // ❌ Bad: Flat structure
 await lumina.trace(embeddingStep);
@@ -276,18 +329,18 @@ await lumina.trace(reranking);
 
 ```typescript
 // ✅ Good: Consistent prefixes
-'rag-retrieval'
-'rag-generation'
-'rag-reranking'
+'rag-retrieval';
+'rag-generation';
+'rag-reranking';
 
-'auth-login'
-'auth-verify'
-'auth-refresh'
+'auth-login';
+'auth-verify';
+'auth-refresh';
 
 // ❌ Bad: Inconsistent
-'retrieve_data'
-'GenerateResponse'
-'reRanking'
+'retrieve_data';
+'GenerateResponse';
+'reRanking';
 ```
 
 ---
@@ -298,27 +351,35 @@ await lumina.trace(reranking);
 
 ```typescript
 async function robustWorkflow(input: string) {
-  return await lumina.trace(async () => {
+  return await lumina.trace(
+    async () => {
+      let result;
+      try {
+        result = await lumina.trace(
+          async () => {
+            return await primaryModel(input);
+          },
+          { name: 'primary-model' }
+        );
+      } catch (error) {
+        // Fallback span
+        result = await lumina.trace(
+          async () => {
+            return await fallbackModel(input);
+          },
+          {
+            name: 'fallback-model',
+            attributes: {
+              'fallback.reason': error.message,
+            },
+          }
+        );
+      }
 
-    let result;
-    try {
-      result = await lumina.trace(async () => {
-        return await primaryModel(input);
-      }, { name: 'primary-model' });
-    } catch (error) {
-      // Fallback span
-      result = await lumina.trace(async () => {
-        return await fallbackModel(input);
-      }, {
-        name: 'fallback-model',
-        attributes: {
-          'fallback.reason': error.message,
-        }
-      });
-    }
-
-    return result;
-  }, { name: 'robust-workflow' });
+      return result;
+    },
+    { name: 'robust-workflow' }
+  );
 }
 ```
 
@@ -326,36 +387,47 @@ async function robustWorkflow(input: string) {
 
 ```typescript
 async function smartCaching(query: string) {
-  return await lumina.trace(async () => {
+  return await lumina.trace(
+    async () => {
+      // Check cache first
+      const cached = await lumina.trace(
+        async () => {
+          return await cache.get(query);
+        },
+        {
+          name: 'cache-lookup',
+          attributes: { 'cache.key': query },
+        }
+      );
 
-    // Check cache first
-    const cached = await lumina.trace(async () => {
-      return await cache.get(query);
-    }, {
-      name: 'cache-lookup',
-      attributes: { 'cache.key': query }
-    });
+      if (cached) {
+        // Cache hit: no LLM call needed
+        return cached;
+      }
 
-    if (cached) {
-      // Cache hit: no LLM call needed
-      return cached;
-    }
+      // Cache miss: LLM call span
+      const result = await lumina.trace(
+        async () => {
+          return await llm.generate(query);
+        },
+        {
+          name: 'llm-generation',
+          attributes: { 'cache.hit': false },
+        }
+      );
 
-    // Cache miss: LLM call span
-    const result = await lumina.trace(async () => {
-      return await llm.generate(query);
-    }, {
-      name: 'llm-generation',
-      attributes: { 'cache.hit': false }
-    });
+      // Store in cache span
+      await lumina.trace(
+        async () => {
+          await cache.set(query, result);
+        },
+        { name: 'cache-store' }
+      );
 
-    // Store in cache span
-    await lumina.trace(async () => {
-      await cache.set(query, result);
-    }, { name: 'cache-store' });
-
-    return result;
-  }, { name: 'smart-caching-request' });
+      return result;
+    },
+    { name: 'smart-caching-request' }
+  );
 }
 ```
 
@@ -363,31 +435,36 @@ async function smartCaching(query: string) {
 
 ```typescript
 async function batchProcessing(items: string[]) {
-  return await lumina.trace(async () => {
+  return await lumina.trace(
+    async () => {
+      const results = [];
 
-    const results = [];
+      for (let i = 0; i < items.length; i++) {
+        const result = await lumina.trace(
+          async () => {
+            return await processItem(items[i]);
+          },
+          {
+            name: 'process-item',
+            attributes: {
+              'item.index': i,
+              'item.id': items[i],
+            },
+          }
+        );
 
-    for (let i = 0; i < items.length; i++) {
-      const result = await lumina.trace(async () => {
-        return await processItem(items[i]);
-      }, {
-        name: 'process-item',
-        attributes: {
-          'item.index': i,
-          'item.id': items[i],
-        }
-      });
+        results.push(result);
+      }
 
-      results.push(result);
+      return results;
+    },
+    {
+      name: 'batch-processing',
+      attributes: {
+        'batch.size': items.length,
+      },
     }
-
-    return results;
-  }, {
-    name: 'batch-processing',
-    attributes: {
-      'batch.size': items.length,
-    }
-  });
+  );
 }
 ```
 
@@ -484,7 +561,7 @@ await lumina.trace(checkFormat);
 
 // ✅ Good: Group into one span
 await lumina.trace(validateAndNormalizeInput, {
-  name: 'input-validation'
+  name: 'input-validation',
 });
 ```
 
@@ -498,11 +575,14 @@ await lumina.trace(step3);
 // Hard to see they're related!
 
 // ✅ Good: Parent span groups them
-await lumina.trace(async () => {
-  await lumina.trace(step1, { name: 'step1' });
-  await lumina.trace(step2, { name: 'step2' });
-  await lumina.trace(step3, { name: 'step3' });
-}, { name: 'workflow' });
+await lumina.trace(
+  async () => {
+    await lumina.trace(step1, { name: 'step1' });
+    await lumina.trace(step2, { name: 'step2' });
+    await lumina.trace(step3, { name: 'step3' });
+  },
+  { name: 'workflow' }
+);
 ```
 
 ### Mistake 3: Inconsistent Nesting
@@ -511,15 +591,21 @@ await lumina.trace(async () => {
 // ❌ Bad: Inconsistent structure
 // Sometimes flat, sometimes nested
 await lumina.trace(action1);
-await lumina.trace(async () => {
-  await lumina.trace(action2);
-}, { name: 'parent' });
+await lumina.trace(
+  async () => {
+    await lumina.trace(action2);
+  },
+  { name: 'parent' }
+);
 
 // ✅ Good: Consistent structure
-await lumina.trace(async () => {
-  await lumina.trace(action1, { name: 'action1' });
-  await lumina.trace(action2, { name: 'action2' });
-}, { name: 'workflow' });
+await lumina.trace(
+  async () => {
+    await lumina.trace(action1, { name: 'action1' });
+    await lumina.trace(action2, { name: 'action2' });
+  },
+  { name: 'workflow' }
+);
 ```
 
 ---
@@ -559,14 +645,20 @@ await lumina.trace(() => llm.generate(), { name: 'llm-call' });
 
 ```typescript
 // ✅ Good: Await properly
-const result = await lumina.trace(async () => {
-  return await asyncOperation();
-}, { name: 'operation' });
+const result = await lumina.trace(
+  async () => {
+    return await asyncOperation();
+  },
+  { name: 'operation' }
+);
 
 // ❌ Bad: Missing await
-const result = lumina.trace(async () => {
-  return await asyncOperation();
-}, { name: 'operation' });
+const result = lumina.trace(
+  async () => {
+    return await asyncOperation();
+  },
+  { name: 'operation' }
+);
 // Span might not complete!
 ```
 
@@ -580,6 +672,7 @@ const result = lumina.trace(async () => {
 - 🔄 Use replay to test optimizations
 
 **Need help?** Check out:
+
 - [RAG integration guide](./rag-integration.md)
 - [AI pipeline best practices](./ai-pipeline-best-practices.md)
 - [API reference](/docs/api/API_REFERENCE.md)

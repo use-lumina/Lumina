@@ -5,18 +5,21 @@ This guide shows you how to instrument Retrieval-Augmented Generation (RAG) syst
 ## What is RAG?
 
 RAG (Retrieval-Augmented Generation) systems combine:
+
 1. **Retrieval**: Searching a knowledge base (vector database) for relevant context
 2. **Generation**: Using an LLM to generate a response based on the retrieved context
 
 ## Why Instrument RAG with Lumina?
 
 RAG pipelines have unique observability challenges:
+
 - **Two cost components**: Vector search + LLM generation
 - **Quality issues**: Wrong context retrieved OR LLM ignores context
 - **Performance bottlenecks**: Slow retrieval OR slow generation
 - **Context bloat**: Too much context = higher costs + lower quality
 
 Lumina helps you:
+
 - ✅ Track costs for both retrieval and generation
 - ✅ Detect when context quality degrades
 - ✅ Alert when context length grows unexpectedly
@@ -53,39 +56,42 @@ const anthropic = new Anthropic();
 
 export async function answerQuestion(question: string) {
   // Lumina creates ONE parent trace for the entire RAG flow
-  return await lumina.trace(async () => {
+  return await lumina.trace(
+    async () => {
+      // Step 1: Retrieval (child span)
+      const context = await lumina.trace(
+        async () => {
+          const embedding = await getEmbedding(question);
 
-    // Step 1: Retrieval (child span)
-    const context = await lumina.trace(async () => {
-      const embedding = await getEmbedding(question);
+          const results = await pinecone.index('knowledge-base').query({
+            vector: embedding,
+            topK: 5,
+            includeMetadata: true,
+          });
 
-      const results = await pinecone.index('knowledge-base').query({
-        vector: embedding,
-        topK: 5,
-        includeMetadata: true,
-      });
+          return results.matches.map((m) => m.metadata?.text).join('\n\n');
+        },
+        {
+          name: 'rag-retrieval',
+          attributes: {
+            'rag.query': question,
+            'rag.num_results': 5,
+            'rag.vector_db': 'pinecone',
+            'rag.index': 'knowledge-base',
+          },
+        }
+      );
 
-      return results.matches
-        .map(m => m.metadata?.text)
-        .join('\n\n');
-    }, {
-      name: 'rag-retrieval',
-      attributes: {
-        'rag.query': question,
-        'rag.num_results': 5,
-        'rag.vector_db': 'pinecone',
-        'rag.index': 'knowledge-base',
-      }
-    });
-
-    // Step 2: Generation (child span)
-    const response = await lumina.trace(async () => {
-      return await anthropic.messages.create({
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 1024,
-        messages: [{
-          role: 'user',
-          content: `Use the following context to answer the question.
+      // Step 2: Generation (child span)
+      const response = await lumina.trace(
+        async () => {
+          return await anthropic.messages.create({
+            model: 'claude-3-5-sonnet-20241022',
+            max_tokens: 1024,
+            messages: [
+              {
+                role: 'user',
+                content: `Use the following context to answer the question.
 
 Context:
 ${context}
@@ -93,24 +99,29 @@ ${context}
 Question: ${question}
 
 Answer:`,
-        }],
-      });
-    }, {
-      name: 'rag-generation',
-      attributes: {
-        'rag.context_length': context.length,
-        'rag.context_tokens': Math.ceil(context.length / 4), // rough estimate
-      }
-    });
+              },
+            ],
+          });
+        },
+        {
+          name: 'rag-generation',
+          attributes: {
+            'rag.context_length': context.length,
+            'rag.context_tokens': Math.ceil(context.length / 4), // rough estimate
+          },
+        }
+      );
 
-    return response.content[0].text;
-  }, {
-    name: 'rag-pipeline',
-    attributes: {
-      'rag.type': 'simple',
-      'rag.version': '1.0',
+      return response.content[0].text;
+    },
+    {
+      name: 'rag-pipeline',
+      attributes: {
+        'rag.type': 'simple',
+        'rag.version': '1.0',
+      },
     }
-  });
+  );
 }
 ```
 
@@ -138,39 +149,53 @@ When your RAG system does multiple retrieval rounds:
 
 ```typescript
 export async function multiHopRAG(question: string) {
-  return await lumina.trace(async () => {
+  return await lumina.trace(
+    async () => {
+      // Hop 1: Initial retrieval
+      const initialContext = await lumina.trace(
+        async () => {
+          // ... retrieval logic
+        },
+        {
+          name: 'rag-retrieval-hop-1',
+          attributes: { 'rag.hop': 1 },
+        }
+      );
 
-    // Hop 1: Initial retrieval
-    const initialContext = await lumina.trace(async () => {
-      // ... retrieval logic
-    }, {
-      name: 'rag-retrieval-hop-1',
-      attributes: { 'rag.hop': 1 }
-    });
+      // Hop 2: Query refinement
+      const refinedQuery = await lumina.trace(
+        async () => {
+          // Use LLM to refine query based on initial context
+          return await refineQuery(question, initialContext);
+        },
+        {
+          name: 'rag-query-refinement',
+        }
+      );
 
-    // Hop 2: Query refinement
-    const refinedQuery = await lumina.trace(async () => {
-      // Use LLM to refine query based on initial context
-      return await refineQuery(question, initialContext);
-    }, {
-      name: 'rag-query-refinement',
-    });
+      // Hop 3: Second retrieval with refined query
+      const refinedContext = await lumina.trace(
+        async () => {
+          // ... retrieval logic with refinedQuery
+        },
+        {
+          name: 'rag-retrieval-hop-2',
+          attributes: { 'rag.hop': 2 },
+        }
+      );
 
-    // Hop 3: Second retrieval with refined query
-    const refinedContext = await lumina.trace(async () => {
-      // ... retrieval logic with refinedQuery
-    }, {
-      name: 'rag-retrieval-hop-2',
-      attributes: { 'rag.hop': 2 }
-    });
+      // Final generation
+      const response = await lumina.trace(
+        async () => {
+          // ... generation logic
+        },
+        { name: 'rag-generation' }
+      );
 
-    // Final generation
-    const response = await lumina.trace(async () => {
-      // ... generation logic
-    }, { name: 'rag-generation' });
-
-    return response;
-  }, { name: 'rag-multi-hop-pipeline' });
+      return response;
+    },
+    { name: 'rag-multi-hop-pipeline' }
+  );
 }
 ```
 
@@ -219,24 +244,28 @@ export async function ragWithReranking(question: string) {
 ### Track Context Size
 
 ```typescript
-const context = await lumina.trace(async () => {
-  const results = await vectorSearch(question);
-  const contextText = results.join('\n\n');
+const context = await lumina.trace(
+  async () => {
+    const results = await vectorSearch(question);
+    const contextText = results.join('\n\n');
 
-  return contextText;
-}, {
-  name: 'rag-retrieval',
-  attributes: {
-    'rag.context_chars': contextText.length,
-    'rag.context_tokens': estimateTokens(contextText),
-    'rag.documents_retrieved': results.length,
+    return contextText;
+  },
+  {
+    name: 'rag-retrieval',
+    attributes: {
+      'rag.context_chars': contextText.length,
+      'rag.context_tokens': estimateTokens(contextText),
+      'rag.documents_retrieved': results.length,
+    },
   }
-});
+);
 ```
 
 ### Alert on Context Bloat
 
 In your Lumina dashboard, set up alerts:
+
 - Context length > 3000 tokens (warning)
 - Context length > 5000 tokens (critical)
 - Cost per request > $0.05 (warning)
@@ -267,23 +296,26 @@ const strategyB = { topK: 20, rerank: true, finalK: 5 };
 ### Track Retrieval Quality
 
 ```typescript
-const context = await lumina.trace(async () => {
-  const results = await vectorSearch(question);
+const context = await lumina.trace(
+  async () => {
+    const results = await vectorSearch(question);
 
-  // Track retrieval relevance scores
-  const avgScore = results.reduce((sum, r) => sum + r.score, 0) / results.length;
+    // Track retrieval relevance scores
+    const avgScore = results.reduce((sum, r) => sum + r.score, 0) / results.length;
 
-  return {
-    context: results.map(r => r.text).join('\n'),
-    avgRelevance: avgScore,
-  };
-}, {
-  name: 'rag-retrieval',
-  attributes: {
-    'rag.avg_relevance_score': avgScore,
-    'rag.min_relevance_score': Math.min(...results.map(r => r.score)),
+    return {
+      context: results.map((r) => r.text).join('\n'),
+      avgRelevance: avgScore,
+    };
+  },
+  {
+    name: 'rag-retrieval',
+    attributes: {
+      'rag.avg_relevance_score': avgScore,
+      'rag.min_relevance_score': Math.min(...results.map((r) => r.score)),
+    },
   }
-});
+);
 ```
 
 ### Detect Context Utilization
@@ -312,24 +344,27 @@ import { Pinecone } from '@pinecone-database/pinecone';
 const pinecone = new Pinecone();
 const index = pinecone.index('knowledge-base');
 
-const context = await lumina.trace(async () => {
-  const embedding = await getEmbedding(query);
+const context = await lumina.trace(
+  async () => {
+    const embedding = await getEmbedding(query);
 
-  const results = await index.query({
-    vector: embedding,
-    topK: 5,
-    includeMetadata: true,
-  });
+    const results = await index.query({
+      vector: embedding,
+      topK: 5,
+      includeMetadata: true,
+    });
 
-  return results.matches;
-}, {
-  name: 'rag-retrieval-pinecone',
-  attributes: {
-    'rag.vector_db': 'pinecone',
-    'rag.index': 'knowledge-base',
-    'rag.dimension': 1536,
+    return results.matches;
+  },
+  {
+    name: 'rag-retrieval-pinecone',
+    attributes: {
+      'rag.vector_db': 'pinecone',
+      'rag.index': 'knowledge-base',
+      'rag.dimension': 1536,
+    },
   }
-});
+);
 ```
 
 ### Weaviate
@@ -342,23 +377,26 @@ const client = weaviate.client({
   host: 'localhost:8080',
 });
 
-const context = await lumina.trace(async () => {
-  const results = await client.graphql
-    .get()
-    .withClassName('Document')
-    .withNearText({ concepts: [query] })
-    .withLimit(5)
-    .withFields('content _additional { distance }')
-    .do();
+const context = await lumina.trace(
+  async () => {
+    const results = await client.graphql
+      .get()
+      .withClassName('Document')
+      .withNearText({ concepts: [query] })
+      .withLimit(5)
+      .withFields('content _additional { distance }')
+      .do();
 
-  return results.data.Get.Document;
-}, {
-  name: 'rag-retrieval-weaviate',
-  attributes: {
-    'rag.vector_db': 'weaviate',
-    'rag.class': 'Document',
+    return results.data.Get.Document;
+  },
+  {
+    name: 'rag-retrieval-weaviate',
+    attributes: {
+      'rag.vector_db': 'weaviate',
+      'rag.class': 'Document',
+    },
   }
-});
+);
 ```
 
 ### Chroma
@@ -369,20 +407,23 @@ import { ChromaClient } from 'chromadb';
 const client = new ChromaClient();
 const collection = await client.getCollection({ name: 'documents' });
 
-const context = await lumina.trace(async () => {
-  const results = await collection.query({
-    queryTexts: [query],
-    nResults: 5,
-  });
+const context = await lumina.trace(
+  async () => {
+    const results = await collection.query({
+      queryTexts: [query],
+      nResults: 5,
+    });
 
-  return results.documents[0];
-}, {
-  name: 'rag-retrieval-chroma',
-  attributes: {
-    'rag.vector_db': 'chroma',
-    'rag.collection': 'documents',
+    return results.documents[0];
+  },
+  {
+    name: 'rag-retrieval-chroma',
+    attributes: {
+      'rag.vector_db': 'chroma',
+      'rag.collection': 'documents',
+    },
   }
-});
+);
 ```
 
 ### Supabase Vector (pgvector)
@@ -392,21 +433,24 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(url, key);
 
-const context = await lumina.trace(async () => {
-  const embedding = await getEmbedding(query);
+const context = await lumina.trace(
+  async () => {
+    const embedding = await getEmbedding(query);
 
-  const { data } = await supabase.rpc('match_documents', {
-    query_embedding: embedding,
-    match_count: 5,
-  });
+    const { data } = await supabase.rpc('match_documents', {
+      query_embedding: embedding,
+      match_count: 5,
+    });
 
-  return data;
-}, {
-  name: 'rag-retrieval-supabase',
-  attributes: {
-    'rag.vector_db': 'supabase-pgvector',
+    return data;
+  },
+  {
+    name: 'rag-retrieval-supabase',
+    attributes: {
+      'rag.vector_db': 'supabase-pgvector',
+    },
   }
-});
+);
 ```
 
 ---
@@ -416,21 +460,25 @@ const context = await lumina.trace(async () => {
 Once instrumented, Lumina tracks:
 
 ### Cost Metrics
+
 - **Total RAG cost** = Retrieval cost + Generation cost
 - **Cost breakdown**: What % is retrieval vs generation?
 - **Cost per document**: Are you retrieving too many?
 
 ### Performance Metrics
+
 - **Retrieval latency**: How long does vector search take?
 - **Generation latency**: How long does the LLM take?
 - **Total latency**: End-to-end RAG pipeline time
 
 ### Quality Metrics
+
 - **Retrieval relevance**: Are the right documents being retrieved?
 - **Context utilization**: Is the LLM using the context?
 - **Response quality**: Semantic similarity to expected output
 
 ### Alerts You'll Get
+
 - 🚨 **Cost spike**: "RAG cost +45% (context grew from 1K → 3K tokens)"
 - ⚠️ **Quality drop**: "Response ignoring context (semantic score: 0.62)"
 - 🔔 **Latency spike**: "Retrieval taking 2.5s (baseline: 800ms)"
@@ -443,10 +491,13 @@ Once instrumented, Lumina tracks:
 
 ```typescript
 // ✅ Good: Clear hierarchy
-lumina.trace(async () => {
-  await lumina.trace(retrieval, { name: 'retrieval' });
-  await lumina.trace(generation, { name: 'generation' });
-}, { name: 'rag-pipeline' });
+lumina.trace(
+  async () => {
+    await lumina.trace(retrieval, { name: 'retrieval' });
+    await lumina.trace(generation, { name: 'generation' });
+  },
+  { name: 'rag-pipeline' }
+);
 
 // ❌ Bad: Flat traces
 lumina.trace(retrieval);
@@ -499,6 +550,7 @@ attributes: {
 ### High Costs?
 
 Check Lumina dashboard:
+
 1. Is context length growing? (alert: context > 3K tokens)
 2. Are you retrieving too many documents? (reduce topK)
 3. Are you using expensive models? (try Claude Haiku for simple queries)
@@ -506,6 +558,7 @@ Check Lumina dashboard:
 ### Low Quality?
 
 Check Lumina dashboard:
+
 1. Retrieval relevance scores low? (improve embeddings/indexing)
 2. Response ignoring context? (improve prompt engineering)
 3. Hallucinations? (reduce temperature, improve context)
@@ -513,6 +566,7 @@ Check Lumina dashboard:
 ### Slow Performance?
 
 Check Lumina dashboard:
+
 1. Retrieval slow? (add vector DB indexes, reduce topK)
 2. Generation slow? (reduce context length, use faster model)
 3. Both slow? (consider caching common queries)
@@ -527,6 +581,7 @@ Check Lumina dashboard:
 - 📈 Track metrics over time to optimize
 
 **Need help?** Check out:
+
 - [Multi-span tracing guide](./multi-span-tracing.md)
 - [Best practices for AI pipelines](./ai-pipeline-best-practices.md)
 - [API reference](/docs/api/API_REFERENCE.md)

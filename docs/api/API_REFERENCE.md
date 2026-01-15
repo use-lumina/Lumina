@@ -29,10 +29,10 @@ The complete OpenAPI specification is available at: [`docs/openapi.yaml`](./open
 
 **Base URL:** `http://localhost:9411`
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/v1/traces` | POST | Ingest traces (OpenTelemetry compatible) |
-| `/health` | GET | Health check |
+| Endpoint     | Method | Description                              |
+| ------------ | ------ | ---------------------------------------- |
+| `/v1/traces` | POST   | Ingest traces (OpenTelemetry compatible) |
+| `/health`    | GET    | Health check                             |
 
 ### Query API (Port 8081)
 
@@ -40,35 +40,35 @@ The complete OpenAPI specification is available at: [`docs/openapi.yaml`](./open
 
 #### Authentication Endpoints
 
-| Endpoint | Method | Auth Required | Description |
-|----------|--------|---------------|-------------|
-| `/auth/login` | POST | No | User login with email/password |
-| `/auth/me` | GET | Yes | Get current user information |
-| `/auth/change-password` | POST | Yes | Change user password |
-| `/auth/refresh` | POST | Yes | Refresh JWT token |
+| Endpoint                | Method | Auth Required | Description                    |
+| ----------------------- | ------ | ------------- | ------------------------------ |
+| `/auth/login`           | POST   | No            | User login with email/password |
+| `/auth/me`              | GET    | Yes           | Get current user information   |
+| `/auth/change-password` | POST   | Yes           | Change user password           |
+| `/auth/refresh`         | POST   | Yes           | Refresh JWT token              |
 
 #### Data Endpoints
 
-| Endpoint | Method | Auth Required | Description |
-|----------|--------|---------------|-------------|
-| `/traces` | GET | Yes | Query traces with filters |
-| `/traces/{traceId}` | GET | Yes | Get specific trace |
-| `/cost` | GET | Yes | Cost analytics |
-| `/alerts` | GET | Yes | Get alerts |
-| `/health` | GET | No | Health check |
+| Endpoint            | Method | Auth Required | Description               |
+| ------------------- | ------ | ------------- | ------------------------- |
+| `/traces`           | GET    | Yes           | Query traces with filters |
+| `/traces/{traceId}` | GET    | Yes           | Get specific trace        |
+| `/cost`             | GET    | Yes           | Cost analytics            |
+| `/alerts`           | GET    | Yes           | Get alerts                |
+| `/health`           | GET    | No            | Health check              |
 
 ### Replay Engine (Port 8082)
 
 **Base URL:** `http://localhost:8082`
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/replay/capture` | POST | Create replay set |
-| `/replay/run` | POST | Execute replay |
-| `/replay/{replayId}` | GET | Get replay status |
-| `/replay/{replayId}/diff` | GET | Get diff results |
-| `/replay` | GET | List replay sets |
-| `/health` | GET | Health check |
+| Endpoint                  | Method | Description       |
+| ------------------------- | ------ | ----------------- |
+| `/replay/capture`         | POST   | Create replay set |
+| `/replay/run`             | POST   | Execute replay    |
+| `/replay/{replayId}`      | GET    | Get replay status |
+| `/replay/{replayId}/diff` | GET    | Get diff results  |
+| `/replay`                 | GET    | List replay sets  |
+| `/health`                 | GET    | Health check      |
 
 ## Authentication
 
@@ -91,12 +91,14 @@ curl http://localhost:8081/auth/me \
 ```
 
 **Token Details:**
+
 - Tokens expire after 7 days
 - Include user ID, customer ID, and email
 - Required for all data endpoints (traces, cost, alerts)
 - Use `/auth/refresh` to get a new token before expiration
 
 **Password Management:**
+
 - Initial passwords are marked as temporary (`isTemporaryPassword: true`)
 - Users must change temporary passwords on first login
 - Passwords must be at least 8 characters
@@ -114,6 +116,7 @@ curl -X POST http://localhost:9411/v1/traces \
 ```
 
 **API Key Details:**
+
 - Each customer has separate `live` and `test` environment keys
 - Keys are prefixed with `lumina_live_` or `lumina_test_`
 - Keys are generated during customer onboarding
@@ -131,6 +134,7 @@ All APIs return errors in this format:
 ```
 
 Common HTTP status codes:
+
 - `200` - Success
 - `400` - Bad request (invalid parameters)
 - `401` - Unauthorized (missing or invalid authentication)
@@ -138,6 +142,7 @@ Common HTTP status codes:
 - `500` - Internal server error
 
 **Authentication Errors:**
+
 - Missing token: `{"error": "Unauthorized", "message": "No token provided"}`
 - Invalid token: `{"error": "Unauthorized", "message": "Invalid or expired token"}`
 - Wrong password: `{"error": "Invalid email or password"}`
@@ -145,6 +150,7 @@ Common HTTP status codes:
 ## Rate Limits
 
 No rate limits in MVP. Recommended limits for production:
+
 - 1000 requests per minute per API key (Ingestion)
 - 100 requests per minute per API key (Query/Replay)
 

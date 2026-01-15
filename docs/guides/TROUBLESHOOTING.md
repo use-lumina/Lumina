@@ -20,6 +20,7 @@ This guide covers common issues you might encounter when setting up and using Lu
 ### Problem: `bun: command not found`
 
 **Symptoms:**
+
 ```bash
 $ bun install
 bash: bun: command not found
@@ -27,16 +28,19 @@ bash: bun: command not found
 
 **Solution:**
 Install Bun by running:
+
 ```bash
 curl -fsSL https://bun.sh/install | bash
 ```
 
 Then restart your terminal or run:
+
 ```bash
 source ~/.bashrc  # or ~/.zshrc
 ```
 
 **Verification:**
+
 ```bash
 bun --version
 ```
@@ -46,23 +50,28 @@ bun --version
 ### Problem: Package installation fails
 
 **Symptoms:**
+
 ```bash
 $ bun install
 error: unable to resolve dependency
 ```
 
 **Solution:**
+
 1. Clear Bun cache:
+
 ```bash
 rm -rf ~/.bun/install/cache
 ```
 
 2. Delete node_modules and lockfile:
+
 ```bash
 rm -rf node_modules bun.lockb
 ```
 
 3. Reinstall:
+
 ```bash
 bun install
 ```
@@ -74,17 +83,20 @@ bun install
 ### Problem: `database "lumina" does not exist`
 
 **Symptoms:**
+
 ```
 Failed to connect to database: database "lumina" does not exist
 ```
 
 **Solution:**
 Create the database:
+
 ```bash
 createdb lumina
 ```
 
 Or using psql:
+
 ```bash
 psql postgres
 CREATE DATABASE lumina;
@@ -92,6 +104,7 @@ CREATE DATABASE lumina;
 ```
 
 **Verification:**
+
 ```bash
 psql -d lumina -c "SELECT 1"
 ```
@@ -101,13 +114,16 @@ psql -d lumina -c "SELECT 1"
 ### Problem: PostgreSQL connection refused
 
 **Symptoms:**
+
 ```
 Failed to connect to database: connection refused
 ECONNREFUSED localhost:5432
 ```
 
 **Solution:**
+
 1. Check if PostgreSQL is running:
+
 ```bash
 # macOS
 brew services list | grep postgresql
@@ -117,6 +133,7 @@ systemctl status postgresql
 ```
 
 2. Start PostgreSQL if not running:
+
 ```bash
 # macOS
 brew services start postgresql
@@ -126,6 +143,7 @@ sudo systemctl start postgresql
 ```
 
 3. Verify port 5432 is listening:
+
 ```bash
 lsof -i :5432
 ```
@@ -135,22 +153,27 @@ lsof -i :5432
 ### Problem: Authentication failed for user
 
 **Symptoms:**
+
 ```
 PostgresError: password authentication failed for user "username"
 ```
 
 **Solution:**
+
 1. Check your connection string in environment:
+
 ```bash
 echo $DATABASE_URL
 ```
 
 2. Update with correct credentials:
+
 ```bash
 export DATABASE_URL="postgres://username:password@localhost:5432/lumina"
 ```
 
 3. For local development without password:
+
 ```bash
 export DATABASE_URL="postgres://username@localhost:5432/lumina"
 ```
@@ -160,6 +183,7 @@ export DATABASE_URL="postgres://username@localhost:5432/lumina"
 ### Problem: Table already exists error
 
 **Symptoms:**
+
 ```
 PostgresError: relation "traces" already exists
 ```
@@ -180,12 +204,15 @@ Then restart the services to recreate tables.
 ### Problem: Port already in use
 
 **Symptoms:**
+
 ```
 Error: listen EADDRINUSE: address already in use :::9411
 ```
 
 **Solution:**
+
 1. Find the process using the port:
+
 ```bash
 # macOS/Linux
 lsof -i :9411
@@ -195,11 +222,13 @@ netstat -tuln | grep 9411
 ```
 
 2. Kill the process:
+
 ```bash
 kill -9 <PID>
 ```
 
 3. Or change the port:
+
 ```bash
 # For ingestion service
 PORT=9412 bun run dev
@@ -218,6 +247,7 @@ PORT=8091 bun run dev
 ### Problem: Service crashes immediately
 
 **Symptoms:**
+
 ```bash
 $ bun run dev
 🚀 Starting service...
@@ -225,18 +255,22 @@ $ bun run dev
 ```
 
 **Solution:**
+
 1. Check logs for specific error message
 2. Verify DATABASE_URL is set:
+
 ```bash
 echo $DATABASE_URL
 ```
 
 3. Ensure database is accessible:
+
 ```bash
 psql -d lumina -c "SELECT 1"
 ```
 
 4. Check for missing dependencies:
+
 ```bash
 bun install
 ```
@@ -249,6 +283,7 @@ bun install
 Service starts but queries fail with "relation does not exist"
 
 **Solution:**
+
 1. Check that `initialize()` is called on startup
 2. Manually create tables:
 
@@ -275,7 +310,9 @@ psql -d lumina
 SDK sends traces but database remains empty
 
 **Diagnostic Steps:**
+
 1. Check ingestion service logs:
+
 ```bash
 cd services/ingestion
 bun run dev
@@ -283,6 +320,7 @@ bun run dev
 ```
 
 2. Test ingestion directly:
+
 ```bash
 curl -X POST http://localhost:9411/v1/traces \
   -H "Content-Type: application/json" \
@@ -296,11 +334,13 @@ curl -X POST http://localhost:9411/v1/traces \
 ```
 
 3. Check database:
+
 ```bash
 psql -d lumina -c "SELECT COUNT(*) FROM traces;"
 ```
 
 **Common Causes:**
+
 - Wrong ingestion endpoint in SDK config
 - Ingestion service not running
 - Database connection issue
@@ -311,6 +351,7 @@ psql -d lumina -c "SELECT COUNT(*) FROM traces;"
 ### Problem: Invalid trace format error
 
 **Symptoms:**
+
 ```json
 {
   "error": "Invalid trace format",
@@ -320,6 +361,7 @@ psql -d lumina -c "SELECT COUNT(*) FROM traces;"
 
 **Solution:**
 Ensure your traces include required fields:
+
 ```typescript
 {
   traceId: string,
@@ -331,10 +373,11 @@ Ensure your traces include required fields:
 ```
 
 Check SDK configuration:
+
 ```typescript
 const lumina = initLumina({
   endpoint: 'http://localhost:9411/v1/traces',
-  service_name: 'my-app',  // Required
+  service_name: 'my-app', // Required
 });
 ```
 
@@ -346,7 +389,9 @@ const lumina = initLumina({
 Traces ingested but `cost_usd` is 0 or null
 
 **Solution:**
+
 1. Ensure token counts are provided in trace attributes:
+
 ```typescript
 {
   attributes: {
@@ -358,6 +403,7 @@ Traces ingested but `cost_usd` is 0 or null
 ```
 
 2. Check if model is supported in cost calculator:
+
 ```typescript
 // See packages/core/src/cost-calculator.ts
 ```
@@ -371,18 +417,22 @@ Traces ingested but `cost_usd` is 0 or null
 ### Problem: Query returns empty results
 
 **Symptoms:**
+
 ```bash
 curl "http://localhost:8081/api/traces"
 # Returns: {"data": [], "pagination": {...}}
 ```
 
 **Diagnostic Steps:**
+
 1. Check if traces exist:
+
 ```bash
 psql -d lumina -c "SELECT COUNT(*) FROM traces;"
 ```
 
 2. Check query filters:
+
 ```bash
 # Try without filters
 curl "http://localhost:8081/api/traces?limit=10"
@@ -392,6 +442,7 @@ curl "http://localhost:8081/api/traces?service=my-app"
 ```
 
 3. Check date range (default might exclude your traces):
+
 ```bash
 curl "http://localhost:8081/api/traces?startDate=2024-01-01"
 ```
@@ -401,6 +452,7 @@ curl "http://localhost:8081/api/traces?startDate=2024-01-01"
 ### Problem: Query API returns 500 error
 
 **Symptoms:**
+
 ```json
 {
   "error": "Internal server error",
@@ -409,8 +461,10 @@ curl "http://localhost:8081/api/traces?startDate=2024-01-01"
 ```
 
 **Solution:**
+
 1. Check Query service logs for detailed error
 2. Verify database connection:
+
 ```bash
 psql -d lumina -c "SELECT 1"
 ```
@@ -426,7 +480,9 @@ psql -d lumina -c "SELECT 1"
 Cost or latency analytics show unexpected numbers
 
 **Solution:**
+
 1. Verify data in database:
+
 ```sql
 psql -d lumina
 
@@ -442,6 +498,7 @@ GROUP BY service_name;
 ```
 
 2. Check for null values:
+
 ```sql
 SELECT COUNT(*) FROM traces WHERE cost_usd IS NULL;
 SELECT COUNT(*) FROM traces WHERE latency_ms IS NULL;
@@ -456,6 +513,7 @@ SELECT COUNT(*) FROM traces WHERE latency_ms IS NULL;
 ### Problem: Replay set creation fails
 
 **Symptoms:**
+
 ```json
 {
   "error": "Invalid traces",
@@ -464,12 +522,15 @@ SELECT COUNT(*) FROM traces WHERE latency_ms IS NULL;
 ```
 
 **Solution:**
+
 1. Verify trace IDs exist:
+
 ```bash
 psql -d lumina -c "SELECT trace_id FROM traces LIMIT 10;"
 ```
 
 2. Use exact trace_id values from database:
+
 ```bash
 curl -X POST http://localhost:8082/replay/capture \
   -H "Content-Type: application/json" \
@@ -487,8 +548,10 @@ curl -X POST http://localhost:8082/replay/capture \
 Replay status shows "failed" or execution hangs
 
 **Diagnostic Steps:**
+
 1. Check replay service logs
 2. Verify traces have all required fields:
+
 ```sql
 SELECT trace_id, span_id, prompt, response
 FROM traces
@@ -496,12 +559,14 @@ WHERE trace_id = 'your-trace-id';
 ```
 
 3. Check for null prompts or responses:
+
 ```sql
 SELECT COUNT(*) FROM traces
 WHERE prompt IS NULL OR response IS NULL;
 ```
 
 **Solution:**
+
 - Ensure original traces have complete data
 - Check for API rate limits if calling external LLM APIs
 - Verify LLM API credentials are configured
@@ -514,7 +579,9 @@ WHERE prompt IS NULL OR response IS NULL;
 All replays show hash_similarity = 0
 
 **Solution:**
+
 1. Check if responses are being captured:
+
 ```sql
 SELECT original_response, replay_response
 FROM replay_results
@@ -522,10 +589,11 @@ LIMIT 1;
 ```
 
 2. Verify Diff Engine is working:
+
 ```typescript
 // Test similarity calculation
 import { textSimilarity } from '@lumina/core';
-const score = textSimilarity("hello", "hello");
+const score = textSimilarity('hello', 'hello');
 console.log(score); // Should be 1.0
 ```
 
@@ -536,6 +604,7 @@ console.log(score); // Should be 1.0
 ### Problem: Foreign key constraint error
 
 **Symptoms:**
+
 ```
 PostgresError: there is no unique constraint matching given keys for referenced table
 ```
@@ -544,12 +613,14 @@ PostgresError: there is no unique constraint matching given keys for referenced 
 This was fixed in the codebase. If you still see this:
 
 1. Ensure replay_results table uses composite foreign key:
+
 ```sql
 FOREIGN KEY (trace_id, span_id)
 REFERENCES traces(trace_id, span_id)
 ```
 
 2. Verify trace_ids in replay_sets are TEXT[] not UUID[]:
+
 ```sql
 ALTER TABLE replay_sets
 ALTER COLUMN trace_ids TYPE TEXT[]
@@ -566,7 +637,9 @@ USING trace_ids::TEXT[];
 Application runs but no traces appear in Lumina
 
 **Diagnostic Steps:**
+
 1. Enable debug logging:
+
 ```typescript
 const lumina = initLumina({
   debug: true,
@@ -576,11 +649,13 @@ const lumina = initLumina({
 
 2. Check network requests in application logs
 3. Verify endpoint is reachable:
+
 ```bash
 curl http://localhost:9411/health
 ```
 
 **Solution:**
+
 - Check firewall rules
 - Ensure ingestion service is running
 - Verify endpoint URL is correct (no typos)
@@ -591,22 +666,27 @@ curl http://localhost:9411/health
 ### Problem: TypeScript errors with SDK
 
 **Symptoms:**
+
 ```
 Type 'X' is not assignable to type 'Y'
 ```
 
 **Solution:**
+
 1. Ensure @lumina/sdk is properly installed:
+
 ```bash
 bun add @lumina/sdk
 ```
 
 2. Check TypeScript version compatibility:
+
 ```bash
 bun add -D typescript@latest
 ```
 
 3. Import types correctly:
+
 ```typescript
 import { initLumina, type LuminaConfig } from '@lumina/sdk';
 ```
@@ -619,29 +699,29 @@ import { initLumina, type LuminaConfig } from '@lumina/sdk';
 Traces ingested but prompt_tokens and completion_tokens are null
 
 **Solution:**
+
 1. For Anthropic SDK, tokens are in response.usage:
+
 ```typescript
 const response = await anthropic.messages.create({...});
 console.log(response.usage); // { input_tokens, output_tokens }
 ```
 
 2. Lumina SDK automatically extracts these. If not working:
+
 ```typescript
 // Manually pass token info
-await lumina.traceLLM(
-  async () => response,
-  {
-    name: 'test',
-    system: 'anthropic',
-    prompt: '...',
-    metadata: {
-      tokens: {
-        prompt: response.usage.input_tokens,
-        completion: response.usage.output_tokens,
-      }
-    }
-  }
-);
+await lumina.traceLLM(async () => response, {
+  name: 'test',
+  system: 'anthropic',
+  prompt: '...',
+  metadata: {
+    tokens: {
+      prompt: response.usage.input_tokens,
+      completion: response.usage.output_tokens,
+    },
+  },
+});
 ```
 
 ---
@@ -654,7 +734,9 @@ await lumina.traceLLM(
 Traces take several seconds to ingest
 
 **Solutions:**
+
 1. Check database performance:
+
 ```sql
 -- Check for missing indexes
 \d traces
@@ -665,10 +747,11 @@ CREATE INDEX IF NOT EXISTS idx_traces_service ON traces(service_name);
 ```
 
 2. Optimize database connection pool:
+
 ```typescript
 // In database/postgres.ts
 this.sql = postgres(this.connectionString, {
-  max: 20,  // Increase pool size
+  max: 20, // Increase pool size
   idle_timeout: 20,
   connect_timeout: 10,
 });
@@ -684,7 +767,9 @@ this.sql = postgres(this.connectionString, {
 API queries take > 2 seconds to return
 
 **Solutions:**
+
 1. Add database indexes:
+
 ```sql
 CREATE INDEX idx_traces_service ON traces(service_name);
 CREATE INDEX idx_traces_model ON traces(model);
@@ -694,11 +779,13 @@ CREATE INDEX idx_traces_latency ON traces(latency_ms);
 ```
 
 2. Reduce query limit:
+
 ```bash
 curl "http://localhost:8081/api/traces?limit=20"
 ```
 
 3. Use more specific filters:
+
 ```bash
 # Instead of querying all traces
 curl "http://localhost:8081/api/traces"
@@ -708,6 +795,7 @@ curl "http://localhost:8081/api/traces?service=my-app&startDate=2024-01-15"
 ```
 
 4. Implement pagination properly:
+
 ```bash
 # Page through results
 curl "http://localhost:8081/api/traces?limit=50&offset=0"
@@ -722,20 +810,24 @@ curl "http://localhost:8081/api/traces?limit=50&offset=50"
 Services consume excessive RAM
 
 **Solutions:**
+
 1. Reduce connection pool size:
+
 ```typescript
 postgres(connectionString, {
-  max: 5,  // Reduce from 10
+  max: 5, // Reduce from 10
 });
 ```
 
 2. Implement pagination in queries
 3. Add memory limits to Bun process:
+
 ```bash
 NODE_OPTIONS="--max-old-space-size=512" bun run dev
 ```
 
 4. Archive old traces:
+
 ```sql
 -- Move old traces to archive table
 CREATE TABLE traces_archive AS

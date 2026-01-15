@@ -5,6 +5,7 @@ Get started with Lumina in under 5 minutes. This guide will walk you through set
 ## What is Lumina?
 
 Lumina is a lightweight, open-source observability platform for LLM applications that provides:
+
 - Real-time trace ingestion and storage
 - Cost and latency tracking
 - Regression testing with replay capabilities
@@ -14,6 +15,7 @@ Lumina is a lightweight, open-source observability platform for LLM applications
 ## Prerequisites
 
 Before you begin, ensure you have:
+
 - [Bun](https://bun.sh) v1.0+ installed
 - PostgreSQL 14+ running locally or remotely
 - Node.js 20+ (for Next.js examples)
@@ -128,9 +130,7 @@ async function chat(message: string) {
     }
   );
 
-  return response.content[0]?.type === 'text'
-    ? response.content[0].text
-    : 'No response';
+  return response.content[0]?.type === 'text' ? response.content[0].text : 'No response';
 }
 
 // Use it
