@@ -179,7 +179,8 @@ app.post('/run', async (c) => {
         // Create diff summary
         const diffSummary = {
           cost_diff: replayCost - parseFloat(trace.cost_usd),
-          cost_diff_percent: ((replayCost - parseFloat(trace.cost_usd)) / parseFloat(trace.cost_usd)) * 100,
+          cost_diff_percent:
+            ((replayCost - parseFloat(trace.cost_usd)) / parseFloat(trace.cost_usd)) * 100,
           latency_diff: replayLatency - originalLatency,
           latency_diff_percent: ((replayLatency - originalLatency) / originalLatency) * 100,
           response_changed: hashSimilarity < 1.0,

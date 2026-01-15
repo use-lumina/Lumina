@@ -264,10 +264,8 @@ export function calculateAggregateStats(results: DiffResult[]): AggregateStats {
   const totalComparisons = results.length;
   const avgHashSimilarity =
     results.reduce((sum, r) => sum + r.hashSimilarity, 0) / totalComparisons;
-  const avgSemanticScore =
-    results.reduce((sum, r) => sum + r.semanticScore, 0) / totalComparisons;
-  const avgCostDelta =
-    results.reduce((sum, r) => sum + r.costDelta.absolute, 0) / totalComparisons;
+  const avgSemanticScore = results.reduce((sum, r) => sum + r.semanticScore, 0) / totalComparisons;
+  const avgCostDelta = results.reduce((sum, r) => sum + r.costDelta.absolute, 0) / totalComparisons;
   const avgLatencyDelta =
     results.reduce((sum, r) => sum + r.latencyDelta.absolute, 0) / totalComparisons;
   const responseChanges = results.filter((r) => r.responseChanged).length;

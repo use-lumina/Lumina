@@ -112,7 +112,9 @@ export function TablePagination({
           <PaginationNext
             onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
             aria-disabled={currentPage === totalPages}
-            className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+            className={
+              currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'
+            }
           />
         </PaginationItem>
       </PaginationContent>

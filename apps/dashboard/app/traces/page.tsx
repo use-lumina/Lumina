@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -15,7 +15,6 @@ import {
 } from '@/components/ui/select';
 import {
   StatusDot,
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -33,7 +32,6 @@ import { TraceDetailDrawer } from '@/components/traces/trace-detail-drawer';
 import { TablePagination } from '@/components/ui/table-pagination';
 import { cn } from '@/lib/utils';
 import {
-  RefreshCw,
   Filter,
   Download,
   TrendingUp,
@@ -64,7 +62,6 @@ import {
   type Trace as APITrace,
   type TraceTrendsResponse,
 } from '@/lib/api';
-import { formatDistanceToNow } from 'date-fns';
 import type { UITrace } from '@/types/trace';
 
 // API Trace type for this page (keeping snake_case from API)

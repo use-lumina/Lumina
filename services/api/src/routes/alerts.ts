@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { getDB } from '../database/postgres';
-import { requireAuth } from '../middleware/auth';
+import { requireAuth, type AuthContext } from '../middleware/auth';
 
 const app = new Hono();
 
@@ -203,6 +203,7 @@ app.get('/', requireAuth, async (c) => {
 app.get('/:id', requireAuth, async (c) => {
   try {
     const alertId = c.req.param('id');
+    const auth = c.get('auth') as AuthContext;
     const db = getDB();
     const sql = db.getClient();
 
@@ -238,8 +239,9 @@ app.get('/:id', requireAuth, async (c) => {
         t.completion_tokens,
         t.timestamp as trace_timestamp
       FROM alerts a
-      JOIN traces t ON a.trace_id = t.trace_id
+      LEFT JOIN traces t ON a.trace_id = t.trace_id AND a.span_id = t.span_id
       WHERE a.alert_id = ${alertId}
+        AND a.customer_id = ${auth.customerId}
       LIMIT 1
     `;
 

@@ -110,7 +110,7 @@ const responses = [
 ];
 
 // Generate a random trace
-function generateTrace(customerId: string, index: number) {
+function generateTrace(customerId: string, _index: number) {
   const model = models[Math.floor(Math.random() * models.length)];
   const service = services[Math.floor(Math.random() * services.length)];
   const endpoint = endpoints[Math.floor(Math.random() * endpoints.length)];

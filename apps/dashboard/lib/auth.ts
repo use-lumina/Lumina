@@ -32,7 +32,7 @@ export function isAuthenticated(): boolean {
 export function getToken(): string | null {
   if (typeof window !== 'undefined') {
     // warn once in dev
-    // eslint-disable-next-line no-console
+
     console.warn('getToken() is deprecated. Use cookie-based auth and call /auth/me');
   }
   return null;
@@ -40,14 +40,12 @@ export function getToken(): string | null {
 
 export function setToken(_: string, __?: boolean) {
   if (typeof window !== 'undefined') {
-    // eslint-disable-next-line no-console
     console.warn('setToken() is deprecated. Server sets httpOnly cookie on login.');
   }
 }
 
 export function clearToken() {
   if (typeof window !== 'undefined') {
-    // eslint-disable-next-line no-console
     console.warn('clearToken() is deprecated. Use POST /auth/logout to clear cookie.');
   }
 }

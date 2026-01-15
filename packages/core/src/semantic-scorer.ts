@@ -160,9 +160,7 @@ function parseEvaluationResponse(
  * Generate cache key for prompt+response pair
  */
 function generateCacheKey(prompt: string, response: string): string {
-  return `semantic:${createHash('sha256')
-    .update(`${prompt}|||${response}`)
-    .digest('hex')}`;
+  return `semantic:${createHash('sha256').update(`${prompt}|||${response}`).digest('hex')}`;
 }
 
 /**

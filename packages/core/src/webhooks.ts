@@ -3,7 +3,7 @@
  * Sends alerts to Slack, Discord, and PagerDuty with retry logic
  */
 
-import type { Alert, AlertDetails } from './alert-engine';
+import type { Alert } from './alert-engine';
 
 export interface WebhookConfig {
   slackWebhookUrl?: string;

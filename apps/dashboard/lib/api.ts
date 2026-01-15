@@ -338,7 +338,7 @@ export async function getCostAnomalies(
   return response.json();
 }
 
-export interface CostSummaryParams extends TimeRangeParams {}
+export type CostSummaryParams = TimeRangeParams;
 
 export interface CostSummaryResponse {
   summary: {
@@ -527,7 +527,7 @@ export async function getAlertById(id: string): Promise<Alert> {
   return response.json();
 }
 
-export interface AlertStatsParams extends TimeRangeParams {}
+export type AlertStatsParams = TimeRangeParams;
 
 export interface AlertStatsResponse {
   stats: {

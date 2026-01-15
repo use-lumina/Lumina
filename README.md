@@ -55,11 +55,12 @@ const lumina = initLumina({
 
 // Wrap your LLM calls
 const response = await lumina.traceLLM(
-  async () => anthropic.messages.create({
-    model: 'claude-sonnet-4-5',
-    max_tokens: 1024,
-    messages: [{ role: 'user', content: 'Hello!' }],
-  }),
+  async () =>
+    anthropic.messages.create({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: 'Hello!' }],
+    }),
   {
     name: 'chat',
     system: 'anthropic',
@@ -126,16 +127,19 @@ lumina/
 ## API Endpoints
 
 ### Ingestion Service (Port 9411)
+
 - `POST /v1/traces` - Ingest traces
 - `GET /health` - Health check
 
 ### Query API (Port 8081)
+
 - `GET /api/traces` - Query traces
 - `GET /api/traces/{id}` - Get specific trace
 - `GET /api/analytics/cost` - Cost analytics
 - `GET /api/analytics/latency` - Latency analytics
 
 ### Replay Engine (Port 8082)
+
 - `POST /replay/capture` - Create replay set
 - `POST /replay/run` - Execute replay
 - `GET /replay/{id}` - Get replay status
@@ -147,16 +151,19 @@ See [API Reference](./docs/api/API_REFERENCE.md) for complete documentation.
 ## Example Usage
 
 ### Query Traces
+
 ```bash
 curl "http://localhost:8081/api/traces?service=my-app&limit=10"
 ```
 
 ### Get Cost Analytics
+
 ```bash
 curl "http://localhost:8081/api/analytics/cost?service=my-app&startDate=2024-01-01"
 ```
 
 ### Run Regression Tests
+
 ```bash
 # 1. Create replay set
 curl -X POST http://localhost:8082/replay/capture \
@@ -214,16 +221,6 @@ export INGESTION_PORT=9411
 export QUERY_PORT=8081
 export REPLAY_PORT=8082
 ```
-
-## Roadmap
-
-- [ ] Dashboard UI
-- [ ] Real-time alerting via webhooks
-- [ ] Embedding-based semantic search
-- [ ] Baseline tracking and drift detection
-- [ ] Multi-tenancy support
-- [ ] Cost forecasting
-- [ ] Advanced analytics
 
 ## Deployment Options
 

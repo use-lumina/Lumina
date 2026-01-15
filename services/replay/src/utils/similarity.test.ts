@@ -89,7 +89,8 @@ describe('Response Variation Simulation', () => {
   });
 
   test('varied responses are still similar to original', () => {
-    const original = 'Machine learning models can recognize patterns in large datasets and make predictions';
+    const original =
+      'Machine learning models can recognize patterns in large datasets and make predictions';
 
     // Generate varied version
     const varied = simulateResponseVariation(original, 1.0); // 100% chance for testing

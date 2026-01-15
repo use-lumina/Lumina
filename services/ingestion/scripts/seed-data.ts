@@ -137,7 +137,6 @@ async function main() {
     // eslint-disable-next-line no-console
     console.log('\n✓ Database seeding complete');
   } catch (error) {
-    // eslint-disable-next-line no-console
     console.error('✗ Database seeding failed:', error);
     process.exit(1);
   }

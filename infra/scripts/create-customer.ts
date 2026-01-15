@@ -33,7 +33,7 @@ function parseArgs() {
 }
 
 // Generate API key
-function generateApiKey(customerId: string, environment: 'live' | 'test'): string {
+function generateApiKey(customerId: string, _environment: 'live' | 'test'): string {
   const randomString = randomBytes(20).toString('hex');
   return `lumina_${customerId}_${randomString}`;
 }

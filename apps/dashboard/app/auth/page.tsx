@@ -45,7 +45,7 @@ export default function AuthPage() {
       }
 
       // Server sets httpOnly cookie; redirect to original path or homepage
-      const data = await res.json().catch(() => ({}));
+      const _data = await res.json().catch(() => ({}));
       const from = searchParams.get('from') || '/';
       router.push(from);
     } catch (err) {

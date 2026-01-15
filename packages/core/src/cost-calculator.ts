@@ -32,7 +32,7 @@ const MODEL_PRICING: Record<string, ModelPricing> = {
   // Cohere
   'command-r-plus': { inputPer1M: 3.0, outputPer1M: 15.0 },
   'command-r': { inputPer1M: 0.5, outputPer1M: 1.5 },
-  'command': { inputPer1M: 1.0, outputPer1M: 2.0 },
+  command: { inputPer1M: 1.0, outputPer1M: 2.0 },
   'command-light': { inputPer1M: 0.3, outputPer1M: 0.6 },
 
   // Google

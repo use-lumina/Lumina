@@ -412,7 +412,6 @@ async function testLatencySpike() {
   // Step 1: Fast baseline
   console.log('📊 Creating baseline with fast responses...');
   for (let i = 0; i < 50; i++) {
-    const start = Date.now();
     await lumina.traceLLM(
       async () => {
         await sleep(50); // Fast response
@@ -513,7 +512,7 @@ async function main() {
 
   if (scenario === 'all') {
     console.log('🎯 Running all scenarios...\n');
-    for (const [key, test] of Object.entries(scenarios)) {
+    for (const [_key, test] of Object.entries(scenarios)) {
       console.log(`\n${'='.repeat(60)}`);
       console.log(`Running: ${test.name}`);
       console.log(`${test.description}`);

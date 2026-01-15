@@ -14,14 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Drawer,
   DrawerContent,
@@ -187,7 +180,9 @@ export default function ReplayPage() {
   };
 
   const handleDeleteReplaySet = async (replayId: string) => {
-    if (!confirm('Are you sure you want to delete this replay set? This action cannot be undone.')) {
+    if (
+      !confirm('Are you sure you want to delete this replay set? This action cannot be undone.')
+    ) {
       return;
     }
 
@@ -239,13 +234,6 @@ export default function ReplayPage() {
           latency_diff_percent: Number(ds.latency_diff_percent) || 0,
           response_changed: Boolean(ds.response_changed),
         };
-        // Ensure numeric fields used in UI exist
-        normalized.original_cost = normalized.original_cost;
-        normalized.replay_cost = normalized.replay_cost;
-        normalized.original_latency = normalized.original_latency;
-        normalized.replay_latency = normalized.replay_latency;
-        normalized.hash_similarity = normalized.hash_similarity;
-        normalized.semantic_score = normalized.semantic_score;
         return normalized as ReplayResult;
       }
 

@@ -13,8 +13,7 @@ export function calculateHashSimilarity(str1: string, str2: string): number {
   if (str1 === str2) return 1.0;
 
   // Normalize strings (trim, lowercase, remove extra whitespace)
-  const normalize = (s: string) =>
-    s.trim().toLowerCase().replace(/\s+/g, ' ');
+  const normalize = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
 
   const normalized1 = normalize(str1);
   const normalized2 = normalize(str2);
@@ -42,7 +41,8 @@ export function calculateSemanticSimilarity(text1: string, text2: string): numbe
 
   // Tokenize and normalize
   const tokenize = (s: string) =>
-    s.toLowerCase()
+    s
+      .toLowerCase()
       .replace(/[^\w\s]/g, ' ')
       .split(/\s+/)
       .filter((w) => w.length > 2); // Filter out very short words
@@ -144,7 +144,10 @@ function cosineSimilarity(freq1: Map<string, number>, freq2: Map<string, number>
  * Simulate LLM response variation for MVP
  * Introduces realistic small changes to simulate non-deterministic behavior
  */
-export function simulateResponseVariation(originalResponse: string, variationLevel: number = 0.05): string {
+export function simulateResponseVariation(
+  originalResponse: string,
+  variationLevel: number = 0.05
+): string {
   if (!originalResponse || Math.random() > variationLevel) {
     return originalResponse; // 95% chance to return unchanged
   }
@@ -170,10 +173,10 @@ export function simulateResponseVariation(originalResponse: string, variationLev
     // Synonym replacement (simple cases)
     () => {
       const synonyms: Record<string, string[]> = {
-        'good': ['great', 'excellent', 'fine'],
-        'bad': ['poor', 'unfavorable', 'negative'],
-        'big': ['large', 'substantial', 'significant'],
-        'small': ['little', 'minor', 'minimal'],
+        good: ['great', 'excellent', 'fine'],
+        bad: ['poor', 'unfavorable', 'negative'],
+        big: ['large', 'substantial', 'significant'],
+        small: ['little', 'minor', 'minimal'],
       };
 
       for (let i = 0; i < words.length; i++) {

@@ -29,8 +29,6 @@ import {
   Search,
 } from 'lucide-react';
 import {
-  LineChart,
-  Line,
   AreaChart,
   Area,
   PieChart,
@@ -52,7 +50,6 @@ import {
   getEndpointTrends,
   getTraces,
   getTraceById,
-  type Trace as APITrace,
 } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { TraceDetailDrawer } from '@/components/traces/trace-detail-drawer';

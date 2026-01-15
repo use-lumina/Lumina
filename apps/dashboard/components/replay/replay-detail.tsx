@@ -109,7 +109,9 @@ export function ReplayDetail({ replaySet, summary }: ReplayDetailProps) {
         </div>
         <div className="space-y-2">
           <Progress value={completedPercentage} className="h-2" />
-          <p className="text-sm text-muted-foreground text-right">{completedPercentage.toFixed(0)}% complete</p>
+          <p className="text-sm text-muted-foreground text-right">
+            {completedPercentage.toFixed(0)}% complete
+          </p>
         </div>
       </div>
 
@@ -215,9 +217,7 @@ export function ReplayDetail({ replaySet, summary }: ReplayDetailProps) {
                 Cost Impact
               </h3>
               <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  Average cost difference per request
-                </p>
+                <p className="text-sm text-muted-foreground">Average cost difference per request</p>
                 <div className="flex items-baseline gap-2">
                   <span
                     className={`text-3xl font-bold ${

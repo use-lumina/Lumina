@@ -2,7 +2,7 @@ import { loadSdkConfig, type SdkConfig } from '@lumina/config';
 import { SpanStatusCode, type Span, type Tracer as OtelTracer } from '@opentelemetry/api';
 import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
-import { type Resource, resourceFromAttributes, defaultResource } from '@opentelemetry/resources';
+import { resourceFromAttributes, defaultResource } from '@opentelemetry/resources';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import * as SemanticConventions from './semantic-conventions';
@@ -246,7 +246,8 @@ export class Lumina {
         // Support both OpenAI (prompt_tokens/completion_tokens) and Anthropic (input_tokens/output_tokens) naming
         const promptTokens = result.usage.prompt_tokens || result.usage.input_tokens;
         const completionTokens = result.usage.completion_tokens || result.usage.output_tokens;
-        const totalTokens = result.usage.total_tokens || (promptTokens || 0) + (completionTokens || 0);
+        const totalTokens =
+          result.usage.total_tokens || (promptTokens || 0) + (completionTokens || 0);
 
         if (promptTokens) {
           span.setAttribute(SemanticConventions.LLM_USAGE_PROMPT_TOKENS, promptTokens);

@@ -81,7 +81,9 @@ export class AlertsTable {
   /**
    * Insert multiple alerts in a batch
    */
-  async insertBatch(alerts: Array<{ alert: Alert; customerId: string; spanId: string }>): Promise<void> {
+  async insertBatch(
+    alerts: Array<{ alert: Alert; customerId: string; spanId: string }>
+  ): Promise<void> {
     if (alerts.length === 0) return;
 
     await this.sql`
@@ -145,10 +147,7 @@ export class AlertsTable {
   /**
    * Update alert status
    */
-  async updateStatus(
-    alertId: string,
-    status: 'sent' | 'acknowledged' | 'resolved'
-  ): Promise<void> {
+  async updateStatus(alertId: string, status: 'sent' | 'acknowledged' | 'resolved'): Promise<void> {
     const now = new Date();
 
     await this.sql.unsafe(updateStatusSQL, [

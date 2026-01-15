@@ -12,7 +12,9 @@ const DATABASE_URL = Bun.env.DATABASE_URL;
 async function runMigrations() {
   if (!DATABASE_URL) {
     console.error('❌ DATABASE_URL environment variable is required');
-    console.error('   Example: export DATABASE_URL="postgres://lumina:lumina@localhost:5432/lumina"');
+    console.error(
+      '   Example: export DATABASE_URL="postgres://lumina:lumina@localhost:5432/lumina"'
+    );
     process.exit(1);
   }
 

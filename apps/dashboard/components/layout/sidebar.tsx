@@ -120,7 +120,7 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-4 px-3">
         <div className="space-y-6">
-          {menuSections.map((section, sectionIdx) => (
+          {menuSections.map((section) => (
             <div key={section.title}>
               {/* Section Header */}
               <div className="px-3 mb-2">

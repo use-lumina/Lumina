@@ -219,9 +219,7 @@ export function ReplayDiff({ replayId }: ReplayDiffProps) {
               <div className="p-6 border-b border-border">
                 <h4 className="text-sm font-semibold mb-3 text-muted-foreground">Prompt</h4>
                 <div className="rounded-lg bg-muted p-4">
-                  <pre className="whitespace-pre-wrap text-sm font-mono">
-                    {result.prompt}
-                  </pre>
+                  <pre className="whitespace-pre-wrap text-sm font-mono">{result.prompt}</pre>
                 </div>
               </div>
             )}
@@ -234,8 +232,7 @@ export function ReplayDiff({ replayId }: ReplayDiffProps) {
                   <h4 className="text-sm font-semibold">Original Response</h4>
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
-                      <DollarSign className="h-3 w-3" />
-                      ${result.original_cost.toFixed(4)}
+                      <DollarSign className="h-3 w-3" />${result.original_cost.toFixed(4)}
                     </span>
                     <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
@@ -256,8 +253,7 @@ export function ReplayDiff({ replayId }: ReplayDiffProps) {
                   <h4 className="text-sm font-semibold">Replay Response</h4>
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
-                      <DollarSign className="h-3 w-3" />
-                      ${result.replay_cost.toFixed(4)}
+                      <DollarSign className="h-3 w-3" />${result.replay_cost.toFixed(4)}
                     </span>
                     <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />

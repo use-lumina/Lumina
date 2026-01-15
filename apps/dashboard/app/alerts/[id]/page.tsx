@@ -1,11 +1,13 @@
 import { notFound } from 'next/navigation';
-import { getAlertById, type Alert } from '@/lib/api';
+import { cookies } from 'next/headers';
 import { AlertDetail } from '@/components/alerts/alert-detail';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081';
 
 interface Params {
   params: { id: string };
@@ -15,7 +17,23 @@ export default async function AlertDetailPage({ params }: Params) {
   const { id } = params;
 
   try {
-    const alert = await getAlertById(id);
+    // Get cookie from server-side request
+    const cookieStore = await cookies();
+    const token = cookieStore.get('lumina_token')?.value;
+
+    // Fetch alert with authentication
+    const response = await fetch(`${API_BASE_URL}/alerts/${id}`, {
+      headers: {
+        ...(token ? { Cookie: `lumina_token=${token}` } : {}),
+      },
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch alert: ${response.statusText}`);
+    }
+
+    const alert = await response.json();
 
     if (!alert) {
       return notFound();

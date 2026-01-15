@@ -255,7 +255,8 @@ export default function Home() {
             Observe and optimize AI in production
           </h1>
           <p className="text-muted-foreground mt-2">
-            Real-time performance monitoring, cost analysis, and quality insights for your AI applications
+            Real-time performance monitoring, cost analysis, and quality insights for your AI
+            applications
           </p>
         </div>
 

@@ -204,111 +204,123 @@ export default function AlertsPage() {
         )}
       >
         <div className="space-y-3">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3 flex-1">
-            <div
-              className={cn(
-                'rounded-lg p-2',
-                alert.severity === 'HIGH' &&
-                  'bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400',
-                alert.severity === 'MEDIUM' &&
-                  'bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-400',
-                alert.severity === 'LOW' &&
-                  'bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400'
-              )}
-            >
-              {getSeverityIcon(alert.severity)}
-            </div>
-            <div className="flex-1 space-y-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="font-semibold">{getAlertTitle(alert)}</h3>
-                {getTypeBadge(alert.alert_type)}
-                {getStatusBadge(alert.status)}
+          {/* Header */}
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3 flex-1">
+              <div
+                className={cn(
+                  'rounded-lg p-2',
+                  alert.severity === 'HIGH' &&
+                    'bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400',
+                  alert.severity === 'MEDIUM' &&
+                    'bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-400',
+                  alert.severity === 'LOW' &&
+                    'bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400'
+                )}
+              >
+                {getSeverityIcon(alert.severity)}
               </div>
-              {alert.reasoning && (
-                <p className="text-sm text-muted-foreground">{alert.reasoning}</p>
-              )}
-              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                {alert.service_name && <span>{alert.service_name}</span>}
-                {alert.service_name && alert.endpoint && <span>•</span>}
-                <span className="font-mono">{alert.endpoint}</span>
-                <span>•</span>
-                <span>
-                  {alert.timestamp
-                    ? `${formatDistanceToNow(new Date(alert.timestamp))} ago`
-                    : 'Unknown time'}
-                </span>
-              </div>
-            </div>
-          </div>
-          <Badge variant={getSeverityBadgeVariant(alert.severity)} className="uppercase text-xs">
-            {alert.severity}
-          </Badge>
-        </div>
-
-        {/* Metrics */}
-        {(alert.current_cost !== undefined || alert.cost_usd !== undefined || alert.latency_ms !== undefined) && (
-          <div className="flex items-center gap-4 px-2 py-2 bg-muted/50 rounded-md flex-wrap">
-            {alert.current_cost !== undefined && alert.current_cost !== null && alert.baseline_cost !== undefined && alert.baseline_cost !== null && (
-              <>
-                <div className="flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">
-                    Current: ${alert.current_cost.toFixed(4)}
+              <div className="flex-1 space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-semibold">{getAlertTitle(alert)}</h3>
+                  {getTypeBadge(alert.alert_type)}
+                  {getStatusBadge(alert.status)}
+                </div>
+                {alert.reasoning && (
+                  <p className="text-sm text-muted-foreground">{alert.reasoning}</p>
+                )}
+                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  {alert.service_name && <span>{alert.service_name}</span>}
+                  {alert.service_name && alert.endpoint && <span>•</span>}
+                  <span className="font-mono">{alert.endpoint}</span>
+                  <span>•</span>
+                  <span>
+                    {alert.timestamp
+                      ? `${formatDistanceToNow(new Date(alert.timestamp))} ago`
+                      : 'Unknown time'}
                   </span>
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  Baseline: ${alert.baseline_cost.toFixed(4)}
-                </div>
-                {alert.cost_increase_percent !== undefined && alert.cost_increase_percent !== null && (
-                  <div className="text-sm font-semibold text-red-600 dark:text-red-400">
-                    +{alert.cost_increase_percent.toFixed(0)}%
+              </div>
+            </div>
+            <Badge variant={getSeverityBadgeVariant(alert.severity)} className="uppercase text-xs">
+              {alert.severity}
+            </Badge>
+          </div>
+
+          {/* Metrics */}
+          {(alert.current_cost !== undefined ||
+            alert.cost_usd !== undefined ||
+            alert.latency_ms !== undefined) && (
+            <div className="flex items-center gap-4 px-2 py-2 bg-muted/50 rounded-md flex-wrap">
+              {alert.current_cost !== undefined &&
+                alert.current_cost !== null &&
+                alert.baseline_cost !== undefined &&
+                alert.baseline_cost !== null && (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">
+                        Current: ${alert.current_cost.toFixed(4)}
+                      </span>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      Baseline: ${alert.baseline_cost.toFixed(4)}
+                    </div>
+                    {alert.cost_increase_percent !== undefined &&
+                      alert.cost_increase_percent !== null && (
+                        <div className="text-sm font-semibold text-red-600 dark:text-red-400">
+                          +{alert.cost_increase_percent.toFixed(0)}%
+                        </div>
+                      )}
+                  </>
+                )}
+              {alert.cost_usd !== undefined &&
+                alert.cost_usd !== null &&
+                alert.current_cost === undefined && (
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Cost: ${alert.cost_usd.toFixed(4)}</span>
                   </div>
                 )}
-              </>
+              {alert.latency_ms !== undefined && alert.latency_ms !== null && (
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Latency: {alert.latency_ms}ms</span>
+                </div>
+              )}
+              {alert.model && (
+                <div className="text-sm text-muted-foreground">Model: {alert.model}</div>
+              )}
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex items-center gap-2">
+            {alert.trace_id && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push(`/traces?traceId=${alert.trace_id}`)}
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                View Trace
+              </Button>
             )}
-            {alert.cost_usd !== undefined && alert.cost_usd !== null && alert.current_cost === undefined && (
-              <div className="flex items-center gap-2">
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Cost: ${alert.cost_usd.toFixed(4)}</span>
-              </div>
+            {alert.status === 'pending' && (
+              <Button size="sm" onClick={() => handleAcknowledge(alert.alert_id)}>
+                <Check className="h-4 w-4 mr-2" />
+                Acknowledge
+              </Button>
             )}
-            {alert.latency_ms !== undefined && alert.latency_ms !== null && (
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Latency: {alert.latency_ms}ms</span>
-              </div>
-            )}
-            {alert.model && (
-              <div className="text-sm text-muted-foreground">Model: {alert.model}</div>
+            {alert.status === 'acknowledged' && (
+              <Button size="sm" variant="secondary" disabled>
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+                Acknowledged
+              </Button>
             )}
           </div>
-        )}
-
-        {/* Actions */}
-        <div className="flex items-center gap-2">
-          {alert.trace_id && (
-            <Button variant="ghost" size="sm" onClick={() => router.push(`/traces?traceId=${alert.trace_id}`)}>
-              <Eye className="h-4 w-4 mr-2" />
-              View Trace
-            </Button>
-          )}
-          {alert.status === 'pending' && (
-            <Button size="sm" onClick={() => handleAcknowledge(alert.alert_id)}>
-              <Check className="h-4 w-4 mr-2" />
-              Acknowledge
-            </Button>
-          )}
-          {alert.status === 'acknowledged' && (
-            <Button size="sm" variant="secondary" disabled>
-              <CheckCircle2 className="h-4 w-4 mr-2" />
-              Acknowledged
-            </Button>
-          )}
         </div>
-      </div>
-    </Card>
+      </Card>
     );
   };
 

@@ -10,7 +10,6 @@ import {
   Hash,
   TrendingUp,
   CheckCircle,
-  Calendar,
   Activity,
 } from 'lucide-react';
 import type { Alert } from '@/lib/api';
@@ -150,7 +149,11 @@ export function AlertDetail({ alert }: AlertDetailProps) {
           </div>
           <Badge
             variant={
-              status === 'resolved' ? 'success' : status === 'acknowledged' ? 'secondary' : 'warning'
+              status === 'resolved'
+                ? 'success'
+                : status === 'acknowledged'
+                  ? 'secondary'
+                  : 'warning'
             }
             className="text-sm"
           >
@@ -229,7 +232,10 @@ export function AlertDetail({ alert }: AlertDetailProps) {
               {alert.semantic_cached !== undefined && (
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Semantic Cached</span>
-                  <Badge variant={alert.semantic_cached ? 'success' : 'secondary'} className="text-xs">
+                  <Badge
+                    variant={alert.semantic_cached ? 'success' : 'secondary'}
+                    className="text-xs"
+                  >
                     {alert.semantic_cached ? 'Yes' : 'No'}
                   </Badge>
                 </div>
@@ -370,7 +376,9 @@ export function AlertDetail({ alert }: AlertDetailProps) {
               {alert.resolved_at && (
                 <>
                   <dt className="text-sm font-medium text-muted-foreground">Resolved At</dt>
-                  <dd className="text-sm font-mono">{new Date(alert.resolved_at).toLocaleString()}</dd>
+                  <dd className="text-sm font-mono">
+                    {new Date(alert.resolved_at).toLocaleString()}
+                  </dd>
                 </>
               )}
             </dl>
