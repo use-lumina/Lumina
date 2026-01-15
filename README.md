@@ -1,6 +1,14 @@
 # Lumina
 
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![CI](https://github.com/evansinho/Lumina/actions/workflows/ci.yml/badge.svg)](https://github.com/evansinho/Lumina/actions/workflows/ci.yml)
+[![GitHub stars](https://img.shields.io/github/stars/evansinho/Lumina?style=social)](https://github.com/evansinho/Lumina/stargazers)
+
+**Open-source, OpenTelemetry-native observability for AI systems.**
+
 A lightweight observability platform for LLM applications. Track costs, latency, and quality across your AI systems with minimal overhead.
+
+**🔓 Fully open-source** • **🏠 Self-hostable** • **☁️ Managed cloud option available**
 
 ## Features
 
@@ -90,10 +98,10 @@ const response = await lumina.traceLLM(
 
 ## Documentation
 
-- **[Quickstart Guide](./docs/QUICKSTART.md)** - Get started in 5 minutes
-- **[API Reference](./docs/API_REFERENCE.md)** - Complete API documentation (OpenAPI/Swagger)
-- **[Architecture](./docs/ARCHITECTURE.md)** - System design and component details
-- **[Troubleshooting](./docs/TROUBLESHOOTING.md)** - Common issues and solutions
+- **[Quickstart Guide](./docs/guides/QUICKSTART.md)** - Get started in 5 minutes
+- **[API Reference](./docs/api/API_REFERENCE.md)** - Complete API documentation (OpenAPI/Swagger)
+- **[Architecture](./docs/guides/ARCHITECTURE.md)** - System design and component details
+- **[Troubleshooting](./docs/guides/TROUBLESHOOTING.md)** - Common issues and solutions
 
 ## Project Structure
 
@@ -207,35 +215,7 @@ export QUERY_PORT=8081
 export REPLAY_PORT=8082
 ```
 
-## MVP Status
-
-This is an MVP implementation with the following completed features:
-
-**Week 1-2: Foundation**
-- ✅ Trace ingestion service
-- ✅ PostgreSQL storage
-- ✅ Cost calculator
-- ✅ SDK implementation
-
-**Week 3: Query & Analytics**
-- ✅ Query API
-- ✅ Cost analytics
-- ✅ Latency analytics
-- ✅ Tag-based filtering
-
-**Week 4: Replay Engine**
-- ✅ Replay capture
-- ✅ Replay execution
-- ✅ Diff engine with similarity scoring
-- ✅ Side-by-side comparison
-
-**Documentation**
-- ✅ Quickstart guide
-- ✅ API reference (OpenAPI/Swagger)
-- ✅ Architecture diagram
-- ✅ Troubleshooting guide
-
-## Future Enhancements
+## Roadmap
 
 - [ ] Dashboard UI
 - [ ] Real-time alerting via webhooks
@@ -245,16 +225,53 @@ This is an MVP implementation with the following completed features:
 - [ ] Cost forecasting
 - [ ] Advanced analytics
 
+## Deployment Options
+
+### Self-Hosting (Recommended for getting started)
+
+Lumina is designed to be self-hosted on your infrastructure:
+
+- **Full control** over your data and infrastructure
+- **Zero vendor lock-in** - you own your observability data
+- **Deploy anywhere** - Docker, Kubernetes, bare metal
+- **Production-ready** - PostgreSQL backend, OTEL-compliant
+
+Follow the [Quick Start](#quick-start) guide above to get running locally. Docker Compose and Kubernetes deployment guides coming soon.
+
+### Managed Cloud (Coming Soon)
+
+For teams that want a fully managed solution:
+
+- **Hosted infrastructure** - we handle scaling, updates, backups
+- **Enterprise features** - SSO, RBAC, SLA guarantees
+- **Free tier available** for development and small teams
+- **Pricing based on usage** - traces ingested, storage, replays
+
+[Join the waitlist at uselumina.io](https://uselumina.io) for early access to managed Lumina.
+
 ## Contributing
 
-Contributions welcome! Please check the [Troubleshooting Guide](./docs/guides/TROUBLESHOOTING.md) if you encounter any issues.
+We welcome contributions from the community!
+
+- **Read the [Contributing Guide](./CONTRIBUTING.md)** for development setup and guidelines
+- **Check [Good First Issues](https://github.com/evansinho/Lumina/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)** for beginner-friendly tasks
+- **Join the discussion** in [GitHub Discussions](https://github.com/evansinho/Lumina/discussions)
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed instructions.
 
 ## License
 
-MIT
+Apache 2.0 - See [LICENSE](./LICENSE) for details.
+
+Lumina is free and open-source software. You can use it for any purpose, including commercial projects.
 
 ## Support
 
 - **Documentation:** [docs/](./docs/)
-- **Issues:** Create a GitHub issue
+- **GitHub Issues:** [Bug reports & feature requests](https://github.com/evansinho/Lumina/issues)
+- **GitHub Discussions:** [Questions & community chat](https://github.com/evansinho/Lumina/discussions)
 - **Examples:** [examples/nextjs-rag](./examples/nextjs-rag)
+
+---
+
+**Built with ❤️ by the Lumina community** • [Star us on GitHub](https://github.com/evansinho/Lumina) ⭐

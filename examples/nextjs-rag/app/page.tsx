@@ -47,12 +47,10 @@ export default function Home() {
               <MessageSquare className="h-6 w-6 text-white" />
             </div>
             <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              Lumina SDK Test
+              Simple LLm Chat App
             </h1>
           </div>
-          <p className="text-gray-600 text-lg">
-            Simple chat interface testing Lumina SDK integration
-          </p>
+          <p className="text-gray-600 text-lg">Simple chat interface testing Lumina</p>
         </div>
 
         {/* Navigation Links */}
