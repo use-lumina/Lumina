@@ -3,8 +3,8 @@
 # Site settings
 title: Lumina Documentation
 description: Open-source, OpenTelemetry-native observability for AI systems
-baseurl: "/Lumina" # Change this to your repo name
-url: "https://yourusername.github.io" # Change this to your GitHub Pages URL
+baseurl: "/Lumina"
+url: "https://use-lumina.github.io"
 
 # Theme
 theme: jekyll-theme-cayman
