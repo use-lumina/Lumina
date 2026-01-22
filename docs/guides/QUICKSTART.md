@@ -51,7 +51,7 @@ To use the **replay feature with real LLM calls**, you'll need API keys:
 ### Step 1: Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/Lumina.git
+git clone https://github.com/use-lumina/Lumina.git
 cd Lumina
 ```
 
@@ -400,10 +400,10 @@ docker run --rm \
 
 ## Need Help?
 
-- 📝 [Documentation](https://yourusername.github.io/Lumina)
-- 💬 [GitHub Discussions](https://github.com/yourusername/Lumina/discussions)
-- 🐛 [Report an Issue](https://github.com/yourusername/Lumina/issues)
-- 🌟 [Star us on GitHub](https://github.com/yourusername/Lumina)
+- 📝 [Documentation](https://use-lumina.github.io/Lumina)
+- 💬 [GitHub Discussions](https://github.com/use-lumina/Lumina/discussions)
+- 🐛 [Report an Issue](https://github.com/use-lumina/Lumina/issues)
+- 🌟 [Star us on GitHub](https://github.com/use-lumina/Lumina)
 
 ---
 

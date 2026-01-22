@@ -141,7 +141,7 @@ The only platform that can query `cost > $0.50 AND quality < 0.8` in a single da
 ### Docker Compose (Recommended)
 
 ```bash
-git clone https://github.com/yourusername/Lumina
+git clone https://github.com/use-lumina/Lumina
 cd Lumina/infra/docker
 cp ../../.env.docker.example ../../.env.docker
 # Add your ANTHROPIC_API_KEY to .env.docker
@@ -224,15 +224,15 @@ See [Integration Guides](./guides/INTEGRATIONS.md) for more examples.
 We welcome contributions! Check out:
 
 - [Contributing Guide](../CONTRIBUTING.md)
-- [GitHub Issues](https://github.com/yourusername/Lumina/issues)
-- [GitHub Discussions](https://github.com/yourusername/Lumina/discussions)
+- [GitHub Issues](https://github.com/use-lumina/Lumina/issues)
+- [GitHub Discussions](https://github.com/use-lumina/Lumina/discussions)
 
 ---
 
 ## 📚 Resources
 
-- **[GitHub Repository](https://github.com/yourusername/Lumina)** - Star us!
-- **[Example Applications](https://github.com/yourusername/Lumina/tree/main/examples)** - Working examples
+- **[GitHub Repository](https://github.com/use-lumina/Lumina)** - Star us!
+- **[Example Applications](https://github.com/use-lumina/Lumina/tree/main/examples)** - Working examples
 - **[Changelog](../CHANGELOG.md)** - What's new
 - **[Security Policy](../SECURITY.md)** - Reporting vulnerabilities
 - **[License](../LICENSE)** - Apache 2.0
@@ -241,7 +241,7 @@ We welcome contributions! Check out:
 
 ## 💬 Community
 
-- **[GitHub Discussions](https://github.com/yourusername/Lumina/discussions)** - Ask questions
+- **[GitHub Discussions](https://github.com/use-lumina/Lumina/discussions)** - Ask questions
 - **[Discord](https://discord.gg/your-invite)** - Join the community (coming soon)
 - **[Twitter](https://twitter.com/yourusername)** - Follow for updates
 - **[Email](mailto:your-email@example.com)** - Contact us

@@ -1,8 +1,8 @@
 # Lumina
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![CI](https://github.com/evansinho/Lumina/actions/workflows/ci.yml/badge.svg)](https://github.com/evansinho/Lumina/actions/workflows/ci.yml)
-[![GitHub stars](https://img.shields.io/github/stars/evansinho/Lumina?style=social)](https://github.com/evansinho/Lumina/stargazers)
+[![CI](https://github.com/use-lumina/Lumina/actions/workflows/ci.yml/badge.svg)](https://github.com/use-lumina/Lumina/actions/workflows/ci.yml)
+[![GitHub stars](https://img.shields.io/github/stars/use-lumina/Lumina?style=social)](https://github.com/use-lumina/Lumina/stargazers)
 
 **Open-source, OpenTelemetry-native observability for AI systems.**
 
@@ -33,7 +33,7 @@ For unlimited traces and retention, consider our managed cloud offering. [Contac
 
 ```bash
 # 1. Clone and install
-git clone <your-repo-url> lumina
+git clone https://github.com/use-lumina/Lumina.git lumina
 cd lumina
 bun install
 
@@ -275,8 +275,8 @@ For teams that want a fully managed solution:
 We welcome contributions from the community!
 
 - **Read the [Contributing Guide](./CONTRIBUTING.md)** for development setup and guidelines
-- **Check [Good First Issues](https://github.com/evansinho/Lumina/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)** for beginner-friendly tasks
-- **Join the discussion** in [GitHub Discussions](https://github.com/evansinho/Lumina/discussions)
+- **Check [Good First Issues](https://github.com/use-lumina/Lumina/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)** for beginner-friendly tasks
+- **Join the discussion** in [GitHub Discussions](https://github.com/use-lumina/Lumina/discussions)
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed instructions.
 
@@ -289,10 +289,10 @@ Lumina is free and open-source software. You can use it for any purpose, includi
 ## Support
 
 - **Documentation:** [docs/](./docs/)
-- **GitHub Issues:** [Bug reports & feature requests](https://github.com/evansinho/Lumina/issues)
-- **GitHub Discussions:** [Questions & community chat](https://github.com/evansinho/Lumina/discussions)
+- **GitHub Issues:** [Bug reports & feature requests](https://github.com/use-lumina/Lumina/issues)
+- **GitHub Discussions:** [Questions & community chat](https://github.com/use-lumina/Lumina/discussions)
 - **Examples:** [examples/nextjs-rag](./examples/nextjs-rag)
 
 ---
 
-**Built with ❤️ by the Lumina community** • [Star us on GitHub](https://github.com/evansinho/Lumina) ⭐
+**Built with ❤️ by the Lumina community** • [Star us on GitHub](https://github.com/use-lumina/Lumina) ⭐

@@ -19,7 +19,7 @@ We take security vulnerabilities seriously. If you discover a security issue in 
 Instead, please report security issues via one of these methods:
 
 1. **Email:** security@lumina.dev (coming soon)
-2. **GitHub Security Advisory:** Use the [GitHub Security Advisory](https://github.com/evansinho/Lumina/security/advisories/new) feature
+2. **GitHub Security Advisory:** Use the [GitHub Security Advisory](https://github.com/use-lumina/Lumina/security/advisories/new) feature
 
 ### What to Include
 
@@ -96,7 +96,7 @@ Security updates will be announced via:
 
 ## Contact
 
-For non-security issues, use [GitHub Issues](https://github.com/evansinho/Lumina/issues).
+For non-security issues, use [GitHub Issues](https://github.com/use-lumina/Lumina/issues).
 
 For security concerns, use the reporting methods above.
 

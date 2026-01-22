@@ -184,8 +184,8 @@ The SDK auto-calculates costs based on the model and token counts.
 We welcome contributions! Check out:
 
 - [Contributing Guide](../../CONTRIBUTING.md)
-- [GitHub Issues](https://github.com/yourusername/Lumina/issues)
-- [GitHub Discussions](https://github.com/yourusername/Lumina/discussions)
+- [GitHub Issues](https://github.com/use-lumina/Lumina/issues)
+- [GitHub Discussions](https://github.com/use-lumina/Lumina/discussions)
 
 ## Replay Feature
 
@@ -393,7 +393,7 @@ This will delete all traces, alerts, and baselines. Use with caution!
 
 ## Still Have Questions?
 
-- 📖 [Read the full documentation](https://yourusername.github.io/Lumina)
-- 💬 [Ask in GitHub Discussions](https://github.com/yourusername/Lumina/discussions)
+- 📖 [Read the full documentation](https://use-lumina.github.io/Lumina)
+- 💬 [Ask in GitHub Discussions](https://github.com/use-lumina/Lumina/discussions)
 - 📧 [Email us](mailto:your-email@example.com)
-- 🐛 [Report a bug](https://github.com/yourusername/Lumina/issues)
+- 🐛 [Report a bug](https://github.com/use-lumina/Lumina/issues)

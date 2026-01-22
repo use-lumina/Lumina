@@ -423,4 +423,4 @@ To enable real LLM calls, add API keys as shown above.
 
 ---
 
-**Questions?** Open a [GitHub Discussion](https://github.com/yourusername/Lumina/discussions) or check the [FAQ](./FAQ.md).
+**Questions?** Open a [GitHub Discussion](https://github.com/use-lumina/Lumina/discussions) or check the [FAQ](./FAQ.md).

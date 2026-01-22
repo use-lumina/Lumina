@@ -660,6 +660,6 @@ try {
 
 ## Need Help?
 
-- 💬 [GitHub Discussions](https://github.com/yourusername/Lumina/discussions)
-- 🐛 [Report an Issue](https://github.com/yourusername/Lumina/issues)
-- 📖 [Read the Docs](https://yourusername.github.io/Lumina)
+- 💬 [GitHub Discussions](https://github.com/use-lumina/Lumina/discussions)
+- 🐛 [Report an Issue](https://github.com/use-lumina/Lumina/issues)
+- 📖 [Read the Docs](https://use-lumina.github.io/Lumina)

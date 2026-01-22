@@ -27,7 +27,7 @@ By participating in this project, you agree to maintain a respectful and inclusi
    ```
 3. **Add upstream remote**:
    ```bash
-   git remote add upstream https://github.com/evansinho/Lumina.git
+   git remote add upstream https://github.com/use-lumina/Lumina.git
    ```
 
 ## Development Setup
@@ -292,7 +292,7 @@ Look for issues labeled `good first issue` on GitHub. These are designed for new
 If you have questions about contributing:
 
 1. Check the [documentation](./docs/)
-2. Search [existing issues](https://github.com/evansinho/Lumina/issues)
+2. Search [existing issues](https://github.com/use-lumina/Lumina/issues)
 3. Open a new issue with the `question` label
 
 ## License

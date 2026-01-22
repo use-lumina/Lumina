@@ -233,4 +233,4 @@ For production, update:
 ## Support
 
 - GitHub Issues: https://github.com/yourusername/Lumina/issues
-- Documentation: https://yourusername.github.io/Lumina
+- Documentation: https://use-lumina.github.io/Lumina
