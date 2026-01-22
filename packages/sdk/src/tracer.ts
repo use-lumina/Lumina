@@ -1,5 +1,4 @@
-import type { SdkConfig } from '@lumina/config';
-import type { Trace } from '@lumina/schema';
+import type { SdkConfig, Trace } from './types';
 import { HttpExporter } from './exporter';
 import { generateTraceId, hashResponse } from './utils';
 

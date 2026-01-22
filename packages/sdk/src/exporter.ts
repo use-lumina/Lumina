@@ -1,5 +1,4 @@
-import type { SdkConfig } from '@lumina/config';
-import type { Trace, IngestRequest, IngestResponse } from '@lumina/schema';
+import type { SdkConfig, Trace, IngestRequest, IngestResponse } from './types';
 
 /**
  * HTTP Exporter

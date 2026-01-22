@@ -1,4 +1,5 @@
-import { loadSdkConfig, type SdkConfig } from '@lumina/config';
+import { loadSdkConfig } from './config';
+import type { SdkConfig } from './types';
 import { SpanStatusCode, type Span, type Tracer as OtelTracer } from '@opentelemetry/api';
 import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';

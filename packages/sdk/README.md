@@ -14,18 +14,38 @@ yarn add @lumina/sdk
 
 ## Quick Start
 
-### 1. Get your API key
+### 1. Set up Lumina
 
-Sign up at [lumina.app](https://lumina.app) and get your API key from the dashboard.
+**Self-Hosted (Recommended):**
+
+```bash
+git clone https://github.com/use-lumina/Lumina.git
+cd Lumina/infra/docker
+docker-compose up -d
+```
+
+**Managed Cloud:** Sign up at [uselumina.io](https://uselumina.io)
 
 ### 2. Initialize the SDK
+
+**For Self-Hosted:**
 
 ```typescript
 import { initLumina } from '@lumina/sdk';
 
 const lumina = initLumina({
+  endpoint: 'http://localhost:9411/v1/traces', // Your self-hosted endpoint
+  service_name: 'my-app',
+});
+```
+
+**For Managed Cloud:**
+
+```typescript
+const lumina = initLumina({
   apiKey: process.env.LUMINA_API_KEY,
-  environment: 'live', // or 'test'
+  endpoint: 'https://ingestion.uselumina.io/v1/traces',
+  service_name: 'my-app',
 });
 ```
 
@@ -310,10 +330,10 @@ Check if SDK is enabled.
 
 ## Support
 
-- Documentation: https://docs.lumina.app
-- Issues: https://github.com/lumina/lumina/issues
-- Email: support@lumina.app
+- Documentation: https://use-lumina.github.io/Lumina/
+- Issues: https://github.com/use-lumina/Lumina/issues
+- Discussions: https://github.com/use-lumina/Lumina/discussions
 
 ## License
 
-MIT
+Apache 2.0 - See [LICENSE](https://github.com/use-lumina/Lumina/blob/main/LICENSE) for details.

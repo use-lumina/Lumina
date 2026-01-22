@@ -1,9 +1,39 @@
 {
   "name": "@lumina/sdk",
   "version": "0.1.0",
+  "description": "Official TypeScript/JavaScript SDK for Lumina - Open-source AI Observability Platform",
+  "keywords": [
+    "lumina",
+    "observability",
+    "llm",
+    "ai",
+    "opentelemetry",
+    "tracing",
+    "monitoring",
+    "openai",
+    "anthropic",
+    "claude",
+    "gpt"
+  ],
+  "homepage": "https://use-lumina.github.io/Lumina/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/use-lumina/Lumina.git",
+    "directory": "packages/sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/use-lumina/Lumina/issues"
+  },
+  "license": "Apache-2.0",
+  "author": "Lumina Team",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "exports": {
     ".": {
       "import": "./dist/index.js",
@@ -17,8 +47,6 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@lumina/config": "workspace:*",
-    "@lumina/schema": "workspace:*",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.208.0",
     "@opentelemetry/resources": "^2.2.0",

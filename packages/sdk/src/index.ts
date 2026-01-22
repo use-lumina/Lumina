@@ -9,7 +9,5 @@ export * as SemanticConventions from './semantic-conventions';
 // Re-export OpenTelemetry types for convenience
 export type { Span, Tracer } from '@opentelemetry/api';
 
-// Re-export types from schema for convenience
-export type { Trace, Alert, IngestRequest, IngestResponse } from '@lumina/schema';
-
-export type { SdkConfig } from '@lumina/config';
+// Re-export types for user convenience
+export type { Trace, Alert, IngestRequest, IngestResponse, SdkConfig } from './types';
