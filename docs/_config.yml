@@ -5,41 +5,79 @@ title: Lumina Documentation
 description: Open-source, OpenTelemetry-native observability for AI systems
 baseurl: "/Lumina"
 url: "https://use-lumina.github.io"
+logo: "/assets/images/lumina-logo.png"
 
-# Theme
-theme: jekyll-theme-cayman
-# Or use: jekyll-theme-minimal, jekyll-theme-slate, jekyll-theme-architect
+# Theme - Using Just the Docs for better documentation experience
+remote_theme: just-the-docs/just-the-docs@v0.8.2
+color_scheme: dark
+
+# Enable search
+search_enabled: true
+search:
+  heading_level: 2
+  previews: 3
+  preview_words_before: 5
+  preview_words_after: 10
+  tokenizer_separator: /[\s/]+/
+  rel_url: true
+  button: true
+
+# Enable heading anchors
+heading_anchors: true
+
+# Aux links for the upper right navigation
+aux_links:
+  "GitHub":
+    - "https://github.com/use-lumina/Lumina"
+  "Get Started":
+    - "https://github.com/use-lumina/Lumina#quick-start"
+
+# Makes Aux links open in a new tab
+aux_links_new_tab: true
+
+# Footer content
+footer_content: "Copyright &copy; 2026 Lumina. Distributed under the <a href=\"https://github.com/use-lumina/Lumina/blob/main/LICENSE\">Apache 2.0 license</a>."
+
+# Back to top link
+back_to_top: true
+back_to_top_text: "Back to top"
+
+# Footer last edited timestamp
+last_edit_timestamp: true
+last_edit_time_format: "%b %e %Y at %I:%M %p"
 
 # Markdown settings
 markdown: kramdown
 kramdown:
   input: GFM
   syntax_highlighter: rouge
+  syntax_highlighter_opts:
+    block:
+      line_numbers: false
 
-# Navigation
-navigation:
-  - title: Home
-    url: /
-  - title: Quickstart
-    url: /guides/QUICKSTART.html
-  - title: API Reference
-    url: /api/API_REFERENCE.html
-  - title: FAQ
-    url: /guides/FAQ.html
+# Collections for organizing docs
+collections:
+  guides:
+    permalink: "/:collection/:path/"
+    output: true
+
+defaults:
+  - scope:
+      path: ""
+      type: "guides"
+    values:
+      layout: "default"
+  - scope:
+      path: ""
+      type: "pages"
+    values:
+      layout: "default"
 
 # Plugins
 plugins:
-  - jekyll-relative-links
-  - jekyll-optional-front-matter
-
-# Convert markdown files to HTML
-relative_links:
-  enabled: true
-  collections: true
-
-# Allow markdown files without front matter
-optional_front_matter:
-  remove_originals: true
+  - jekyll-seo-tag
+  - jekyll-github-metadata
+  - jekyll-include-cache
 
 # Exclude from build
 exclude:
@@ -50,3 +88,6 @@ exclude:
   - Gemfile.lock
   - node_modules
   - vendor
+  - .sass-cache/
+  - .jekyll-cache/
+  - gemfiles/

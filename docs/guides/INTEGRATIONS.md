@@ -1,4 +1,13 @@
+---
+layout: default
+title: Integration Examples
+parent: Integrations
+nav_order: 1
+---
+
 # Lumina Integration Guides
+
+{: .no_toc }
 
 This guide shows you how to integrate Lumina with popular LLM providers and frameworks.
 

@@ -1,3 +1,11 @@
+---
+layout: default
+title: Home
+nav_order: 1
+description: 'Lumina is an open-source, OpenTelemetry-native observability platform for AI systems'
+permalink: /
+---
+
 # Lumina Documentation
 
 **Open-source, OpenTelemetry-native observability for AI systems**

@@ -1,6 +1,16 @@
+---
+layout: default
+title: Quickstart Guide
+parent: Getting Started
+nav_order: 1
+---
+
 # Lumina Quickstart Guide
 
+{: .no_toc }
+
 Get Lumina running locally in 5 minutes with Docker Compose.
+{: .fs-6 .fw-300 }
 
 ## What is Lumina?
 

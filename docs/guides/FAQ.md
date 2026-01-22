@@ -1,4 +1,22 @@
+---
+layout: default
+title: FAQ
+parent: Getting Started
+nav_order: 3
+---
+
 # Frequently Asked Questions (FAQ)
+
+{: .no_toc }
+
+## Table of contents
+
+{: .no_toc .text-delta }
+
+1. TOC
+   {:toc}
+
+---
 
 ## General
 
