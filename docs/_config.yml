@@ -3,8 +3,8 @@
 # Site settings
 title: Lumina Documentation
 description: Open-source, OpenTelemetry-native observability for AI systems
-baseurl: "/Lumina"
-url: "https://use-lumina.github.io"
+baseurl: ""
+url: "https://docs.uselumina.io"
 logo: "/assets/images/lumina-logo.png"
 
 # Theme - Using Just the Docs for better documentation experience
