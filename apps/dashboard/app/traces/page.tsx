@@ -1,7 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+
+// Force dynamic rendering (don't pre-render at build time)
+export const dynamic = 'force-dynamic';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -95,6 +98,16 @@ function mapApiTraceToUI(trace: Trace): UITrace {
   };
 }
 
+function normalizeStatus(status: string): 'healthy' | 'degraded' | 'error' {
+  if (status === 'ok' || status === 'healthy') {
+    return 'healthy';
+  }
+  if (status === 'degraded') {
+    return 'degraded';
+  }
+  return 'error';
+}
+
 function formatLatency(ms: number) {
   return `${ms} ms`;
 }
@@ -114,7 +127,7 @@ function getRowVariant(status: Trace['status']) {
   }
 }
 
-export default function Home() {
+function TracesContent() {
   // State management
   const searchParams = useSearchParams();
   const [showFilters, setShowFilters] = useState(false);
@@ -878,7 +891,7 @@ export default function Home() {
                     onClick={() => handleTraceClick(trace)}
                   >
                     <TableCell>
-                      <StatusDot status={trace.status} />
+                      <StatusDot status={normalizeStatus(trace.status)} />
                     </TableCell>
                     <TableCell className="font-medium">{trace.service_name}</TableCell>
                     <TableCell className="font-mono text-sm text-muted-foreground">
@@ -933,5 +946,15 @@ export default function Home() {
       {/* Trace Detail Drawer */}
       <TraceDetailDrawer trace={selectedTrace} open={drawerOpen} onOpenChange={setDrawerOpen} />
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense
+      fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}
+    >
+      <TracesContent />
+    </Suspense>
   );
 }

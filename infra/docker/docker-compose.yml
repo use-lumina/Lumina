@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # PostgreSQL - Primary database for traces, baselines, alerts
   postgres:
     image: postgres:15-alpine
     container_name: lumina-postgres
@@ -58,6 +57,144 @@ services:
       retries: 5
     networks:
       - lumina
+
+  # Ingestion Service - Receives OTLP traces
+  ingestion:
+    build:
+      context: ../../
+      dockerfile: services/ingestion/Dockerfile
+    container_name: lumina-ingestion
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DATABASE_URL: postgres://lumina:lumina@postgres:5432/lumina
+      REDIS_URL: redis://redis:6379
+      NATS_URL: nats://nats:4222
+      INGESTION_PORT: 8080
+      HOST: 0.0.0.0
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      AUTH_REQUIRED: ${AUTH_REQUIRED:-false}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ALERTS_ENABLED: ${ALERTS_ENABLED:-true}
+      COST_SPIKE_THRESHOLD_PERCENT: ${COST_SPIKE_THRESHOLD_PERCENT:-20}
+      QUALITY_SCORE_THRESHOLD: ${QUALITY_SCORE_THRESHOLD:-0.7}
+      BASELINE_WINDOW: ${BASELINE_WINDOW:-24h}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    networks:
+      - lumina
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # API Service - Query and management API
+  api:
+    build:
+      context: ../../
+      dockerfile: services/api/Dockerfile
+    container_name: lumina-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DATABASE_URL: postgres://lumina:lumina@postgres:5432/lumina
+      REDIS_URL: redis://redis:6379
+      API_PORT: 8081
+      HOST: 0.0.0.0
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      AUTH_REQUIRED: ${AUTH_REQUIRED:-false}
+      JWT_SECRET: ${JWT_SECRET:-change-this-in-production}
+      JWT_EXPIRY: ${JWT_EXPIRY:-24h}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - lumina
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # Replay Service - Test replay functionality
+  replay:
+    build:
+      context: ../../
+      dockerfile: services/replay/Dockerfile
+    container_name: lumina-replay
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DATABASE_URL: postgres://lumina:lumina@postgres:5432/lumina
+      REDIS_URL: redis://redis:6379
+      REPLAY_PORT: 8082
+      HOST: 0.0.0.0
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      MAX_CONCURRENT_REPLAYS: ${MAX_CONCURRENT_REPLAYS:-5}
+      REPLAY_TIMEOUT_MS: ${REPLAY_TIMEOUT_MS:-60000}
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - lumina
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8082/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # Dashboard - Next.js web interface
+  dashboard:
+    build:
+      context: ../../
+      dockerfile: apps/dashboard/Dockerfile
+    container_name: lumina-dashboard
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8081}
+      NEXT_PUBLIC_INGESTION_URL: ${NEXT_PUBLIC_INGESTION_URL:-http://localhost:8080}
+      NEXT_PUBLIC_REPLAY_URL: ${NEXT_PUBLIC_REPLAY_URL:-http://localhost:8082}
+      NEXT_PUBLIC_AUTH_REQUIRED: ${AUTH_REQUIRED:-false}
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+      - ingestion
+      - replay
+    networks:
+      - lumina
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
 
 volumes:
   postgres-data:

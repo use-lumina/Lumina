@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { cn } from '@/lib/utils';
-import { Trace } from '@/app/traces/page';
+import { UITrace } from '@/types/trace';
 
 /* ----------------------------- Table Shell ----------------------------- */
 
@@ -131,7 +131,7 @@ function TableCaption({ className, ...props }: React.ComponentProps<'caption'>) 
 
 /* ----------------------------- Status Dot ----------------------------- */
 
-function StatusDot({ status }: { status: Trace['status'] }) {
+function StatusDot({ status }: { status: UITrace['status'] }) {
   return (
     <span className="flex items-center gap-2">
       <span

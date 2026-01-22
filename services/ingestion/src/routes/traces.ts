@@ -4,9 +4,13 @@ import { parseOTLPTraces } from '../parsers/otlp-parser';
 import { transformOTLPBatch } from '../transformers/otlp-transformer';
 import { getDB } from '../database/postgres';
 import { publishTraces, isNATSConnected } from '../queue/nats-client';
+import { rateLimitMiddleware, incrementTraceCount } from '../middleware/rate-limit';
 import type { AppVariables } from '../types/hono';
 
 const traces = new Hono<{ Variables: AppVariables }>();
+
+// Apply rate limiting to all trace endpoints
+traces.use('/v1/traces', rateLimitMiddleware);
 
 /**
  * POST /v1/traces
@@ -54,6 +58,16 @@ traces.post('/v1/traces', async (c) => {
     // Store in PostgreSQL (synchronous for immediate query availability)
     const db = getDB();
     await db.insertBatch(traces);
+
+    // Increment rate limit counter after successful ingestion
+    const rateLimitKey = c.get('rateLimitKey') as string | undefined;
+    if (rateLimitKey) {
+      // Don't await - increment async to keep response fast
+      incrementTraceCount(rateLimitKey, traces.length).catch((err) => {
+        console.error('Failed to increment trace count:', err);
+        // Don't fail the request if counter increment fails
+      });
+    }
 
     // Publish to NATS for async alert processing (fire and forget)
     // This keeps the HTTP response fast while allowing background analysis

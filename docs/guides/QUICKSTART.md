@@ -1,310 +1,412 @@
 # Lumina Quickstart Guide
 
-Get started with Lumina in under 5 minutes. This guide will walk you through setting up Lumina's observability platform for your LLM applications.
+Get Lumina running locally in 5 minutes with Docker Compose.
 
 ## What is Lumina?
 
-Lumina is a lightweight, open-source observability platform for LLM applications that provides:
+Lumina is an open-source, OpenTelemetry-native observability platform for AI systems that provides:
 
-- Real-time trace ingestion and storage
-- Cost and latency tracking
-- Regression testing with replay capabilities
-- Query API for trace analysis
-- Semantic similarity comparison
+- ✅ **Real-time trace ingestion** - Track every LLM call
+- ✅ **Cost & quality monitoring** - Get alerted on spikes and drops
+- ✅ **Replay testing** - Re-run production traces safely
+- ✅ **Semantic diff** - Understand response changes
+- ✅ **All features included** - Free forever, self-hosted
+
+## Self-Hosted Limits
+
+The free self-hosted tier includes:
+
+- **50,000 traces per day** - Resets daily at midnight UTC
+- **7-day retention** - Traces older than 7 days are automatically deleted
+- **All features** - Alerts, replay testing, semantic scoring, and more
+
+For unlimited traces and longer retention, consider our managed cloud offering.
 
 ## Prerequisites
 
-Before you begin, ensure you have:
+Before you start, ensure you have:
 
-- [Bun](https://bun.sh) v1.0+ installed
-- PostgreSQL 14+ running locally or remotely
-- Node.js 20+ (for Next.js examples)
-- An Anthropic API key (for testing)
+- **Docker & Docker Compose** installed ([Get Docker](https://docs.docker.com/get-docker/))
+- **4GB RAM** minimum
+- **Ports available:** 3000, 5432, 6379, 4222, 8080, 8081, 8082
 
-## Quick Setup
-
-### 1. Clone and Install
+Check Docker is installed:
 
 ```bash
-git clone <your-repo-url> lumina
-cd lumina
-bun install
+docker --version
+docker-compose --version
 ```
 
-### 2. Configure Database
+### Optional: API Keys for Replay Feature
 
-Create a PostgreSQL database named `lumina`:
+To use the **replay feature with real LLM calls**, you'll need API keys:
+
+- **Anthropic API key** - For Claude models ([Get from console.anthropic.com](https://console.anthropic.com/))
+- **OpenAI API key** - For GPT models ([Get from platform.openai.com](https://platform.openai.com/api-keys))
+
+> **Note:** These API keys are **only required for the replay feature**. All other features (trace ingestion, alerts, cost monitoring) work without API keys.
+
+## Installation
+
+### Step 1: Clone the Repository
 
 ```bash
-createdb lumina
+git clone https://github.com/yourusername/Lumina.git
+cd Lumina
 ```
 
-Set your database connection string as an environment variable:
+### Step 2: Configure Environment
 
 ```bash
-export DATABASE_URL="postgres://username@localhost:5432/lumina"
+# Copy the example environment file
+cp .env.docker.example .env.docker
+
+# Edit configuration
+nano .env.docker  # or use your preferred editor
 ```
 
-### 3. Start Services
-
-Lumina consists of three microservices:
+**Required configuration:**
 
 ```bash
-# Terminal 1: Ingestion Service (Port 9411)
-cd services/ingestion
-bun run dev
-
-# Terminal 2: Query API (Port 8081)
-cd services/query
-bun run dev
-
-# Terminal 3: Replay Engine (Port 8082)
-cd services/replay
-bun run dev
+# Generate with: openssl rand -base64 32
+JWT_SECRET=your-generated-secret-here
 ```
 
-### 4. Verify Services
-
-Check that all services are running:
+To generate a JWT secret:
 
 ```bash
-# Ingestion service
-curl http://localhost:9411/health
-
-# Query API
-curl http://localhost:8081/health
-
-# Replay Engine
-curl http://localhost:8082/health
+openssl rand -base64 32
 ```
 
-You should see `{"status":"healthy"}` responses from all services.
+**Optional: LLM API Keys (for Replay Feature)**
 
-## Instrumenting Your Application
-
-### Install the SDK
+Add these to enable the replay feature with real LLM calls:
 
 ```bash
+# For Claude models (Anthropic)
+ANTHROPIC_API_KEY=sk-ant-api03-your-key-here
+
+# For GPT models (OpenAI)
+OPENAI_API_KEY=sk-your-key-here
+```
+
+Without these keys, the replay feature will run in simulation mode (for testing without API costs).
+
+**Authentication Mode:**
+
+```bash
+# Self-hosted (default) - No user authentication required
+AUTH_REQUIRED=false
+
+# Managed cloud - User authentication required
+AUTH_REQUIRED=true
+```
+
+> **Note:** Self-hosted defaults to `AUTH_REQUIRED=false`, meaning no user authentication is required. All traces use `customerId='default'`.
+
+### Step 3: Start Lumina
+
+```bash
+cd infra/docker
+docker-compose --env-file ../../.env.docker up -d
+```
+
+This will:
+
+- Pull required Docker images (PostgreSQL, Redis, NATS)
+- Build Lumina services (ingestion, API, replay, dashboard)
+- Run database migrations automatically
+- Start all services in the background
+
+**First-time setup takes 2-5 minutes** depending on your internet speed.
+
+### Step 4: Verify Services
+
+Check all services are running:
+
+```bash
+docker-compose ps
+```
+
+You should see all services with status `Up (healthy)`:
+
+```
+NAME                 STATUS
+lumina-postgres      Up (healthy)
+lumina-redis         Up (healthy)
+lumina-nats          Up (healthy)
+lumina-ingestion     Up (healthy)
+lumina-api           Up (healthy)
+lumina-replay        Up (healthy)
+lumina-dashboard     Up (healthy)
+```
+
+Check service logs:
+
+```bash
+docker-compose logs -f
+```
+
+Look for:
+
+```
+ingestion_1  | ✅ Database initialized successfully
+ingestion_1  | ✅ NATS initialized successfully
+ingestion_1  | ✅ Redis cache initialized successfully
+dashboard_1  | ✓ Ready in 3.2s
+```
+
+### Step 5: Access the Dashboard
+
+Open your browser and navigate to:
+
+```
+http://localhost:3000
+```
+
+You should see the Lumina dashboard! 🎉
+
+## Send Your First Trace
+
+Now let's send a test trace to see Lumina in action.
+
+### Option 1: Using the SDK (Recommended)
+
+**Install the SDK:**
+
+```bash
+npm install @lumina/sdk
+# or
 bun add @lumina/sdk
 ```
 
-### Basic Integration
-
-Here's a minimal example using the Anthropic SDK:
+**Send a trace:**
 
 ```typescript
-import Anthropic from '@anthropic-ai/sdk';
-import { initLumina } from '@lumina/sdk';
+import { Lumina } from '@lumina/sdk';
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
+// Initialize Lumina client
+const lumina = new Lumina({
+  apiKey: 'test-key',
+  endpoint: 'http://localhost:8080/v1/traces',
+  environment: 'live',
+  // Note: For self-hosted, API key is optional (auth disabled by default)
 });
 
-// Initialize Lumina
-const lumina = initLumina({
-  api_key: 'lumina_test123_abc',
-  endpoint: 'http://localhost:9411/v1/traces',
-  service_name: 'my-app',
-  customer_id: 'user_123',
-  environment: 'development',
+// Track an LLM call
+await lumina.traceLLM({
+  provider: 'openai',
+  model: 'gpt-4',
+  prompt: 'What is the capital of France?',
+  response: 'The capital of France is Paris.',
+  promptTokens: 10,
+  completionTokens: 8,
+  totalTokens: 18,
+  latencyMs: 1234,
+  costUsd: 0.0018,
+  metadata: {
+    userId: 'user-123',
+    sessionId: 'session-456',
+  },
 });
 
-// Wrap your LLM calls with traceLLM()
-async function chat(message: string) {
-  const response = await lumina.traceLLM(
-    async () => {
-      return await anthropic.messages.create({
-        model: 'claude-sonnet-4-5',
-        max_tokens: 1024,
-        messages: [{ role: 'user', content: message }],
-      });
-    },
-    {
-      name: 'chat',
-      system: 'anthropic',
-      prompt: message,
-      tags: ['chat', 'test'],
-      metadata: {
-        userMessage: message,
-      },
-    }
-  );
-
-  return response.content[0]?.type === 'text' ? response.content[0].text : 'No response';
-}
-
-// Use it
-const reply = await chat('Hello, how are you?');
-console.log(reply);
+console.log('✅ Trace sent to Lumina!');
 ```
 
-### Try the Example App
-
-We provide a complete Next.js example application:
+### Option 2: Using cURL
 
 ```bash
-cd examples/nextjs-rag
-
-# Install dependencies
-bun install
-
-# Configure environment
-cp .env.example .env
-# Edit .env and add your ANTHROPIC_API_KEY
-
-# Start the app
-bun run dev
-```
-
-Visit `http://localhost:3000` and start chatting. Your traces will automatically appear in Lumina.
-
-## Querying Your Traces
-
-Once you have traces flowing into Lumina, you can query them using the Query API:
-
-### Get Recent Traces
-
-```bash
-curl "http://localhost:8081/api/traces?limit=10"
-```
-
-### Filter by Service
-
-```bash
-curl "http://localhost:8081/api/traces?service=my-app"
-```
-
-### Search by Tags
-
-```bash
-curl "http://localhost:8081/api/traces?tags=chat,test"
-```
-
-### Get Cost Analytics
-
-```bash
-curl "http://localhost:8081/api/analytics/cost?service=my-app&startDate=2024-01-01"
-```
-
-### Get Latency Analytics
-
-```bash
-curl "http://localhost:8081/api/analytics/latency?service=my-app&timeRange=24h"
-```
-
-## Running Replay Tests
-
-Replay testing allows you to re-execute production traces to detect regressions:
-
-### 1. Capture a Replay Set
-
-```bash
-curl -X POST http://localhost:8082/replay/capture \
+curl -X POST http://localhost:8080/v1/traces \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "My First Replay",
-    "description": "Testing recent chat interactions",
-    "traceIds": ["trace_abc123", "trace_def456"],
-    "createdBy": "you@example.com"
+    "trace_id": "trace-001",
+    "span_id": "span-001",
+    "timestamp": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
+    "service_name": "quickstart-test",
+    "endpoint": "/api/chat",
+    "provider": "openai",
+    "model": "gpt-4",
+    "prompt": "What is the capital of France?",
+    "response": "The capital of France is Paris.",
+    "prompt_tokens": 10,
+    "completion_tokens": 8,
+    "total_tokens": 18,
+    "latency_ms": 1234,
+    "cost_usd": 0.0018,
+    "status": "success",
+    "environment": "live"
   }'
 ```
 
-### 2. Execute the Replay
+> **Note:** For self-hosted, authentication is disabled by default. No API key needed!
 
-```bash
-curl -X POST http://localhost:8082/replay/run \
-  -H "Content-Type: application/json" \
-  -d '{
-    "replayId": "replay_uuid_from_step_1"
-  }'
-```
+### Step 6: View Your Trace
 
-### 3. View Results
-
-```bash
-# Get summary
-curl "http://localhost:8082/replay/{replayId}"
-
-# Get detailed diffs
-curl "http://localhost:8082/replay/{replayId}/diff?limit=50"
-
-# Filter to only changed responses
-curl "http://localhost:8082/replay/{replayId}/diff?showOnlyChanges=true"
-```
-
-## Understanding the Architecture
-
-Lumina consists of three main components:
-
-1. **Ingestion Service** (Port 9411)
-   - Receives traces via OpenTelemetry-compatible endpoints
-   - Stores traces in PostgreSQL
-   - Validates and enriches incoming data
-
-2. **Query API** (Port 8081)
-   - Provides REST API for querying traces
-   - Analytics endpoints for cost and latency
-   - Filtering by service, tags, date ranges
-
-3. **Replay Engine** (Port 8082)
-   - Captures sets of traces for replay testing
-   - Re-executes prompts and compares results
-   - Calculates similarity scores and cost deltas
-
-All services share the same PostgreSQL database for centralized storage.
-
-## Configuration Options
-
-### SDK Configuration
-
-```typescript
-const lumina = initLumina({
-  api_key: string,           // Your Lumina API key
-  endpoint: string,          // Ingestion endpoint URL
-  service_name: string,      // Name of your service
-  customer_id?: string,      // Optional customer identifier
-  environment?: string,      // e.g., 'production', 'staging'
-  enabled?: boolean,         // Enable/disable tracing (default: true)
-  debug?: boolean,           // Enable debug logging
-});
-```
-
-### Environment Variables
-
-```bash
-# Database
-DATABASE_URL="postgres://user@host:5432/lumina"
-
-# Service Ports (optional, uses defaults if not set)
-INGESTION_PORT=9411
-QUERY_PORT=8081
-REPLAY_PORT=8082
-
-# API Keys (for production)
-LUMINA_API_KEY="your_key_here"
-ANTHROPIC_API_KEY="your_anthropic_key"
-```
+1. Go to http://localhost:3000
+2. Click on **Traces** in the sidebar
+3. You should see your test trace appear!
 
 ## Next Steps
 
-Now that you have Lumina up and running:
+### 1. Instrument Your Application
 
-1. **Explore the API Reference** - See `docs/API_REFERENCE.md` for complete endpoint documentation
-2. **Review Architecture** - See `docs/ARCHITECTURE.md` for system design details
-3. **Troubleshooting** - See `docs/TROUBLESHOOTING.md` for common issues and solutions
-4. **Integrate More Services** - Add Lumina tracing to your production applications
+See our integration guides:
 
-## Need Help?
+- [OpenAI Integration](./INTEGRATIONS.md#openai)
+- [Anthropic Integration](./INTEGRATIONS.md#anthropic)
+- [LangChain Integration](./INTEGRATIONS.md#langchain)
 
-- Check the [Troubleshooting Guide](./TROUBLESHOOTING.md)
-- Review the [API Reference](./API_REFERENCE.md)
-- See the [Architecture Diagram](./ARCHITECTURE.md)
+### 2. Set Up Alerts
+
+Cost spikes and quality drops are automatically detected! View them at:
+
+```
+http://localhost:3000/alerts
+```
+
+### 3. Try the Replay Feature
+
+Replay lets you re-run production traces to test changes:
+
+```typescript
+// Capture a baseline
+await lumina.createReplaySet({
+  name: 'Production baseline',
+  description: 'Captured before prompt change',
+  sampleSize: 100,
+});
+
+// After making changes, replay the traces
+await lumina.replayTraces({
+  replaySetId: 'replay-set-id',
+  // Lumina automatically compares old vs new responses
+});
+```
+
+View replay results at: http://localhost:3000/replay
+
+### 4. Explore the API
+
+Key endpoints:
+
+- `GET /traces` - List traces
+- `GET /traces/:id` - Get trace details
+- `GET /alerts` - List alerts
+- `GET /cost` - Cost analytics
+- `POST /replay` - Create replay sets
+
+## Common Issues
+
+### Port Already in Use
+
+If you see "port is already allocated":
+
+```bash
+# Check what's using the port
+lsof -i :3000  # or :5432, :8080, etc.
+
+# Stop the conflicting service or change Lumina's ports in .env.docker
+```
+
+### Services Not Starting
+
+Check Docker resources:
+
+- Docker Desktop → Settings → Resources
+- Memory: Set to at least 4GB
+- Disk: Ensure 10GB+ available
+
+### Database Connection Errors
+
+Wait for PostgreSQL to be fully ready:
+
+```bash
+docker-compose logs postgres | grep "ready to accept connections"
+```
+
+If migrations fail:
+
+```bash
+# Restart the ingestion service
+docker-compose restart ingestion
+
+# Check logs
+docker-compose logs ingestion
+```
+
+### Dashboard Shows "Failed to Fetch"
+
+1. Check API is running:
+
+```bash
+curl http://localhost:8081/health
+# Should return: {"status":"ok","service":"lumina-api"}
+```
+
+2. Verify `NEXT_PUBLIC_API_URL` in .env.docker:
+
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:8081
+```
+
+### Anthropic API Errors
+
+If you see "Anthropic API key not set":
+
+1. Check your .env.docker has the API key
+2. Restart services:
+
+```bash
+docker-compose down
+docker-compose up -d
+```
+
+## Stopping Lumina
+
+```bash
+# Stop all services (keeps data)
+docker-compose down
+
+# Stop and remove all data
+docker-compose down -v
+```
+
+## Data Persistence
+
+Your data is stored in Docker volumes:
+
+- **postgres-data**: All traces, alerts, baselines
+- **redis-data**: Cached semantic scores
+- **nats-data**: Message queue state
+
+### Backup Your Data
+
+```bash
+# Create a backup
+docker run --rm \
+  -v docker_postgres-data:/data \
+  -v $(pwd):/backup \
+  alpine tar czf /backup/lumina-backup-$(date +%Y%m%d).tar.gz -C /data .
+```
 
 ## What's Next?
 
-- Add alert thresholds for cost and latency spikes
-- Set up baseline tracking for your services
-- Configure webhooks for automated notifications
-- Deploy to production
+- 📖 [Architecture Overview](./ARCHITECTURE.md) - Understand how Lumina works
+- 🔌 [Integration Guides](./INTEGRATIONS.md) - Connect your LLM applications
+- 🚨 [Alert Configuration](./ALERTS.md) - Configure cost and quality alerts
+- 🔁 [Replay Guide](./REPLAY.md) - Test changes safely
+- ❓ [FAQ](./FAQ.md) - Common questions answered
+- 🔧 [Troubleshooting](./TROUBLESHOOTING.md) - Fix common issues
 
-Happy observing!
+## Need Help?
+
+- 📝 [Documentation](https://yourusername.github.io/Lumina)
+- 💬 [GitHub Discussions](https://github.com/yourusername/Lumina/discussions)
+- 🐛 [Report an Issue](https://github.com/yourusername/Lumina/issues)
+- 🌟 [Star us on GitHub](https://github.com/yourusername/Lumina)
+
+---
+
+**Free Forever • All Features Included**
+
+Self-hosted Lumina includes all features with 50k traces/day and 7-day retention for $0. Need more? Upgrade to our managed cloud for unlimited traces and retention. Check out our [pricing page](https://yourdomain.com/pricing).

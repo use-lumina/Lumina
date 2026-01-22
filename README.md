@@ -19,6 +19,16 @@ A lightweight observability platform for LLM applications. Track costs, latency,
 - **Semantic Comparison** - Compare responses for similarity
 - **Zero-Config Storage** - PostgreSQL backend with automatic schema creation
 
+## Self-Hosted Limits
+
+The free self-hosted version includes:
+
+- **50,000 traces per day** - Resets daily at midnight UTC
+- **7-day retention** - Traces older than 7 days are automatically deleted
+- **All features included** - Alerts, replay testing, semantic scoring, and more
+
+For unlimited traces and retention, consider our managed cloud offering. [Contact us](mailto:your-email@example.com) to learn more.
+
 ## Quick Start
 
 ```bash
@@ -35,6 +45,20 @@ cd services/ingestion && bun run dev  # Port 9411
 cd services/query && bun run dev      # Port 8081
 cd services/replay && bun run dev     # Port 8082
 ```
+
+### Optional: API Keys for Replay Feature
+
+To use the replay feature with real LLM calls, add API keys to your `.env` file:
+
+```bash
+# For Claude models
+ANTHROPIC_API_KEY=sk-ant-api03-your-key-here
+
+# For GPT models
+OPENAI_API_KEY=sk-your-key-here
+```
+
+> **Note:** API keys are **only required for the replay feature**. All other features work without API keys.
 
 ## Instrument Your Application
 

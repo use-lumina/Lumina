@@ -1,0 +1,17 @@
+{
+  "name": "@lumina/example-openai-basic",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "bun run index.ts"
+  },
+  "dependencies": {
+    "@lumina/sdk": "workspace:*",
+    "openai": "^4.73.1"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.3.3"
+  }
+}

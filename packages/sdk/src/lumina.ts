@@ -26,12 +26,9 @@ export class Lumina {
     const envConfig = this.loadConfigSafely();
     this.config = { ...envConfig, ...config } as SdkConfig;
 
-    // Validate API key is present
-    if (!this.config.api_key) {
-      throw new Error(
-        'Lumina API key is required. Set LUMINA_API_KEY environment variable or pass api_key in constructor.'
-      );
-    }
+    // API key is optional for self-hosted deployments
+    // If not provided, requests will be sent without Authorization header
+    // and treated as self-hosted (customerId='default')
 
     // Initialize OpenTelemetry provider
     this.provider = this.initializeProvider();
@@ -57,11 +54,17 @@ export class Lumina {
 
     // Create OTLP exporter pointing to Lumina collector
     // Note: OTLPTraceExporter expects full URL including path
+    const headers: Record<string, string> = {};
+
+    // Only add Authorization header if API key is provided
+    // For self-hosted deployments, no API key = no auth header
+    if (this.config.api_key) {
+      headers.Authorization = `Bearer ${this.config.api_key}`;
+    }
+
     const exporter = new OTLPTraceExporter({
       url: this.config.endpoint,
-      headers: {
-        Authorization: `Bearer ${this.config.api_key}`,
-      },
+      headers,
     });
 
     // Create batch span processor for efficient batching

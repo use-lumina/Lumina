@@ -4,6 +4,9 @@ import type { NextRequest } from 'next/server';
 // Protect the dashboard app pages by requiring an httpOnly `lumina_token` cookie.
 // If the cookie is missing, redirect to `/auth` and include the original
 // path in `from` query param so the client can return after login.
+//
+// For self-hosted deployments (AUTH_REQUIRED=false), authentication is disabled
+// and the dashboard is open to all users.
 
 const PUBLIC_PATHS = ['/auth', '/favicon.ico'];
 
@@ -20,7 +23,15 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check for the cookie set by the API (`lumina_token`)
+  // Check if authentication is required (managed cloud vs self-hosted)
+  const authRequired = process.env.NEXT_PUBLIC_AUTH_REQUIRED === 'true';
+
+  // Self-hosted mode: no authentication required
+  if (!authRequired) {
+    return NextResponse.next();
+  }
+
+  // Managed cloud mode: check for authentication token
   const token = req.cookies.get('lumina_token')?.value;
 
   if (!token) {

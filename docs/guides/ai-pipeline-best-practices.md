@@ -776,5 +776,4 @@ async function featureFlag(userId: string) {
 **Need help?** Check out:
 
 - [RAG integration guide](./rag-integration.md)
-- [Multi-span tracing guide](./multi-span-tracing.md)
 - [API reference](/docs/api/API_REFERENCE.md)

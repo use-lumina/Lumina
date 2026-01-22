@@ -1,14 +1,16 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { Eye, EyeOff, Sparkles, TrendingUp, Zap } from 'lucide-react';
 
-export default function AuthPage() {
+// Force dynamic rendering (don't pre-render at build time)
+export const dynamic = 'force-dynamic';
+
+function AuthForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
@@ -128,7 +130,9 @@ export default function AuthPage() {
 
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="email">Email address</Label>
+                <label htmlFor="email" className="text-sm font-medium">
+                  Email address
+                </label>
                 <Input
                   id="email"
                   type="email"
@@ -143,7 +147,9 @@ export default function AuthPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <label htmlFor="password" className="text-sm font-medium">
+                  Password
+                </label>
                 <div className="relative">
                   <Input
                     id="password"
@@ -208,5 +214,15 @@ export default function AuthPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense
+      fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}
+    >
+      <AuthForm />
+    </Suspense>
   );
 }

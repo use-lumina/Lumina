@@ -3,13 +3,57 @@ import type { AppContext } from '../types/hono';
 
 /**
  * Authentication middleware
- * Validates Bearer token from Authorization header
+ *
+ * Configuration:
+ * - AUTH_REQUIRED=false (default for self-hosted) → Optional auth, uses 'default' customerId if no header
+ * - AUTH_REQUIRED=true (for managed cloud) → Auth required, returns 401 if no header
+ *
+ * This explicit flag makes deployment mode clear and safe.
  */
 export async function authMiddleware(c: AppContext, next: Next) {
+  const authRequired = Bun.env.AUTH_REQUIRED === 'true';
   const authHeader = c.req.header('Authorization');
 
+  // Self-hosted mode (AUTH_REQUIRED=false)
+  if (!authRequired) {
+    // Auth header is optional - if present, validate it; if absent, use 'default'
+    if (!authHeader) {
+      c.set('customerId', 'default');
+      await next();
+      return;
+    }
+
+    // Auth header provided - validate it
+    const [scheme, token] = authHeader.split(' ');
+
+    if (scheme !== 'Bearer' || !token) {
+      return c.json(
+        { error: 'Invalid Authorization header format. Expected: Bearer <token>' },
+        401
+      );
+    }
+
+    const customerId = extractCustomerId(token);
+
+    if (!customerId) {
+      return c.json({ error: 'Invalid API key' }, 401);
+    }
+
+    c.set('customerId', customerId);
+    await next();
+    return;
+  }
+
+  // Managed cloud mode (AUTH_REQUIRED=true)
+  // Auth header is mandatory
   if (!authHeader) {
-    return c.json({ error: 'Missing Authorization header' }, 401);
+    return c.json(
+      {
+        error: 'Authorization required',
+        message: 'Missing Authorization header. Expected: Bearer <token>',
+      },
+      401
+    );
   }
 
   const [scheme, token] = authHeader.split(' ');

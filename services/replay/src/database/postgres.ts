@@ -80,6 +80,9 @@ export class LuminaReplayDB {
         hash_similarity DECIMAL(5, 4),
         semantic_score DECIMAL(5, 4),
         diff_summary JSONB,
+        replay_prompt TEXT,
+        replay_model TEXT,
+        replay_system_prompt TEXT,
         executed_at TIMESTAMPTZ DEFAULT NOW(),
         status TEXT NOT NULL DEFAULT 'completed',
         FOREIGN KEY (trace_id, span_id) REFERENCES traces(trace_id, span_id) ON DELETE CASCADE

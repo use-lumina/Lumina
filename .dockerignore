@@ -1,0 +1,62 @@
+# Dependencies
+node_modules
+**/node_modules
+npm-debug.log
+yarn-error.log
+
+# Next.js
+.next/
+out/
+.swc/
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+.github
+
+# Documentation
+README.md
+CONTRIBUTING.md
+LICENSE
+docs/
+*.md
+
+# Tests
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+tests/
+coverage/
+
+# CI/CD
+.github/
+.husky/
+
+# Misc
+idea/
+examples/
+infra/scripts/
+*.log
+tmp/
+temp/

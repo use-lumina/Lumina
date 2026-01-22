@@ -1,0 +1,52 @@
+# Jekyll configuration for GitHub Pages
+
+# Site settings
+title: Lumina Documentation
+description: Open-source, OpenTelemetry-native observability for AI systems
+baseurl: "/Lumina" # Change this to your repo name
+url: "https://yourusername.github.io" # Change this to your GitHub Pages URL
+
+# Theme
+theme: jekyll-theme-cayman
+# Or use: jekyll-theme-minimal, jekyll-theme-slate, jekyll-theme-architect
+
+# Markdown settings
+markdown: kramdown
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+
+# Navigation
+navigation:
+  - title: Home
+    url: /
+  - title: Quickstart
+    url: /guides/QUICKSTART.html
+  - title: API Reference
+    url: /api/API_REFERENCE.html
+  - title: FAQ
+    url: /guides/FAQ.html
+
+# Plugins
+plugins:
+  - jekyll-relative-links
+  - jekyll-optional-front-matter
+
+# Convert markdown files to HTML
+relative_links:
+  enabled: true
+  collections: true
+
+# Allow markdown files without front matter
+optional_front_matter:
+  remove_originals: true
+
+# Exclude from build
+exclude:
+  - .git
+  - .gitignore
+  - README.md
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor

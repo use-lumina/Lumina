@@ -667,6 +667,9 @@ export interface ReplayResult {
   endpoint?: string;
   model?: string;
   prompt?: string;
+  replay_prompt?: string;
+  replay_model?: string;
+  replay_system_prompt?: string;
 }
 
 export interface ReplaySummary {

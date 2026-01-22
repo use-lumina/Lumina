@@ -25,9 +25,9 @@ The complete OpenAPI specification is available at: [`docs/openapi.yaml`](./open
 
 ## Quick Overview
 
-### Ingestion API (Port 9411)
+### Ingestion API (Port 8080)
 
-**Base URL:** `http://localhost:9411`
+**Base URL:** `http://localhost:8080`
 
 | Endpoint     | Method | Description                              |
 | ------------ | ------ | ---------------------------------------- |
@@ -109,11 +109,13 @@ curl http://localhost:8081/auth/me \
 Ingestion API uses API key authentication for trace ingestion:
 
 ```bash
-curl -X POST http://localhost:9411/v1/traces \
+curl -X POST http://localhost:8080/v1/traces \
   -H "X-API-Key: lumina_live_YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d @trace.json
 ```
+
+**Note:** For self-hosted deployments with `AUTH_REQUIRED=false`, API keys are optional. Traces without API keys will use `customerId='default'`.
 
 **API Key Details:**
 
@@ -139,6 +141,7 @@ Common HTTP status codes:
 - `400` - Bad request (invalid parameters)
 - `401` - Unauthorized (missing or invalid authentication)
 - `404` - Resource not found
+- `429` - Rate limit exceeded (50k traces/day for self-hosted)
 - `500` - Internal server error
 
 **Authentication Errors:**
@@ -149,10 +152,33 @@ Common HTTP status codes:
 
 ## Rate Limits
 
-No rate limits in MVP. Recommended limits for production:
+### Self-Hosted
 
-- 1000 requests per minute per API key (Ingestion)
-- 100 requests per minute per API key (Query/Replay)
+**50,000 traces per day** - Resets at midnight UTC
+
+When the limit is exceeded, the API returns:
+
+```json
+{
+  "error": "Rate limit exceeded",
+  "message": "Self-hosted deployment has reached the daily limit of 50000 traces. Limit resets at midnight UTC.",
+  "limit": 50000,
+  "current": 50123,
+  "resetTime": "2026-01-22T00:00:00.000Z"
+}
+```
+
+**HTTP Status:** `429 Too Many Requests`
+
+Check your current usage in the ingestion logs:
+
+```bash
+docker-compose logs ingestion | grep "rate limit"
+```
+
+### Managed Cloud
+
+Unlimited traces. No rate limits.
 
 ## Examples
 

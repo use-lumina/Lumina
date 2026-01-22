@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import type { TraceSpan } from '@/app/traces/page';
+import type { TraceSpan } from '@/types/trace';
 
 interface SpanTimelineProps {
   spans: TraceSpan[];

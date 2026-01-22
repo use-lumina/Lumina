@@ -5,6 +5,7 @@ import {
   calculateSemanticSimilarity,
   simulateResponseVariation,
 } from '../utils/similarity';
+import { callLLM, inferProvider } from '../utils/llm-caller';
 
 const app = new Hono();
 
@@ -95,7 +96,7 @@ app.post('/capture', async (c) => {
 
 /**
  * POST /replay/run
- * Execute a replay set
+ * Execute a replay set with optional new model/prompt
  */
 app.post('/run', async (c) => {
   try {
@@ -104,7 +105,13 @@ app.post('/run', async (c) => {
 
     // Parse request body
     const body = await c.req.json();
-    const { replayId } = body;
+    const {
+      replayId,
+      newModel,
+      newPrompt,
+      newSystemPrompt,
+      useRealLLM = true, // Default to real LLM calls (set to false for simulation/testing)
+    } = body;
 
     if (!replayId) {
       return c.json(
@@ -128,6 +135,9 @@ app.post('/run', async (c) => {
     }
 
     const replaySet = replaySets[0];
+    if (!replaySet) {
+      return c.json({ error: 'Replay set not found' }, 404);
+    }
 
     // Update status to running
     await sql`
@@ -146,29 +156,61 @@ app.post('/run', async (c) => {
         cost_usd,
         latency_ms,
         model,
+        provider,
         service_name,
         endpoint
       FROM traces
       WHERE trace_id = ANY(${replaySet.trace_ids})
     `;
 
-    // Execute replays (in a real system, this would call the actual LLM endpoints)
-    // For MVP, we'll simulate by re-executing the same prompts
+    // Execute replays
     let completedCount = 0;
 
     for (const trace of traces) {
       try {
-        // Simulate replay execution with realistic variations
-        // In production, this would:
-        // 1. Send the original prompt to the LLM endpoint
-        // 2. Get the new response
-        // 3. Compare with original
+        let replayResponse: string;
+        let replayCost: number;
+        let replayLatency: number;
+        let replayModel: string;
+        let replayProvider: string;
 
-        // For MVP: Simulate LLM non-determinism with slight response variations
-        const replayResponse = simulateResponseVariation(trace.response, 0.15); // 15% chance of variation
-        const replayCost = parseFloat(trace.cost_usd) * (0.95 + Math.random() * 0.1); // Cost variation ±5%
-        const originalLatency = Math.floor(parseFloat(trace.latency_ms)); // Ensure integer
-        const replayLatency = Math.floor(originalLatency * (0.9 + Math.random() * 0.2)); // Latency variation ±10%
+        // Determine if we should make real LLM calls
+        if (useRealLLM) {
+          // REAL MODE: Call actual LLM APIs
+          console.log(`[Replay] Making real LLM call for trace ${trace.trace_id}`);
+
+          // Determine the model and prompt to use
+          replayModel = newModel || trace.model;
+          replayProvider = newModel
+            ? inferProvider(newModel)
+            : trace.provider || inferProvider(trace.model);
+          const promptToUse = newPrompt || trace.prompt;
+          const systemPromptToUse = newSystemPrompt || null;
+
+          // Call the LLM
+          const llmResult = await callLLM({
+            provider: replayProvider,
+            model: replayModel,
+            prompt: promptToUse,
+            systemPrompt: systemPromptToUse || undefined,
+            temperature: 0.7,
+            maxTokens: 1000,
+          });
+
+          replayResponse = llmResult.response;
+          replayCost = llmResult.costUsd;
+          replayLatency = llmResult.latencyMs;
+        } else {
+          // SIMULATION MODE: Simulate LLM non-determinism (for testing without API keys)
+          console.log(`[Replay] Simulating response for trace ${trace.trace_id}`);
+
+          replayResponse = simulateResponseVariation(trace.response, 0.15); // 15% chance of variation
+          replayCost = parseFloat(trace.cost_usd) * (0.95 + Math.random() * 0.1); // Cost variation ±5%
+          const originalLatency = Math.floor(parseFloat(trace.latency_ms));
+          replayLatency = Math.floor(originalLatency * (0.9 + Math.random() * 0.2)); // Latency variation ±10%
+          replayModel = newModel || trace.model;
+          replayProvider = trace.provider || 'openai';
+        }
 
         // Calculate REAL hash similarity (character-level comparison)
         const hashSimilarity = calculateHashSimilarity(trace.response, replayResponse);
@@ -177,6 +219,7 @@ app.post('/run', async (c) => {
         const semanticScore = calculateSemanticSimilarity(trace.response, replayResponse);
 
         // Create diff summary
+        const originalLatency = Math.floor(parseFloat(trace.latency_ms));
         const diffSummary = {
           cost_diff: replayCost - parseFloat(trace.cost_usd),
           cost_diff_percent:
@@ -184,6 +227,8 @@ app.post('/run', async (c) => {
           latency_diff: replayLatency - originalLatency,
           latency_diff_percent: ((replayLatency - originalLatency) / originalLatency) * 100,
           response_changed: hashSimilarity < 1.0,
+          model_changed: replayModel !== trace.model,
+          using_real_llm: useRealLLM,
         };
 
         // Store result
@@ -201,6 +246,9 @@ app.post('/run', async (c) => {
             hash_similarity,
             semantic_score,
             diff_summary,
+            replay_prompt,
+            replay_model,
+            replay_system_prompt,
             status
           )
           VALUES (
@@ -216,6 +264,9 @@ app.post('/run', async (c) => {
             ${hashSimilarity},
             ${semanticScore},
             ${JSON.stringify(diffSummary)},
+            ${newPrompt || null},
+            ${newModel || null},
+            ${newSystemPrompt || null},
             'completed'
           )
         `;
@@ -366,6 +417,9 @@ app.get('/:id/diff', async (c) => {
         r.semantic_score,
         r.diff_summary,
         r.executed_at,
+        r.replay_prompt,
+        r.replay_model,
+        r.replay_system_prompt,
         t.service_name,
         t.endpoint,
         t.model,

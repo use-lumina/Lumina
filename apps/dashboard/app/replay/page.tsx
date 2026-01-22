@@ -5,7 +5,6 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
@@ -495,7 +494,9 @@ export default function ReplayPage() {
                   {/* Basic Info */}
                   <div className="space-y-4">
                     <div>
-                      <Label htmlFor="replay-name">Replay Set Name</Label>
+                      <label htmlFor="replay-name" className="text-sm font-medium">
+                        Replay Set Name
+                      </label>
                       <Input
                         id="replay-name"
                         placeholder="e.g., GPT-4 vs Claude Comparison"
@@ -505,7 +506,9 @@ export default function ReplayPage() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="replay-description">Description</Label>
+                      <label htmlFor="replay-description" className="text-sm font-medium">
+                        Description
+                      </label>
                       <Textarea
                         id="replay-description"
                         placeholder="Describe the purpose of this replay set..."
@@ -519,7 +522,9 @@ export default function ReplayPage() {
 
                   {/* Trace Selection */}
                   <div>
-                    <Label>Select Traces ({selectedTraces.length} selected)</Label>
+                    <label className="text-sm font-medium">
+                      Select Traces ({selectedTraces.length} selected)
+                    </label>
                     <div className="mt-2 space-y-2 max-h-96 overflow-y-auto custom-scrollbar">
                       {availableTraces.length > 0 ? (
                         availableTraces.map((trace) => (
@@ -612,7 +617,9 @@ export default function ReplayPage() {
                 <div className="space-y-6">
                   {/* Model Selection */}
                   <div>
-                    <Label htmlFor="model">Model</Label>
+                    <label htmlFor="model" className="text-sm font-medium">
+                      Model
+                    </label>
                     <Select value={selectedModel} onValueChange={setSelectedModel}>
                       <SelectTrigger id="model" className="mt-1.5">
                         <SelectValue />
@@ -630,7 +637,9 @@ export default function ReplayPage() {
                   {/* Temperature */}
                   <div>
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="temperature">Temperature</Label>
+                      <label htmlFor="temperature" className="text-sm font-medium">
+                        Temperature
+                      </label>
                       <span className="text-sm text-muted-foreground">{temperature}</span>
                     </div>
                     <Input
@@ -650,7 +659,9 @@ export default function ReplayPage() {
 
                   {/* Max Tokens */}
                   <div>
-                    <Label htmlFor="max-tokens">Max Tokens</Label>
+                    <label htmlFor="max-tokens" className="text-sm font-medium">
+                      Max Tokens
+                    </label>
                     <Input
                       id="max-tokens"
                       type="number"
@@ -664,7 +675,9 @@ export default function ReplayPage() {
 
                   {/* Prompt Template */}
                   <div>
-                    <Label htmlFor="prompt-template">Prompt Template (Optional)</Label>
+                    <label htmlFor="prompt-template" className="text-sm font-medium">
+                      Prompt Template (Optional)
+                    </label>
                     <Textarea
                       id="prompt-template"
                       placeholder="Leave empty to use original prompts, or provide a template with {ORIGINAL_PROMPT} placeholder..."
@@ -875,6 +888,58 @@ export default function ReplayPage() {
                                   </p>
                                 </div>
                               </div>
+
+                              {/* Prompt Display */}
+                              {(result.prompt || result.replay_prompt) && (
+                                <div className="border-t border-(--border) pt-4">
+                                  <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wide">
+                                    {result.replay_prompt ? 'Prompts' : 'Prompt'}
+                                  </p>
+                                  {result.replay_prompt ? (
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                      {/* Original Prompt */}
+                                      <div className="rounded-lg border border-(--border) bg-muted/30 overflow-hidden">
+                                        <div className="px-3 py-2 border-b border-(--border) bg-muted/50">
+                                          <div className="flex items-center gap-2">
+                                            <div className="h-2 w-2 rounded-full bg-blue-500"></div>
+                                            <span className="text-xs font-medium">
+                                              Original Prompt
+                                            </span>
+                                          </div>
+                                        </div>
+                                        <div className="p-3 max-h-32 overflow-auto custom-scrollbar">
+                                          <p className="text-xs font-mono whitespace-pre-wrap">
+                                            {result.prompt || 'No original prompt'}
+                                          </p>
+                                        </div>
+                                      </div>
+
+                                      {/* Replay Prompt */}
+                                      <div className="rounded-lg border border-(--border) bg-muted/30 overflow-hidden">
+                                        <div className="px-3 py-2 border-b border-(--border) bg-muted/50">
+                                          <div className="flex items-center gap-2">
+                                            <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                                            <span className="text-xs font-medium">
+                                              Replay Prompt
+                                            </span>
+                                          </div>
+                                        </div>
+                                        <div className="p-3 max-h-32 overflow-auto custom-scrollbar">
+                                          <p className="text-xs font-mono whitespace-pre-wrap">
+                                            {result.replay_prompt}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="rounded-lg bg-muted/50 p-3 max-h-24 overflow-auto custom-scrollbar">
+                                      <p className="text-xs font-mono whitespace-pre-wrap">
+                                        {result.prompt}
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
 
                               {/* Responses Comparison */}
                               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

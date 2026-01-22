@@ -22,10 +22,10 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Filter, X } from 'lucide-react';
-import type { Trace } from '@/app/traces/page';
+import type { UITrace } from '@/types/trace';
 
 interface TraceListProps {
-  traces: Trace[];
+  traces: UITrace[];
 }
 
 export function TraceList({ traces }: TraceListProps) {
@@ -91,11 +91,11 @@ export function TraceList({ traces }: TraceListProps) {
     maxCost ||
     timeRange !== 'all';
 
-  const handleTraceClick = (trace: Trace) => {
+  const handleTraceClick = (trace: UITrace) => {
     router.push(`/traces/${trace.id}`);
   };
 
-  const getRowVariant = (status: Trace['status']) => {
+  const getRowVariant = (status: UITrace['status']) => {
     if (status === 'healthy') return 'success';
     if (status === 'degraded') return 'warning';
     return 'error';
@@ -107,7 +107,7 @@ export function TraceList({ traces }: TraceListProps) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3 flex-wrap">
           <Button
-            variant={showFilters ? 'default' : 'outline'}
+            variant={showFilters ? 'default' : 'secondary'}
             size="sm"
             onClick={() => setShowFilters(!showFilters)}
           >

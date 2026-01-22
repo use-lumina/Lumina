@@ -8,6 +8,7 @@ import { initializeNATS } from './queue/nats-client';
 import { startConsumer } from './queue/consumer';
 import { initializeCache } from '@lumina/core';
 import { initializeSemanticScorer } from '@lumina/core';
+import { scheduleRetentionCleanup } from './jobs/retention-cleanup';
 import type { AppVariables } from './types/hono';
 
 const app = new Hono<{ Variables: AppVariables }>();
@@ -90,6 +91,15 @@ async function initializeServices() {
     } catch (error) {
       console.error('⚠️  Semantic scorer initialization failed:', error);
       // Don't exit - system works without semantic scoring
+    }
+
+    // Start retention cleanup job (7-day retention for self-hosted)
+    try {
+      scheduleRetentionCleanup();
+      console.log('✅ Retention cleanup job scheduled (7-day retention)');
+    } catch (error) {
+      console.error('⚠️  Failed to schedule retention cleanup:', error);
+      // Don't exit - system works without cleanup (just won't delete old traces)
     }
   } catch (error) {
     console.error('❌ Failed to initialize critical services:', error);

@@ -3,6 +3,7 @@ import path from 'path';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  output: 'standalone',
   turbopack: {
     root: path.resolve(__dirname, '../../'),
   },

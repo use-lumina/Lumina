@@ -5,6 +5,8 @@ import type { Context } from 'hono';
  */
 export type AppVariables = {
   customerId: string;
+  rateLimitKey?: string;
+  currentTraceCount?: number;
 };
 
 /**

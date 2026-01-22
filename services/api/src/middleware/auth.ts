@@ -15,8 +15,18 @@ export interface AuthContext {
 /**
  * Middleware to require authentication
  * Verifies JWT token and attaches user info to context
+ * For self-hosted deployments (AUTH_REQUIRED=false), authentication is disabled
  */
 export async function requireAuth(c: Context, next: Next) {
+  // Check if authentication is required (managed cloud vs self-hosted)
+  const authRequired = process.env.AUTH_REQUIRED === 'true';
+
+  // Self-hosted mode: no authentication required
+  if (!authRequired) {
+    return await next();
+  }
+
+  // Managed cloud mode: require authentication
   const authHeader = c.req.header('Authorization');
   const token = extractToken(authHeader);
 

@@ -107,7 +107,7 @@ export function ReplayDiff({ replayId }: ReplayDiffProps) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button
-            variant={showOnlyChanges ? 'default' : 'outline'}
+            variant={showOnlyChanges ? 'default' : 'secondary'}
             onClick={toggleShowOnlyChanges}
             size="sm"
           >
@@ -215,12 +215,48 @@ export function ReplayDiff({ replayId }: ReplayDiffProps) {
             </div>
 
             {/* Prompt */}
-            {result.prompt && (
+            {(result.prompt || result.replay_prompt) && (
               <div className="p-6 border-b border-border">
-                <h4 className="text-sm font-semibold mb-3 text-muted-foreground">Prompt</h4>
-                <div className="rounded-lg bg-muted p-4">
-                  <pre className="whitespace-pre-wrap text-sm font-mono">{result.prompt}</pre>
-                </div>
+                <h4 className="text-sm font-semibold mb-3 text-muted-foreground">
+                  {result.replay_prompt ? 'Prompts' : 'Prompt'}
+                </h4>
+                {result.replay_prompt ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Original Prompt */}
+                    <div className="rounded-lg border border-border bg-muted/30 overflow-hidden">
+                      <div className="px-3 py-2 border-b border-border bg-muted/50">
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-blue-500"></div>
+                          <span className="text-xs font-medium">Original Prompt</span>
+                        </div>
+                      </div>
+                      <div className="p-4 max-h-48 overflow-auto">
+                        <pre className="whitespace-pre-wrap text-sm font-mono">
+                          {result.prompt || 'No original prompt'}
+                        </pre>
+                      </div>
+                    </div>
+
+                    {/* Replay Prompt */}
+                    <div className="rounded-lg border border-border bg-muted/30 overflow-hidden">
+                      <div className="px-3 py-2 border-b border-border bg-muted/50">
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                          <span className="text-xs font-medium">Replay Prompt</span>
+                        </div>
+                      </div>
+                      <div className="p-4 max-h-48 overflow-auto">
+                        <pre className="whitespace-pre-wrap text-sm font-mono">
+                          {result.replay_prompt}
+                        </pre>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-lg bg-muted p-4">
+                    <pre className="whitespace-pre-wrap text-sm font-mono">{result.prompt}</pre>
+                  </div>
+                )}
               </div>
             )}
 
