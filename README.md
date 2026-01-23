@@ -1,6 +1,7 @@
 # Lumina
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![npm version](https://img.shields.io/npm/v/@uselumina/sdk.svg)](https://www.npmjs.com/package/@uselumina/sdk)
 [![CI](https://github.com/use-lumina/Lumina/actions/workflows/ci.yml/badge.svg)](https://github.com/use-lumina/Lumina/actions/workflows/ci.yml)
 [![GitHub stars](https://img.shields.io/github/stars/use-lumina/Lumina?style=social)](https://github.com/use-lumina/Lumina/stargazers)
 
@@ -28,6 +29,12 @@ The free self-hosted version includes:
 - **All features included** - Alerts, replay testing, semantic scoring, and more
 
 For unlimited traces and retention, consider our managed cloud offering. [Contact us](mailto:your-email@example.com) to learn more.
+
+## Zero Setup - No Authentication Required
+
+Self-hosted Lumina runs completely open with **no login or account creation needed**. Just start the services with Docker Compose and access the dashboard immediately at `http://localhost:3000`.
+
+Perfect for local development, testing, and production deployments where you control access via network security.
 
 ## Quick Start
 
@@ -63,12 +70,12 @@ OPENAI_API_KEY=sk-your-key-here
 ## Instrument Your Application
 
 ```bash
-bun add @lumina/sdk
+bun add @uselumina/sdk
 ```
 
 ```typescript
 import Anthropic from '@anthropic-ai/sdk';
-import { initLumina } from '@lumina/sdk';
+import { initLumina } from '@uselumina/sdk';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -98,7 +105,7 @@ const response = await lumina.traceLLM(
 ```
 ┌─────────────────┐
 │  Your App       │
-│  + @lumina/sdk  │
+│  + SDK          │
 └────────┬────────┘
          │
          v

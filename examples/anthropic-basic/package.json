@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
-    "@lumina/sdk": "workspace:*"
+    "@uselumina/sdk": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "latest",

@@ -1,6 +1,6 @@
 {
-  "name": "@lumina/sdk",
-  "version": "0.1.0",
+  "name": "@uselumina/sdk",
+  "version": "0.1.1",
   "description": "Official TypeScript/JavaScript SDK for Lumina - Open-source AI Observability Platform",
   "keywords": [
     "lumina",
@@ -15,7 +15,7 @@
     "claude",
     "gpt"
   ],
-  "homepage": "https://use-lumina.github.io/Lumina/",
+  "homepage": "https://uselumina.io",
   "repository": {
     "type": "git",
     "url": "https://github.com/use-lumina/Lumina.git",

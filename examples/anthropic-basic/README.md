@@ -84,7 +84,7 @@ Open http://localhost:3000/traces to see your captured LLM calls with:
 
 ```typescript
 import Anthropic from '@anthropic-ai/sdk';
-import { Lumina } from '@lumina/sdk';
+import { Lumina } from '@uselumina/sdk';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 

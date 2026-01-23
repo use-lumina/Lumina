@@ -21,7 +21,7 @@ Learn how to integrate Lumina with your LLM applications.
 
 All integrations follow a simple pattern:
 
-1. Install the SDK: `npm install @lumina/sdk`
+1. Install the SDK: `npm install @uselumina/sdk`
 2. Initialize the client
 3. Wrap your LLM calls with `traceLLM()`
 4. View traces in the dashboard

@@ -52,7 +52,7 @@ Open http://localhost:3000 in your browser
 ### 4. Send your first trace
 
 ```typescript
-import { Lumina } from '@lumina/sdk';
+import { Lumina } from '@uselumina/sdk';
 
 // For self-hosted, no API key needed!
 const lumina = new Lumina({

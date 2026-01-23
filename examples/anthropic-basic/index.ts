@@ -11,7 +11,7 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
-import { Lumina } from '@lumina/sdk';
+import { Lumina } from '@uselumina/sdk';
 
 // Initialize Anthropic client
 const anthropic = new Anthropic({

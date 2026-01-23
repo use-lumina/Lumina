@@ -33,7 +33,7 @@ Lumina helps you:
 
 ```bash
 # Install Lumina SDK
-npm install @lumina/sdk
+npm install @uselumina/sdk
 
 # Install your RAG dependencies
 npm install @pinecone-database/pinecone @anthropic-ai/sdk
@@ -42,7 +42,7 @@ npm install @pinecone-database/pinecone @anthropic-ai/sdk
 ### Simple RAG Example
 
 ```typescript
-import { initLumina } from '@lumina/sdk';
+import { initLumina } from '@uselumina/sdk';
 import { Pinecone } from '@pinecone-database/pinecone';
 import Anthropic from '@anthropic-ai/sdk';
 

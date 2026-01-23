@@ -12,7 +12,7 @@ Lumina is a microservices-based observability platform for LLM applications, con
                                        │
                                        ▼
                              ┌─────────────────┐
-                             │  @lumina/sdk    │
+                             │  @uselumina/sdk    │
                              │  (Trace Wrapper)│
                              └────────┬────────┘
                                       │ POST /v1/traces
@@ -84,7 +84,7 @@ Any application instrumented with the Lumina SDK:
 - Python services (via OpenTelemetry)
 - Any OpenTelemetry-compatible client
 
-### 2. Lumina SDK (`@lumina/sdk`)
+### 2. Lumina SDK (`@uselumina/sdk`)
 
 **Location:** `/packages/sdk`
 
@@ -351,7 +351,7 @@ checkLatencyThreshold(latency, threshold);
 
 ```
 ┌─────────────┐          ┌──────────────┐         ┌──────────────────┐       ┌────────────┐
-│ Application │          │ @lumina/sdk  │         │ Ingestion Service│       │ PostgreSQL │
+│ Application │          │ @uselumina/sdk  │         │ Ingestion Service│       │ PostgreSQL │
 └──────┬──────┘          └──────┬───────┘         └────────┬─────────┘       └─────┬──────┘
        │                        │                           │                       │
        │ traceLLM(fn, metadata) │                           │                       │

@@ -185,15 +185,15 @@ Now let's send a test trace to see Lumina in action.
 **Install the SDK:**
 
 ```bash
-npm install @lumina/sdk
+npm install @uselumina/sdk
 # or
-bun add @lumina/sdk
+bun add @uselumina/sdk
 ```
 
 **Send a trace:**
 
 ```typescript
-import { Lumina } from '@lumina/sdk';
+import { Lumina } from '@uselumina/sdk';
 
 // Initialize Lumina client
 const lumina = new Lumina({

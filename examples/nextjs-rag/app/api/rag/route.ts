@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { getVectorStore } from '@/lib/vector-store';
-import { initLumina } from '@lumina/sdk';
+import { initLumina } from '@uselumina/sdk';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY || '',

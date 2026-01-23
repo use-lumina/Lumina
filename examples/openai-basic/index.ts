@@ -11,7 +11,7 @@
  */
 
 import OpenAI from 'openai';
-import { Lumina } from '@lumina/sdk';
+import { Lumina } from '@uselumina/sdk';
 
 // Initialize OpenAI client
 const openai = new OpenAI({

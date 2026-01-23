@@ -167,7 +167,7 @@ Helm charts for production Kubernetes deployments coming soon.
 ## 🔌 Quick Integration
 
 ```typescript
-import { Lumina } from '@lumina/sdk';
+import { Lumina } from '@uselumina/sdk';
 import Anthropic from '@anthropic-ai/sdk';
 
 // Initialize Lumina (no API key needed for self-hosted!)

@@ -673,10 +673,10 @@ Type 'X' is not assignable to type 'Y'
 
 **Solution:**
 
-1. Ensure @lumina/sdk is properly installed:
+1. Ensure @uselumina/sdk is properly installed:
 
 ```bash
-bun add @lumina/sdk
+bun add @uselumina/sdk
 ```
 
 2. Check TypeScript version compatibility:
@@ -688,7 +688,7 @@ bun add -D typescript@latest
 3. Import types correctly:
 
 ```typescript
-import { initLumina, type LuminaConfig } from '@lumina/sdk';
+import { initLumina, type LuminaConfig } from '@uselumina/sdk';
 ```
 
 ---

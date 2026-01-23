@@ -1,15 +1,15 @@
-# @lumina/sdk
+# @uselumina/sdk
 
 Official TypeScript/JavaScript SDK for Lumina - AI Observability Platform
 
 ## Installation
 
 ```bash
-npm install @lumina/sdk
+npm install @uselumina/sdk
 # or
-bun add @lumina/sdk
+bun add @uselumina/sdk
 # or
-yarn add @lumina/sdk
+yarn add @uselumina/sdk
 ```
 
 ## Quick Start
@@ -31,7 +31,7 @@ docker-compose up -d
 **For Self-Hosted:**
 
 ```typescript
-import { initLumina } from '@lumina/sdk';
+import { initLumina } from '@uselumina/sdk';
 
 const lumina = initLumina({
   endpoint: 'http://localhost:9411/v1/traces', // Your self-hosted endpoint
@@ -83,7 +83,7 @@ LUMINA_ENABLED=true
 ### Programmatic Configuration
 
 ```typescript
-import { initLumina } from '@lumina/sdk';
+import { initLumina } from '@uselumina/sdk';
 
 const lumina = initLumina({
   apiKey: 'lumina_live_...',
@@ -176,7 +176,7 @@ if (lumina.isEnabled()) {
 ```typescript
 // app/api/chat/route.ts
 import { OpenAI } from 'openai';
-import { initLumina } from '@lumina/sdk';
+import { initLumina } from '@uselumina/sdk';
 
 const openai = new OpenAI();
 const lumina = initLumina({
@@ -208,7 +208,7 @@ export async function POST(req: Request) {
 ```typescript
 import express from 'express';
 import { OpenAI } from 'openai';
-import { initLumina } from '@lumina/sdk';
+import { initLumina } from '@uselumina/sdk';
 
 const app = express();
 const openai = new OpenAI();
@@ -330,7 +330,7 @@ Check if SDK is enabled.
 
 ## Support
 
-- Documentation: https://use-lumina.github.io/Lumina/
+- Documentation: https://docs.uselumina.io
 - Issues: https://github.com/use-lumina/Lumina/issues
 - Discussions: https://github.com/use-lumina/Lumina/discussions
 

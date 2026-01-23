@@ -75,7 +75,7 @@ Open http://localhost:3000/traces to see your captured LLM calls with:
 
 ```typescript
 import OpenAI from 'openai';
-import { Lumina } from '@lumina/sdk';
+import { Lumina } from '@uselumina/sdk';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 

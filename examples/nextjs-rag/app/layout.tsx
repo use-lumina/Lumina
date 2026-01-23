@@ -2,7 +2,7 @@ import './globals.css';
 
 export const metadata = {
   title: 'Lumina SDK Test',
-  description: 'Testing @lumina/sdk with Next.js',
+  description: 'Testing @uselumina/sdk with Next.js',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

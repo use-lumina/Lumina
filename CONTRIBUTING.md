@@ -243,7 +243,7 @@ See [docs/guides/CODE_QUALITY.md](./docs/guides/CODE_QUALITY.md) for detailed gu
 ```
 lumina/
 ├── packages/           # Reusable packages
-│   ├── sdk/           # Client SDK (@lumina/sdk)
+│   ├── sdk/           # Client SDK (@uselumina/sdk)
 │   ├── core/          # Shared business logic
 │   ├── schema/        # Type definitions
 │   └── config/        # Configuration

@@ -7,7 +7,7 @@
     "start": "bun run index.ts"
   },
   "dependencies": {
-    "@lumina/sdk": "workspace:*",
+    "@uselumina/sdk": "workspace:*",
     "openai": "^4.73.1"
   },
   "devDependencies": {

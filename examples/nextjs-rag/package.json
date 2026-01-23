@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
-    "@lumina/sdk": "workspace:*",
+    "@uselumina/sdk": "workspace:*",
     "ai": "^5.0.114",
     "cheerio": "^1.1.2",
     "lucide-react": "^0.562.0",

@@ -1,6 +1,6 @@
 # Lumina SDK - Next.js RAG Example
 
-This example demonstrates how to use `@lumina/sdk` to track LLM calls in a Next.js application.
+This example demonstrates how to use `@uselumina/sdk` to track LLM calls in a Next.js application.
 
 ## Setup
 
@@ -23,7 +23,7 @@ This example demonstrates how to use `@lumina/sdk` to track LLM calls in a Next.
    cd ../..
    bun run --filter @lumina/schema build
    bun run --filter @lumina/config build
-   bun run --filter @lumina/sdk build
+   bun run --filter @uselumina/sdk build
    cd examples/nextjs-rag
    ```
 

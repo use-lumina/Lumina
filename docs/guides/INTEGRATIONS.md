@@ -27,7 +27,7 @@ This guide shows you how to integrate Lumina with popular LLM providers and fram
 All integrations follow the same pattern:
 
 ```typescript
-import { Lumina } from '@lumina/sdk';
+import { Lumina } from '@uselumina/sdk';
 
 // Initialize Lumina (no API key needed for self-hosted!)
 const lumina = new Lumina({
@@ -57,16 +57,16 @@ const response = await lumina.traceLLM(
 ### Installation
 
 ```bash
-npm install openai @lumina/sdk
+npm install openai @uselumina/sdk
 # or
-bun add openai @lumina/sdk
+bun add openai @uselumina/sdk
 ```
 
 ### Basic Example
 
 ```typescript
 import OpenAI from 'openai';
-import { Lumina } from '@lumina/sdk';
+import { Lumina } from '@uselumina/sdk';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -156,16 +156,16 @@ const embeddings = await lumina.traceLLM(
 ### Installation
 
 ```bash
-npm install @anthropic-ai/sdk @lumina/sdk
+npm install @anthropic-ai/sdk @uselumina/sdk
 # or
-bun add @anthropic-ai/sdk @lumina/sdk
+bun add @anthropic-ai/sdk @uselumina/sdk
 ```
 
 ### Basic Example
 
 ```typescript
 import Anthropic from '@anthropic-ai/sdk';
-import { Lumina } from '@lumina/sdk';
+import { Lumina } from '@uselumina/sdk';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -258,9 +258,9 @@ for await (const chunk of stream) {
 ### Installation
 
 ```bash
-npm install langchain @langchain/openai @lumina/sdk
+npm install langchain @langchain/openai @uselumina/sdk
 # or
-bun add langchain @langchain/openai @lumina/sdk
+bun add langchain @langchain/openai @uselumina/sdk
 ```
 
 ### Basic Example
@@ -268,7 +268,7 @@ bun add langchain @langchain/openai @lumina/sdk
 ```typescript
 import { ChatOpenAI } from '@langchain/openai';
 import { HumanMessage } from '@langchain/core/messages';
-import { Lumina } from '@lumina/sdk';
+import { Lumina } from '@uselumina/sdk';
 
 const lumina = new Lumina({
   endpoint: 'http://localhost:8080/v1/traces',
@@ -332,9 +332,9 @@ const response = await lumina.traceLLM(
 ### Installation
 
 ```bash
-npm install ai @lumina/sdk
+npm install ai @uselumina/sdk
 # or
-bun add ai @lumina/sdk
+bun add ai @uselumina/sdk
 ```
 
 ### Basic Example
@@ -342,7 +342,7 @@ bun add ai @lumina/sdk
 ```typescript
 import { openai } from '@ai-sdk/openai';
 import { generateText } from 'ai';
-import { Lumina } from '@lumina/sdk';
+import { Lumina } from '@uselumina/sdk';
 
 const lumina = new Lumina({
   endpoint: 'http://localhost:8080/v1/traces',
@@ -401,7 +401,7 @@ const result = await lumina.traceLLM(
 // app/api/chat/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { Lumina } from '@lumina/sdk';
+import { Lumina } from '@uselumina/sdk';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const lumina = new Lumina({
@@ -441,7 +441,7 @@ export async function POST(req: NextRequest) {
 'use server';
 
 import OpenAI from 'openai';
-import { Lumina } from '@lumina/sdk';
+import { Lumina } from '@uselumina/sdk';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const lumina = new Lumina({
@@ -481,7 +481,7 @@ export async function chatAction(message: string) {
 ```typescript
 import express from 'express';
 import OpenAI from 'openai';
-import { Lumina } from '@lumina/sdk';
+import { Lumina } from '@uselumina/sdk';
 
 const app = express();
 app.use(express.json());
