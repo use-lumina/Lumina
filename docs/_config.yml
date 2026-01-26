@@ -25,6 +25,10 @@ search:
 # Enable heading anchors
 heading_anchors: true
 
+# Enable Mermaid diagrams
+mermaid:
+  version: "10.6.1"
+
 # Aux links for the upper right navigation
 aux_links:
   "GitHub":

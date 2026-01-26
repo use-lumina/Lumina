@@ -4,6 +4,79 @@
 
 Lumina is a microservices-based observability platform for LLM applications, consisting of three main services with async message processing via NATS JetStream and caching via Redis.
 
+### Interactive Architecture Diagram
+
+```mermaid
+graph TB
+    subgraph "Your Application"
+        APP[Your LLM App]
+        SDK["@uselumina/sdk"]
+        APP --> SDK
+    end
+
+    subgraph "Lumina Platform - Self-Hosted"
+        subgraph "Ingestion Layer"
+            INGEST["Ingestion Service<br/>Port 9411"]
+            NATS["NATS Message Queue"]
+            INGEST --> NATS
+        end
+
+        subgraph "Processing Layer"
+            WORKER["Background Workers"]
+            COST["Cost Calculator"]
+            SEMANTIC["Semantic Scorer<br/>Claude API"]
+            NATS --> WORKER
+            WORKER --> COST
+            WORKER --> SEMANTIC
+        end
+
+        subgraph "Storage Layer"
+            PG[("PostgreSQL<br/>Traces & Metadata")]
+            REDIS[("Redis<br/>Cache & Rate Limits")]
+            WORKER --> PG
+            WORKER --> REDIS
+        end
+
+        subgraph "Query Layer"
+            API["Query API<br/>Port 8081"]
+            REPLAY["Replay Service<br/>Port 8082"]
+            PG --> API
+            PG --> REPLAY
+            REDIS --> API
+        end
+
+        subgraph "Frontend"
+            DASH["Dashboard UI<br/>Next.js"]
+            API --> DASH
+            REPLAY --> DASH
+        end
+
+        subgraph "Alerting"
+            ALERT["Alert Engine"]
+            WEBHOOK["Webhook Dispatcher"]
+            WORKER --> ALERT
+            ALERT --> WEBHOOK
+        end
+    end
+
+    subgraph "External Services"
+        OTEL["OpenTelemetry Collectors<br/>Datadog, Grafana, etc."]
+        NOTIFY["Notification Services<br/>Slack, Email, etc."]
+    end
+
+    SDK -->|"OTLP/HTTP"| INGEST
+    SDK -.->|"Optional"| OTEL
+    WEBHOOK --> NOTIFY
+
+    style SDK fill:#4CAF50
+    style INGEST fill:#2196F3
+    style PG fill:#FF9800
+    style DASH fill:#9C27B0
+    style SEMANTIC fill:#E91E63
+```
+
+### ASCII Diagram
+
 ```
                     ┌─────────────────────────────────────────────────┐
                     │         CLIENT APPLICATIONS                     │

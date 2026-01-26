@@ -11,6 +11,13 @@ A lightweight observability platform for LLM applications. Track costs, latency,
 
 **🔓 Fully open-source** • **🏠 Self-hostable** • **☁️ Managed cloud option available**
 
+---
+
+<!--
+TODO: Add screenshot here once available
+![Lumina Dashboard](./docs/assets/screenshots/dashboard-home.png)
+-->
+
 ## Features
 
 - **Real-time Trace Ingestion** - OpenTelemetry-compatible trace collection
@@ -103,30 +110,72 @@ const response = await lumina.traceLLM(
 ## Architecture
 
 ```
-┌─────────────────┐
-│  Your App       │
-│  + SDK          │
-└────────┬────────┘
-         │
-         v
-┌─────────────────────────────────────┐
-│  Lumina Platform                    │
-│                                     │
-│  ┌──────────┐  ┌──────────┐       │
-│  │Ingestion │  │  Query   │       │
-│  │  :9411   │  │  :8081   │       │
-│  └────┬─────┘  └────┬─────┘       │
-│       │             │              │
-│       │   ┌─────────┴──────┐      │
-│       └───►   PostgreSQL    │      │
-│           └────────┬────────┘      │
-│                    │                │
-│           ┌────────┴─────────┐     │
-│           │  Replay Engine   │     │
-│           │      :8082       │     │
-│           └──────────────────┘     │
-└─────────────────────────────────────┘
+┌─────────────────────┐
+│  Your LLM App       │
+│  + @uselumina/sdk   │
+└──────────┬──────────┘
+           │ OTLP/HTTP
+           v
+┌───────────────────────────────────────────────────┐
+│  Lumina Platform (Docker Compose)                 │
+│                                                   │
+│  ┌──────────┐    ┌──────────┐   ┌────────────┐  │
+│  │Ingestion │───►│   NATS   │──►│  Workers   │  │
+│  │  :9411   │    │  Queue   │   │ (Cost &    │  │
+│  └──────────┘    └──────────┘   │  Quality)  │  │
+│                                  └─────┬──────┘  │
+│                                        │          │
+│  ┌──────────┐    ┌────────────────────▼──┐      │
+│  │  Query   │◄───│    PostgreSQL          │      │
+│  │  :8081   │    │  (7-day retention)     │      │
+│  └────┬─────┘    └────────────────────────┘      │
+│       │                                           │
+│  ┌────▼──────┐   ┌──────────────┐                │
+│  │ Dashboard │   │Replay Engine │                │
+│  │  :3000    │   │    :8082     │                │
+│  └───────────┘   └──────────────┘                │
+└───────────────────────────────────────────────────┘
 ```
+
+**📊 [View Detailed Architecture](./docs/guides/ARCHITECTURE.md)** - See interactive Mermaid diagram and full system design with component details, data flows, and scaling considerations.
+
+## Key Features in Action
+
+### 🔍 Real-Time Trace Monitoring
+
+Monitor every LLM call with detailed traces showing prompts, responses, costs, and latency.
+
+<!--
+TODO: Add screenshot when available
+![Trace Monitoring](./docs/assets/screenshots/trace-detail.png)
+-->
+
+### 💰 Cost Analytics
+
+Track spending across models and services. Identify expensive queries and optimize costs.
+
+<!--
+TODO: Add screenshot when available
+![Cost Analytics](./docs/assets/screenshots/cost-analytics.png)
+-->
+
+### 🔄 Replay Testing with Semantic Diff
+
+Capture production traces, replay with new prompts, and see side-by-side diffs with semantic quality scores.
+
+<!--
+TODO: Add screenshot when available
+![Replay Testing](./docs/assets/screenshots/replay-testing.png)
+-->
+
+### 🚨 Smart Alerting
+
+Get notified when costs spike or response quality degrades. Configure custom thresholds and webhook endpoints.
+
+<!--
+TODO: Add screenshot when available
+![Alerts](./docs/assets/screenshots/alert-triggered.png)
+-->
 
 ## Documentation
 
