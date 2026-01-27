@@ -11,12 +11,7 @@ A lightweight observability platform for LLM applications. Track costs, latency,
 
 **🔓 Fully open-source** • **🏠 Self-hostable** • **☁️ Managed cloud option available**
 
----
-
-<!--
-TODO: Add screenshot here once available
 ![Lumina Dashboard](./docs/assets/screenshots/dashboard-home.png)
--->
 
 ## Features
 
@@ -145,37 +140,25 @@ const response = await lumina.traceLLM(
 
 Monitor every LLM call with detailed traces showing prompts, responses, costs, and latency.
 
-<!--
-TODO: Add screenshot when available
 ![Trace Monitoring](./docs/assets/screenshots/trace-detail.png)
--->
 
 ### 💰 Cost Analytics
 
 Track spending across models and services. Identify expensive queries and optimize costs.
 
-<!--
-TODO: Add screenshot when available
 ![Cost Analytics](./docs/assets/screenshots/cost-analytics.png)
--->
 
 ### 🔄 Replay Testing with Semantic Diff
 
 Capture production traces, replay with new prompts, and see side-by-side diffs with semantic quality scores.
 
-<!--
-TODO: Add screenshot when available
 ![Replay Testing](./docs/assets/screenshots/replay-testing.png)
--->
 
 ### 🚨 Smart Alerting
 
 Get notified when costs spike or response quality degrades. Configure custom thresholds and webhook endpoints.
 
-<!--
-TODO: Add screenshot when available
 ![Alerts](./docs/assets/screenshots/alert-triggered.png)
--->
 
 ## Documentation
 

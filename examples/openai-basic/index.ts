@@ -21,8 +21,8 @@ const openai = new OpenAI({
 // Initialize Lumina (no API key needed for self-hosted!)
 const lumina = new Lumina({
   endpoint: process.env.LUMINA_ENDPOINT || 'http://localhost:8080/v1/traces',
-  serviceName: 'openai-basic-example',
-  environment: 'development',
+  service_name: 'openai-basic-example',
+  environment: 'live',
 });
 
 async function chatWithOpenAI(prompt: string) {
@@ -79,6 +79,11 @@ async function main() {
 
   // Example 2: More complex prompt
   await chatWithOpenAI('Explain quantum computing in one sentence.');
+
+  // Flush traces before exiting
+  console.log('\n⏳ Flushing traces...');
+  await lumina.flush();
+  console.log('✅ All traces flushed!');
 
   console.log('\n✨ Done! Check your traces at http://localhost:3000/traces');
 }

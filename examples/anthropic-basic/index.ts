@@ -21,8 +21,8 @@ const anthropic = new Anthropic({
 // Initialize Lumina (no API key needed for self-hosted!)
 const lumina = new Lumina({
   endpoint: process.env.LUMINA_ENDPOINT || 'http://localhost:8080/v1/traces',
-  serviceName: 'anthropic-basic-example',
-  environment: 'development',
+  service_name: 'anthropic-basic-example',
+  environment: 'live',
 });
 
 async function chatWithClaude(prompt: string) {
@@ -86,6 +86,11 @@ async function main() {
 
   // Example 3: Creative task
   await chatWithClaude('Write a haiku about observability.');
+
+  // Flush traces before exiting
+  console.log('\n⏳ Flushing traces...');
+  await lumina.flush();
+  console.log('✅ All traces flushed!');
 
   console.log('\n✨ Done! Check your traces at http://localhost:3000/traces');
 }
