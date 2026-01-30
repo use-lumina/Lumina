@@ -102,6 +102,34 @@ const response = await lumina.traceLLM(
 );
 ```
 
+## Hierarchical (Multi-Span) Tracing
+
+Beyond tracing single LLM calls, Lumina supports hierarchical tracing to monitor complex, multi-step workflows like RAG (Retrieval-Augmented Generation) applications or agent-based systems.
+
+Use the `lumina.trace()` method to create a parent span for an entire operation. Any `traceLLM` or other `trace` calls inside it will automatically be nested as child spans, giving you a complete end-to-end view.
+
+```typescript
+// Trace a complex RAG operation with a parent span
+const answer = await lumina.trace('rag_request', async (parentSpan) => {
+  parentSpan.setAttribute('user_query', 'What is multi-span tracing?');
+
+  // 1. First child operation: retrieval
+  const documents = await retrieveDocuments(query);
+  parentSpan.addEvent('Retrieved documents');
+
+  // 2. Second child operation: synthesis (nested LLM call)
+  // This traceLLM call will be a child of 'rag_request'
+  const response = await lumina.traceLLM(
+    () => llm.generate({ prompt: createPrompt(query, documents) }),
+    { name: 'synthesis' }
+  );
+
+  return response.completion;
+});
+```
+
+This creates a complete, debuggable trace in the Lumina UI, showing the `rag_request` as the top-level operation with `synthesis` nested inside it, allowing you to analyze latency and behavior for both the overall process and its individual components.
+
 ## Architecture
 
 ```
