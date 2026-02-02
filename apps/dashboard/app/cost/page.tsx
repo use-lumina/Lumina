@@ -50,10 +50,11 @@ import {
   getEndpointTrends,
   getTraces,
   getTraceById,
+  type Trace,
 } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { TraceDetailDrawer } from '@/components/traces/trace-detail-drawer';
-import type { UITrace } from '@/types/trace';
+import type { UITrace, TraceSpan } from '@/types/trace';
 
 interface EndpointData {
   endpoint: string;
@@ -313,6 +314,28 @@ export default function CostPage() {
         // Fetch full trace details
         const fullTrace = await getTraceById(trace.trace_id);
 
+        // Flatten the hierarchical trace structure into a flat array of spans
+        const flattenSpans = (span: Trace): TraceSpan[] => {
+          const spans: TraceSpan[] = [
+            {
+              name: span.service_name,
+              startMs: 0,
+              durationMs: span.latency_ms,
+              type: 'processing',
+            },
+          ];
+
+          if (span.children && span.children.length > 0) {
+            span.children.forEach((child) => {
+              spans.push(...flattenSpans(child));
+            });
+          }
+
+          return spans;
+        };
+
+        const spans = flattenSpans(fullTrace.trace);
+
         // Map API trace to UI trace format (matching traces page mapping)
         const mappedTrace: UITrace = {
           id: fullTrace.trace.trace_id,
@@ -324,11 +347,11 @@ export default function CostPage() {
               ? 'healthy'
               : (fullTrace.trace.status as 'healthy' | 'degraded' | 'error'),
           latencyMs: fullTrace.trace.latency_ms,
-          costUsd: fullTrace.trace.cost_usd,
+          costUsd: fullTrace.trace.cost_usd || 0,
           createdAt: fullTrace.trace.timestamp,
           prompt: fullTrace.trace.prompt,
           response: fullTrace.trace.response,
-          spans: (fullTrace.trace.metadata as any)?.spans,
+          spans,
           metadata: {
             tokensIn: fullTrace.trace.prompt_tokens,
             tokensOut: fullTrace.trace.completion_tokens,

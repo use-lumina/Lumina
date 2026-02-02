@@ -38,20 +38,22 @@ export interface TraceFilters extends PaginationParams, TimeRangeParams {
 export interface Trace {
   trace_id: string;
   span_id: string;
+  parent_span_id?: string;
   customer_id: string;
   service_name: string;
   endpoint: string;
   model: string;
   status: string;
   latency_ms: number;
-  cost_usd: number;
-  prompt_tokens: number;
-  completion_tokens: number;
+  cost_usd?: number;
+  prompt_tokens?: number;
+  completion_tokens?: number;
   timestamp: string;
-  environment: string;
+  environment?: string;
   prompt?: string;
   response?: string;
   metadata?: any;
+  children: Trace[];
 }
 
 export interface TracesResponse {

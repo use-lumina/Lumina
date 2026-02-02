@@ -68,14 +68,15 @@ app.get('/', requireAuth, async (c) => {
       params.push(new Date(endTime));
     }
 
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    // Build WHERE clause - only root spans (parent_span_id IS NULL)
+    const additionalConditions = conditions.length > 0 ? ` AND ${conditions.join(' AND ')}` : '';
 
     // Validate and sanitize sortBy to prevent SQL injection
     const allowedSortColumns = ['timestamp', 'cost_usd', 'latency_ms', 'model', 'endpoint'];
     const sortColumn = allowedSortColumns.includes(sortBy) ? sortBy : 'timestamp';
     const sortDirection = sortOrder.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
 
-    // Execute query with pagination
+    // Execute query with pagination - only select root spans (parent_span_id IS NULL) for list view
     const traces = await sql.unsafe(
       `
       SELECT
@@ -93,19 +94,19 @@ app.get('/', requireAuth, async (c) => {
         timestamp,
         environment
       FROM traces
-      ${whereClause}
+      WHERE parent_span_id IS NULL${additionalConditions}
       ORDER BY ${sortColumn} ${sortDirection}
       LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
     `,
       [...params, parseInt(limit), parseInt(offset)]
     );
 
-    // Get total count for pagination
+    // Get total count for pagination - count only root spans (unique traces)
     const countResult = await sql.unsafe(
       `
-      SELECT COUNT(*) as total
+      SELECT COUNT(DISTINCT trace_id) as total
       FROM traces
-      ${whereClause}
+      WHERE parent_span_id IS NULL${additionalConditions}
     `,
       params
     );
@@ -264,8 +265,66 @@ app.get('/trends', requireAuth, async (c) => {
 });
 
 /**
+ * Build a tree structure from flat spans
+ */
+interface SpanNode {
+  trace_id: string;
+  span_id: string;
+  parent_span_id?: string;
+  customer_id: string;
+  service_name: string;
+  endpoint: string;
+  model: string;
+  prompt?: string;
+  response?: string;
+  status: string;
+  latency_ms: number;
+  cost_usd?: number;
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  timestamp: string;
+  environment?: string;
+  metadata?: any;
+  children: SpanNode[];
+}
+
+function buildSpanTree(spans: any[]): SpanNode[] {
+  // Create a map for quick lookup
+  const spanMap = new Map<string, SpanNode>();
+  const rootSpans: SpanNode[] = [];
+
+  // Initialize all spans with empty children arrays
+  spans.forEach((span) => {
+    spanMap.set(span.span_id, {
+      ...span,
+      children: [],
+    });
+  });
+
+  // Build parent-child relationships
+  spans.forEach((span) => {
+    const spanNode = spanMap.get(span.span_id)!;
+    if (span.parent_span_id) {
+      // Add to parent's children
+      const parent = spanMap.get(span.parent_span_id);
+      if (parent) {
+        parent.children.push(spanNode);
+      } else {
+        // Parent not found in this trace, treat as root
+        rootSpans.push(spanNode);
+      }
+    } else {
+      // No parent, this is a root span
+      rootSpans.push(spanNode);
+    }
+  });
+
+  return rootSpans;
+}
+
+/**
  * GET /traces/:id
- * Get full trace details
+ * Get full trace details with hierarchical span structure
  */
 app.get('/:id', requireAuth, async (c) => {
   try {
@@ -273,11 +332,12 @@ app.get('/:id', requireAuth, async (c) => {
     const db = getDB();
     const sql = db.getClient();
 
-    // Fetch trace details
+    // Fetch all spans for this trace (not just LIMIT 1)
     const traces = await sql`
       SELECT
         trace_id,
         span_id,
+        parent_span_id,
         customer_id,
         service_name,
         endpoint,
@@ -294,14 +354,22 @@ app.get('/:id', requireAuth, async (c) => {
         metadata
       FROM traces
       WHERE trace_id = ${traceId}
-      LIMIT 1
+      ORDER BY timestamp ASC
     `;
 
     if (traces.length === 0) {
       return c.json({ error: 'Trace not found' }, 404);
     }
 
-    const trace = traces[0];
+    // Build hierarchical trace structure
+    const traceTree = buildSpanTree(traces);
+
+    // Get the primary trace (first root span, or the only span in a single-span trace)
+    const trace = traceTree[0] || null;
+
+    if (!trace) {
+      return c.json({ error: 'Trace not found' }, 404);
+    }
 
     // Fetch associated alerts
     const alerts = await sql`

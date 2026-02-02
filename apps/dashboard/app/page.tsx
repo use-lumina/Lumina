@@ -414,7 +414,12 @@ export default function Home() {
                         <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                           <span>{trace.latency_ms} ms</span>
                           <span>·</span>
-                          <span>${trace.cost_usd.toFixed(3)}</span>
+                          <span>
+                            $
+                            {typeof trace.cost_usd === 'number'
+                              ? trace.cost_usd.toFixed(3)
+                              : '0.000'}
+                          </span>
                           <span>·</span>
                           <span>{trace.model}</span>
                         </div>

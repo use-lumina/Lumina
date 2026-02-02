@@ -1,6 +1,6 @@
 {
   "name": "@uselumina/sdk",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Official TypeScript/JavaScript SDK for Lumina - Open-source AI Observability Platform",
   "keywords": [
     "lumina",

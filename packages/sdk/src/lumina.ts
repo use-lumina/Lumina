@@ -109,23 +109,30 @@ export class Lumina {
   }
 
   /**
-   * Trace an LLM operation using OpenTelemetry spans
+   * Trace a block of code or a complex operation as a single parent span.
    *
-   * This creates an OTEL span with LLM semantic conventions,
-   * making it compatible with standard observability tools.
+   * This is the primary way to create hierarchical (multi-span) traces.
+   * Any `trace` or `traceLLM` calls made inside the callback of this function
+   * will automatically become child spans.
    *
    * @example
-   * const response = await lumina.trace(async (span) => {
-   *   const result = await openai.chat.completions.create({...});
+   * // Trace a complex RAG (Retrieval-Augmented Generation) operation
+   * const answer = await lumina.trace('rag_request', async (parentSpan) => {
+   *   parentSpan.setAttribute('user_query', 'What is multi-span tracing?');
    *
-   *   // Enrich span with LLM metadata
-   *   span.setAttributes({
-   *     [SemanticConventions.LLM_REQUEST_MODEL]: 'gpt-4',
-   *     [SemanticConventions.LLM_USAGE_PROMPT_TOKENS]: result.usage.prompt_tokens,
-   *   });
+   *   // Child operation 1: retrieval (could be another nested trace)
+   *   const documents = await retrieveDocuments(query);
+   *   parentSpan.addEvent('Retrieved documents');
    *
-   *   return result;
-   * }, { name: 'chat-completion' });
+   *   // Child operation 2: synthesis (using traceLLM)
+   *   // This will appear as a child span of 'rag_request'
+   *   const response = await lumina.traceLLM(
+   *     () => llm.generate({ prompt: createPrompt(query, documents) }),
+   *     { name: 'synthesis' }
+   *   );
+   *
+   *   return response.completion;
+   * });
    */
   async trace<T>(
     fn: (span: Span) => Promise<T>,
@@ -188,10 +195,22 @@ export class Lumina {
   }
 
   /**
-   * Create a span for LLM generation with automatic attribute extraction
+   * Trace a single LLM call with automatic attribute extraction.
    *
-   * This is a convenience wrapper that automatically extracts common LLM attributes
-   * from the response object.
+   * This is a convenience wrapper around `trace` that automatically instruments an
+   * LLM API call, extracting metadata like model name, token usage, and cost
+   * from the response. It can be used standalone or nested inside another `trace` block.
+   *
+   * @example
+   * // Standalone usage
+   * const response = await lumina.traceLLM(
+   *   () => openai.chat.completions.create({ model: 'gpt-4', ... }),
+   *   {
+   *     name: 'summarize_document',
+   *     prompt: documentText,
+   *     system: 'openai',
+   *   }
+   * );
    */
   async traceLLM<T extends { model?: string; usage?: any; id?: string }>(
     fn: () => Promise<T>,

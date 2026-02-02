@@ -256,6 +256,14 @@ curl -X POST http://localhost:8080/v1/traces \
 2. Click on **Traces** in the sidebar
 3. You should see your test trace appear!
 
+### Tracing Complex Workflows
+
+While `traceLLM` is great for single LLM calls, most real-world applications involve multiple steps (e.g., retrieving data, then calling an LLM). Lumina allows you to trace these complex workflows using parent and child spans.
+
+This gives you an end-to-end view of your entire operation, helping you pinpoint bottlenecks and attribute costs to each specific step.
+
+📖 **To learn how to implement this, see our new [Advanced Guide: Hierarchical & Multi-Span Tracing](./multi-span-tracing.md).**
+
 ## Next Steps
 
 ### 1. Instrument Your Application

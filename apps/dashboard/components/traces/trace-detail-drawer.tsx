@@ -12,6 +12,7 @@ import {
   DrawerTitle,
 } from '@/components/ui/drawer';
 import { SpanTimeline } from './trace-timeline';
+import { SpanTree } from './span-tree';
 import { Clock, DollarSign, User, Hash, Copy, Check, WrapText, Code2, X } from 'lucide-react';
 import type { UITrace } from '@/types/trace';
 
@@ -83,7 +84,9 @@ export function TraceDetailDrawer({ trace, open, onOpenChange }: TraceDetailDraw
                   <DollarSign className="h-4 w-4" />
                   <span>Cost</span>
                 </div>
-                <p className="text-2xl font-semibold">${trace.costUsd.toFixed(4)}</p>
+                <p className="text-2xl font-semibold">
+                  ${typeof trace.costUsd === 'number' ? trace.costUsd.toFixed(4) : '0.0000'}
+                </p>
               </div>
 
               <div className="rounded-lg border border-(--accent) border-border bg-card p-4">
@@ -113,15 +116,22 @@ export function TraceDetailDrawer({ trace, open, onOpenChange }: TraceDetailDraw
               </div>
             </div>
 
-            {/* Span Timeline */}
-            {trace.spans && trace.spans.length > 0 && (
+            {/* Span Timeline or Hierarchical Tree */}
+            {trace.hierarchicalSpan ? (
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold">Span Hierarchy</h3>
+                <div className="rounded-lg border border-(--accent) border-border bg-card p-6">
+                  <SpanTree span={trace.hierarchicalSpan} />
+                </div>
+              </div>
+            ) : trace.spans && trace.spans.length > 0 ? (
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">Execution Timeline</h3>
                 <div className="rounded-lg border border-(--accent) border-border bg-card p-6">
                   <SpanTimeline spans={trace.spans} totalDuration={trace.latencyMs} />
                 </div>
               </div>
-            )}
+            ) : null}
 
             {/* Enhanced Tabs for prompt/response/metadata */}
             <Tabs defaultValue="prompt" className="w-full">
@@ -133,7 +143,10 @@ export function TraceDetailDrawer({ trace, open, onOpenChange }: TraceDetailDraw
                   <span className="font-medium">Prompt</span>
                   {trace.metadata?.tokensIn !== undefined && (
                     <span className="text-xs text-muted-foreground font-normal">
-                      {trace.metadata.tokensIn.toLocaleString()} tokens
+                      {typeof trace.metadata.tokensIn === 'number'
+                        ? trace.metadata.tokensIn.toLocaleString()
+                        : ''}{' '}
+                      tokens
                     </span>
                   )}
                 </TabsTrigger>
@@ -144,7 +157,10 @@ export function TraceDetailDrawer({ trace, open, onOpenChange }: TraceDetailDraw
                   <span className="font-medium">Response</span>
                   {trace.metadata?.tokensOut !== undefined && (
                     <span className="text-xs text-muted-foreground font-normal">
-                      {trace.metadata.tokensOut.toLocaleString()} tokens
+                      {typeof trace.metadata.tokensOut === 'number'
+                        ? trace.metadata.tokensOut.toLocaleString()
+                        : ''}{' '}
+                      tokens
                     </span>
                   )}
                 </TabsTrigger>
@@ -166,7 +182,10 @@ export function TraceDetailDrawer({ trace, open, onOpenChange }: TraceDetailDraw
                       <span className="text-sm font-medium">Input Prompt</span>
                       {trace.metadata?.tokensIn !== undefined && (
                         <Badge variant="secondary" className="text-xs">
-                          {trace.metadata.tokensIn.toLocaleString()} tokens
+                          {typeof trace.metadata.tokensIn === 'number'
+                            ? trace.metadata.tokensIn.toLocaleString()
+                            : ''}{' '}
+                          tokens
                         </Badge>
                       )}
                     </div>
@@ -222,7 +241,10 @@ export function TraceDetailDrawer({ trace, open, onOpenChange }: TraceDetailDraw
                       <span className="text-sm font-medium">AI Response</span>
                       {trace.metadata?.tokensOut !== undefined && (
                         <Badge variant="secondary" className="text-xs">
-                          {trace.metadata.tokensOut.toLocaleString()} tokens
+                          {typeof trace.metadata.tokensOut === 'number'
+                            ? trace.metadata.tokensOut.toLocaleString()
+                            : ''}{' '}
+                          tokens
                         </Badge>
                       )}
                     </div>
@@ -293,7 +315,9 @@ export function TraceDetailDrawer({ trace, open, onOpenChange }: TraceDetailDraw
                             <div className="rounded-lg border-(--border) border border-border bg-muted/30 p-4">
                               <p className="text-xs text-muted-foreground mb-1">Input Tokens</p>
                               <p className="text-2xl font-semibold font-mono">
-                                {trace.metadata.tokensIn.toLocaleString()}
+                                {typeof trace.metadata.tokensIn === 'number'
+                                  ? trace.metadata.tokensIn.toLocaleString()
+                                  : ''}
                               </p>
                             </div>
                           )}
@@ -301,7 +325,9 @@ export function TraceDetailDrawer({ trace, open, onOpenChange }: TraceDetailDraw
                             <div className="rounded-lg border border-(--border) border-border bg-muted/30 p-4">
                               <p className="text-xs text-muted-foreground mb-1">Output Tokens</p>
                               <p className="text-2xl font-semibold font-mono">
-                                {trace.metadata.tokensOut.toLocaleString()}
+                                {typeof trace.metadata.tokensOut === 'number'
+                                  ? trace.metadata.tokensOut.toLocaleString()
+                                  : ''}
                               </p>
                             </div>
                           )}
@@ -313,9 +339,12 @@ export function TraceDetailDrawer({ trace, open, onOpenChange }: TraceDetailDraw
                               >
                                 <p className="text-xs text-muted-foreground mb-1">Total Tokens</p>
                                 <p className="text-2xl font-semibold font-mono">
-                                  {(
-                                    trace.metadata.tokensIn + trace.metadata.tokensOut
-                                  ).toLocaleString()}
+                                  {typeof trace.metadata.tokensIn === 'number' &&
+                                  typeof trace.metadata.tokensOut === 'number'
+                                    ? (
+                                        trace.metadata.tokensIn + trace.metadata.tokensOut
+                                      ).toLocaleString()
+                                    : ''}
                                 </p>
                               </div>
                             )}
@@ -388,7 +417,7 @@ export function TraceDetailDrawer({ trace, open, onOpenChange }: TraceDetailDraw
                         <div className="flex items-center justify-between py-2 border-b border-(--border) border-border">
                           <dt className="text-sm text-muted-foreground">Created At</dt>
                           <dd className="text-sm font-mono font-medium">
-                            {new Date(trace.createdAt).toLocaleString()}
+                            {trace.createdAt ? new Date(trace.createdAt).toLocaleString() : ''}
                           </dd>
                         </div>
                         <div className="flex items-center justify-between py-2 border-b border-(--border) border-border">
