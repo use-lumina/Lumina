@@ -65,13 +65,36 @@ import {
   type Trace as APITrace,
   type TraceTrendsResponse,
 } from '@/lib/api';
-import type { UITrace } from '@/types/trace';
+import type { UITrace, TraceSpan } from '@/types/trace';
 
 // API Trace type for this page (keeping snake_case from API)
 export type Trace = APITrace;
 
 // Map API trace to UI trace
 function mapApiTraceToUI(trace: Trace): UITrace {
+  // Flatten the hierarchical trace structure into a flat array of spans
+  const flattenSpans = (span: Trace): TraceSpan[] => {
+    const spans: TraceSpan[] = [
+      {
+        name: span.service_name,
+        startMs: 0, // We'll calculate relative timing based on timestamp
+        durationMs: span.latency_ms,
+        type: 'processing',
+      },
+    ];
+
+    // Add children spans
+    if (span.children && span.children.length > 0) {
+      span.children.forEach((child) => {
+        spans.push(...flattenSpans(child));
+      });
+    }
+
+    return spans;
+  };
+
+  const spans = flattenSpans(trace);
+
   return {
     id: trace.trace_id,
     service: trace.service_name,
@@ -82,11 +105,12 @@ function mapApiTraceToUI(trace: Trace): UITrace {
         ? 'healthy'
         : (trace.status as 'healthy' | 'degraded' | 'error'),
     latencyMs: trace.latency_ms,
-    costUsd: trace.cost_usd,
+    costUsd: trace.cost_usd || 0,
     createdAt: trace.timestamp,
     prompt: trace.prompt,
     response: trace.response,
-    spans: (trace.metadata as any)?.spans,
+    spans,
+    hierarchicalSpan: trace,
     metadata: {
       tokensIn: trace.prompt_tokens,
       tokensOut: trace.completion_tokens,
@@ -112,7 +136,8 @@ function formatLatency(ms: number) {
   return `${ms} ms`;
 }
 
-function formatCost(usd: number) {
+function formatCost(usd: number | undefined) {
+  if (typeof usd !== 'number') return '$0.000';
   return `$${usd.toFixed(3)}`;
 }
 
@@ -335,7 +360,7 @@ function TracesContent() {
     traces.length > 0
       ? Math.round(traces.reduce((sum, t) => sum + t.latency_ms, 0) / traces.length)
       : 0;
-  const totalCost = traces.reduce((sum, t) => sum + t.cost_usd, 0);
+  const totalCost = traces.reduce((sum, t) => sum + (t.cost_usd ?? 0), 0);
   const errorCount = traces.filter((t) => t.status === 'error').length;
   const errorRate =
     displayedTracesCount > 0 ? ((errorCount / displayedTracesCount) * 100).toFixed(1) : '0.0';

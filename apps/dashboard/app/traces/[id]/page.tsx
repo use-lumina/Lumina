@@ -20,7 +20,7 @@ function mapApiTraceToUI(trace: Trace): UITrace {
         ? 'healthy'
         : (trace.status as 'healthy' | 'degraded' | 'error'),
     latencyMs: trace.latency_ms,
-    costUsd: trace.cost_usd,
+    costUsd: trace.cost_usd ?? 0,
     createdAt: trace.timestamp,
     prompt: trace.prompt,
     response: trace.response,
