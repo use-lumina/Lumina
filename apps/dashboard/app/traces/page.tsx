@@ -17,7 +17,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  StatusDot,
   TableBody,
   TableCell,
   TableHead,
@@ -27,7 +26,6 @@ import {
 import { RealtimeIndicator } from '@/components/ui/realtime-indicator';
 import {
   TableSkeleton,
-  KPICardSkeleton,
   ChartCardSkeleton,
 } from '@/components/ui/loading-skeletons';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -35,20 +33,11 @@ import { TraceDetailDrawer } from '@/components/traces/trace-detail-drawer';
 import { TablePagination } from '@/components/ui/table-pagination';
 import { cn } from '@/lib/utils';
 import {
-  Filter,
   Download,
-  TrendingUp,
-  TrendingDown,
-  Activity,
-  DollarSign,
-  AlertTriangle,
-  Clock,
   X,
   Inbox,
 } from 'lucide-react';
 import {
-  LineChart,
-  Line,
   AreaChart,
   Area,
   XAxis,
@@ -61,17 +50,38 @@ import {
   getTraces,
   getTraceById,
   getCostTimeline,
-  getTraceTrends,
   type Trace as APITrace,
-  type TraceTrendsResponse,
 } from '@/lib/api';
-import type { UITrace } from '@/types/trace';
+import type { UITrace, TraceSpan } from '@/types/trace';
 
 // API Trace type for this page (keeping snake_case from API)
 export type Trace = APITrace;
 
-// Map API trace to UI trace for drawer
+// Map API trace to UI trace
 function mapApiTraceToUI(trace: Trace): UITrace {
+  // Flatten the hierarchical trace structure into a flat array of spans
+  const flattenSpans = (span: Trace): TraceSpan[] => {
+    const spans: TraceSpan[] = [
+      {
+        name: span.service_name,
+        startMs: 0, // We'll calculate relative timing based on timestamp
+        durationMs: span.latency_ms,
+        type: 'processing',
+      },
+    ];
+
+    // Add children spans
+    if (span.children && span.children.length > 0) {
+      span.children.forEach((child) => {
+        spans.push(...flattenSpans(child));
+      });
+    }
+
+    return spans;
+  };
+
+  const spans = flattenSpans(trace);
+
   return {
     id: trace.trace_id,
     service: trace.service_name,
@@ -86,6 +96,7 @@ function mapApiTraceToUI(trace: Trace): UITrace {
     createdAt: trace.timestamp,
     prompt: trace.prompt,
     response: trace.response,
+    spans,
     hierarchicalSpan: trace,
     metadata: {
       tokensIn: trace.prompt_tokens,
@@ -98,40 +109,11 @@ function mapApiTraceToUI(trace: Trace): UITrace {
   };
 }
 
-function normalizeStatus(status: string): 'healthy' | 'degraded' | 'error' {
-  if (status === 'ok' || status === 'healthy') {
-    return 'healthy';
-  }
-  if (status === 'degraded') {
-    return 'degraded';
-  }
-  return 'error';
-}
 
-function formatLatency(ms: number) {
-  return `${ms} ms`;
-}
-
-function formatCost(usd: number | undefined) {
-  if (typeof usd !== 'number') return '$0.000';
-  return `$${usd.toFixed(3)}`;
-}
-
-function getRowVariant(status: Trace['status']) {
-  switch (status) {
-    case 'degraded':
-      return 'warning';
-    case 'error':
-      return 'error';
-    default:
-      return undefined;
-  }
-}
 
 function TracesContent() {
   // State management
   const searchParams = useSearchParams();
-  const [showFilters, setShowFilters] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -139,15 +121,15 @@ function TracesContent() {
   // Data state
   const [traces, setTraces] = useState<Trace[]>([]);
   const [latencyChartData, setLatencyChartData] = useState<any[]>([]);
-  const [costChartData, setCostChartData] = useState<any[]>([]);
-  const [trends, setTrends] = useState<TraceTrendsResponse['trends'] | null>(null);
+  const [requestChartData, setRequestChartData] = useState<any[]>([]);
 
   // Filter state
-  const [serviceFilter, setServiceFilter] = useState<string>('all');
-  const [modelFilter, setModelFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [endpointFilter, setEndpointFilter] = useState<string>('');
-  const [timeRange, setTimeRange] = useState<string>('24h');
+  // Filter state
+  const [serviceFilter, setServiceFilter] = useState<string>(searchParams.get('service') || 'all');
+  const [modelFilter, setModelFilter] = useState<string>(searchParams.get('model') || 'all');
+  const [statusFilter, setStatusFilter] = useState<string>(searchParams.get('status') || 'all');
+  const [endpointFilter, setEndpointFilter] = useState<string>(searchParams.get('endpoint') || '');
+  const [timeRange, setTimeRange] = useState<string>(searchParams.get('timeRange') || '24h');
 
   // Drawer state
   const [selectedTrace, setSelectedTrace] = useState<UITrace | null>(null);
@@ -162,7 +144,7 @@ function TracesContent() {
   const fetchTracesData = async () => {
     try {
       const now = new Date();
-      let startTime = new Date(now.getTime() - 60 * 60 * 1000); // Default 1 hour
+      let startTime: Date | undefined;
 
       // Calculate time range
       const ranges: Record<string, number> = {
@@ -172,8 +154,11 @@ function TracesContent() {
         '7d': 7 * 24 * 60 * 60 * 1000,
       };
 
-      if (ranges[timeRange]) {
+      if (timeRange !== 'all' && ranges[timeRange]) {
         startTime = new Date(now.getTime() - ranges[timeRange]);
+      } else if (timeRange !== 'all') {
+         // Default to 1 hour if strict match failed but not 'all' (defensive)
+         startTime = new Date(now.getTime() - 60 * 60 * 1000);
       }
 
       // Calculate offset for pagination
@@ -185,7 +170,7 @@ function TracesContent() {
         model: modelFilter !== 'all' ? modelFilter : undefined,
         status: statusFilter !== 'all' ? statusFilter : undefined,
         endpoint: endpointFilter || undefined,
-        startTime: timeRange !== 'all' ? startTime.toISOString() : undefined,
+        startTime: startTime ? startTime.toISOString() : undefined,
         limit: ITEMS_PER_PAGE,
         offset: offset,
       });
@@ -197,10 +182,11 @@ function TracesContent() {
 
       // Fetch chart data
       // Determine granularity to request from backend
-      const granularity = timeRange === '7d' ? 'day' : 'hour';
+      // For 'all' or '7d', use 'day'. For others, use 'hour' (or 'minute' if we had it, but API seems to support hour/day/week)
+      const granularity = timeRange === '7d' || timeRange === 'all' ? 'day' : 'hour';
 
       const timelineResponse = await getCostTimeline({
-        startTime: startTime.toISOString(),
+        startTime: startTime ? startTime.toISOString() : undefined,
         endTime: now.toISOString(),
         granularity,
       });
@@ -214,7 +200,7 @@ function TracesContent() {
 
         // Choose label format depending on range
         const timeLabel =
-          timeRange === '7d'
+          timeRange === '7d' || timeRange === 'all'
             ? `${date.getMonth() + 1}/${date.getDate()}`
             : `${date.getHours().toString().padStart(2, '0')}:${date
                 .getMinutes()
@@ -242,29 +228,18 @@ function TracesContent() {
       });
 
       const latencyData = chartData.map((d) => ({ time: d.time, latency: d.latency }));
-      const costData = chartData.map((d) => ({ time: d.time, cost: d.cost }));
+      const requestData = chartData.map((d) => ({ time: d.time, requests: d.requests }));
 
       // Debug: log derived chart data
       console.debug('derived chartData length:', chartData.length, {
         latencyDataSample: latencyData.slice(0, 5),
-        costDataSample: costData.slice(0, 5),
+        requestDataSample: requestData.slice(0, 5),
       });
 
       setLatencyChartData(latencyData);
-      setCostChartData(costData);
+      setRequestChartData(requestData);
 
-      // Fetch trends data
-      const trendsResponse = await getTraceTrends({
-        startTime: startTime.toISOString(),
-        endTime: now.toISOString(),
-        service: serviceFilter !== 'all' ? serviceFilter : undefined,
-        model: modelFilter !== 'all' ? modelFilter : undefined,
-        status: statusFilter !== 'all' ? statusFilter : undefined,
-        endpoint: endpointFilter || undefined,
-      });
 
-      console.debug('getTraceTrends response:', trendsResponse);
-      setTrends(trendsResponse.trends);
     } catch (error) {
       console.error('Failed to fetch traces data:', error);
     }
@@ -324,39 +299,21 @@ function TracesContent() {
     if (traceId) {
       const trace = traces.find((t) => t.trace_id === traceId);
       if (trace) {
-        handleTraceClick(trace);
+        setSelectedTrace(mapApiTraceToUI(trace));
+        setDrawerOpen(true);
       }
     }
   }, [isInitialLoading, searchParams, traces]);
 
   // Calculate metrics from traces (all filters are server-side now)
-  const displayedTracesCount = traces.length;
-  const avgLatency =
-    traces.length > 0
-      ? Math.round(traces.reduce((sum, t) => sum + t.latency_ms, 0) / traces.length)
-      : 0;
-  const totalCost = traces.reduce((sum, t) => sum + (t.cost_usd ?? 0), 0);
-  const errorCount = traces.filter((t) => t.status === 'error').length;
-  const errorRate =
-    displayedTracesCount > 0 ? ((errorCount / displayedTracesCount) * 100).toFixed(1) : '0.0';
 
-  // Cost per request (average)
-  const avgCostPerRequest = displayedTracesCount > 0 ? totalCost / displayedTracesCount : 0;
 
   // Get unique values for filters
   const services = Array.from(new Set(traces.map((t) => t.service_name)));
   const models = Array.from(new Set(traces.map((t) => t.model)));
 
-  // Handle trace click - open drawer
+  // Handle trace click
   const handleTraceClick = async (trace: Trace) => {
-    // Guard: Don't fetch if trace_id is missing
-    if (!trace.trace_id) {
-      console.error('Cannot fetch trace: trace_id is undefined');
-      setSelectedTrace(mapApiTraceToUI(trace));
-      setDrawerOpen(true);
-      return;
-    }
-
     // Fetch full trace details with prompt and response
     try {
       const fullTrace = await getTraceById(trace.trace_id);
@@ -399,14 +356,6 @@ function TracesContent() {
           </div>
         </div>
 
-        {/* KPI Cards Loading */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <KPICardSkeleton />
-          <KPICardSkeleton />
-          <KPICardSkeleton />
-          <KPICardSkeleton />
-        </div>
-
         {/* Charts Loading */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <ChartCardSkeleton />
@@ -440,168 +389,86 @@ function TracesContent() {
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {/* Total Requests */}
-        <Card className="p-4 border-(--accent) animate-scale-in stagger-1">
-          <div className="flex items-start justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Total Requests</p>
-              <p className="text-2xl font-semibold">{displayedTracesCount.toLocaleString()}</p>
-              {trends && (
-                <div
-                  className={cn(
-                    'flex items-center gap-1 text-xs',
-                    trends.requestsTrend > 0
-                      ? 'text-green-600 dark:text-green-500'
-                      : trends.requestsTrend < 0
-                        ? 'text-red-600 dark:text-red-500'
-                        : 'text-muted-foreground'
-                  )}
-                >
-                  {trends.requestsTrend > 0 ? (
-                    <TrendingUp className="h-3 w-3" />
-                  ) : trends.requestsTrend < 0 ? (
-                    <TrendingDown className="h-3 w-3" />
-                  ) : null}
-                  <span>
-                    {trends.requestsTrend > 0 ? '+' : ''}
-                    {trends.requestsTrend.toFixed(1)}% vs prev period
-                  </span>
-                </div>
-              )}
-            </div>
-            <div className="rounded-lg bg-purple-100 p-2 dark:bg-purple-950">
-              <Activity className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-            </div>
-          </div>
-        </Card>
+      {/* Filters */}
+      <Card className="p-4 border-(--border)">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+          <Input
+            placeholder="Filter by endpoint..."
+            value={endpointFilter}
+            onChange={(e) => setEndpointFilter(e.target.value)}
+            className="w-full"
+          />
 
-        {/* Avg Latency */}
-        <Card className="p-4 border-(--accent) animate-scale-in stagger-2">
-          <div className="flex items-start justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Avg Latency</p>
-              <p className="text-2xl font-semibold">{avgLatency}ms</p>
-              {trends && (
-                <div
-                  className={cn(
-                    'flex items-center gap-1 text-xs',
-                    trends.latencyTrend > 0
-                      ? 'text-red-600 dark:text-red-500'
-                      : trends.latencyTrend < 0
-                        ? 'text-green-600 dark:text-green-500'
-                        : 'text-muted-foreground'
-                  )}
-                >
-                  {trends.latencyTrend > 0 ? (
-                    <TrendingUp className="h-3 w-3" />
-                  ) : trends.latencyTrend < 0 ? (
-                    <TrendingDown className="h-3 w-3" />
-                  ) : null}
-                  <span>
-                    {trends.latencyTrend > 0 ? '+' : ''}
-                    {trends.latencyTrend.toFixed(1)}% vs prev period
-                  </span>
-                </div>
-              )}
-            </div>
-            <div className="rounded-lg bg-blue-100 p-2 dark:bg-blue-950">
-              <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            </div>
-          </div>
-        </Card>
+          <Select value={serviceFilter} onValueChange={setServiceFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="Service" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Services</SelectItem>
+              {services.map((service) => (
+                <SelectItem key={service} value={service}>
+                  {service}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        {/* Total Cost */}
-        <Card className="p-4 border-(--accent) animate-scale-in stagger-3">
-          <div className="flex items-start justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Total Cost</p>
-              <p className="text-2xl font-semibold">${totalCost.toFixed(3)}</p>
-              <p className="text-xs text-muted-foreground">
-                Cost / Request: <span className="font-medium">${avgCostPerRequest.toFixed(4)}</span>
-              </p>
-              {trends && (
-                <div
-                  className={cn(
-                    'flex items-center gap-1 text-xs',
-                    trends.costTrend > 0
-                      ? 'text-red-600 dark:text-red-500'
-                      : trends.costTrend < 0
-                        ? 'text-green-600 dark:text-green-500'
-                        : 'text-muted-foreground'
-                  )}
-                >
-                  {trends.costTrend > 0 ? (
-                    <TrendingUp className="h-3 w-3" />
-                  ) : trends.costTrend < 0 ? (
-                    <TrendingDown className="h-3 w-3" />
-                  ) : null}
-                  <span>
-                    {trends.costTrend > 0 ? '+' : ''}
-                    {trends.costTrend.toFixed(1)}% vs prev period
-                  </span>
-                </div>
-              )}
-            </div>
-            <div className="rounded-lg bg-emerald-100 p-2 dark:bg-emerald-950">
-              <DollarSign className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-            </div>
-          </div>
-        </Card>
+          <Select value={modelFilter} onValueChange={setModelFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="Model" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Models</SelectItem>
+              {models.map((model) => (
+                <SelectItem key={model} value={model}>
+                  {model}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        {/* Error Rate */}
-        <Card className="p-4 border-(--accent) animate-scale-in stagger-4">
-          <div className="flex items-start justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Error Rate</p>
-              <p className="text-2xl font-semibold">{errorRate}%</p>
-              {trends && (
-                <div
-                  className={cn(
-                    'flex items-center gap-1 text-xs',
-                    trends.errorRateTrend > 0
-                      ? 'text-red-600 dark:text-red-500'
-                      : trends.errorRateTrend < 0
-                        ? 'text-green-600 dark:text-green-500'
-                        : 'text-muted-foreground'
-                  )}
-                >
-                  {trends.errorRateTrend > 0 ? (
-                    <TrendingUp className="h-3 w-3" />
-                  ) : trends.errorRateTrend < 0 ? (
-                    <TrendingDown className="h-3 w-3" />
-                  ) : null}
-                  <span>
-                    {trends.errorRateTrend > 0 ? '+' : ''}
-                    {trends.errorRateTrend.toFixed(1)}% vs prev period
-                  </span>
-                </div>
-              )}
-            </div>
-            <div className="rounded-lg bg-red-100 p-2 dark:bg-red-950">
-              <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
-            </div>
-          </div>
-        </Card>
-      </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="healthy">Healthy</SelectItem>
+              <SelectItem value="degraded">Degraded</SelectItem>
+              <SelectItem value="error">Error</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={timeRange} onValueChange={setTimeRange}>
+            <SelectTrigger>
+              <SelectValue placeholder="Time Range" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Time</SelectItem>
+              <SelectItem value="5m">Last 5 minutes</SelectItem>
+              <SelectItem value="1h">Last hour</SelectItem>
+              <SelectItem value="24h">Last 24 hours</SelectItem>
+              <SelectItem value="7d">Last 7 days</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </Card>
 
       {/* Charts */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Latency Chart */}
-        <Card className="p-6 border-(--accent)">
+        <Card className="p-4 border-(--accent)">
           <div className="space-y-4">
             <div className="space-y-1">
-              <h3 className="text-sm font-medium">Average Latency</h3>
-              <p className="text-xs text-muted-foreground">Last 60 minutes</p>
+              <h3 className="text-sm font-medium">Latency</h3>
             </div>
-            <div className="h-56 w-full">
+            <div className="h-48 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={latencyChartData}>
                   <CartesianGrid
                     strokeDasharray="3 3"
                     vertical={false}
-                    stroke="hsl(var(--border))"
+                    stroke="var(--border)"
                     opacity={0.5}
                   />
                   <XAxis
@@ -610,7 +477,7 @@ function TracesContent() {
                     axisLine={false}
                     tickMargin={8}
                     fontSize={11}
-                    stroke="hsl(var(--foreground))"
+                    stroke="var(--foreground)"
                     opacity={0.7}
                   />
                   <YAxis
@@ -618,8 +485,9 @@ function TracesContent() {
                     axisLine={false}
                     tickMargin={8}
                     fontSize={11}
-                    stroke="hsl(var(--foreground))"
+                    stroke="var(--foreground)"
                     opacity={0.7}
+                    tickFormatter={(value) => `${value}ms`}
                   />
                   <Tooltip
                     content={({ active, payload }: any) => {
@@ -639,9 +507,9 @@ function TracesContent() {
                   <Area
                     type="monotone"
                     dataKey="latency"
-                    stroke="hsl(var(--primary))"
-                    fill="hsl(var(--primary))"
-                    fillOpacity={0.2}
+                    stroke="var(--primary)"
+                    fill="var(--primary)"
+                    fillOpacity={0.1}
                     strokeWidth={2}
                   />
                 </AreaChart>
@@ -650,20 +518,19 @@ function TracesContent() {
           </div>
         </Card>
 
-        {/* Cost Chart */}
-        <Card className="p-6 border-(--accent)">
+        {/* Request Rate Chart */}
+        <Card className="p-4 border-(--accent)">
           <div className="space-y-4">
             <div className="space-y-1">
-              <h3 className="text-sm font-medium">Cost per Request</h3>
-              <p className="text-xs text-muted-foreground">Last 60 minutes</p>
+              <h3 className="text-sm font-medium">Request Rate</h3>
             </div>
-            <div className="h-56 w-full">
+            <div className="h-48 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={costChartData}>
+                <AreaChart data={requestChartData}>
                   <CartesianGrid
                     strokeDasharray="3 3"
                     vertical={false}
-                    stroke="hsl(var(--border))"
+                    stroke="var(--border)"
                     opacity={0.5}
                   />
                   <XAxis
@@ -672,7 +539,7 @@ function TracesContent() {
                     axisLine={false}
                     tickMargin={8}
                     fontSize={11}
-                    stroke="hsl(var(--foreground))"
+                    stroke="var(--foreground)"
                     opacity={0.7}
                   />
                   <YAxis
@@ -680,16 +547,15 @@ function TracesContent() {
                     axisLine={false}
                     tickMargin={8}
                     fontSize={11}
-                    stroke="hsl(var(--foreground))"
+                    stroke="var(--foreground)"
                     opacity={0.7}
-                    tickFormatter={(value) => `$${value.toFixed(3)}`}
                   />
                   <Tooltip
                     content={({ active, payload }: any) => {
                       if (active && payload && payload.length) {
                         return (
                           <div className="bg-card border border-border rounded-lg px-3 py-2 shadow-lg">
-                            <p className="text-sm font-semibold">${payload[0].value.toFixed(3)}</p>
+                            <p className="text-sm font-semibold">{payload[0].value} reqs</p>
                             <p className="text-xs text-muted-foreground">
                               {payload[0].payload.time}
                             </p>
@@ -699,171 +565,50 @@ function TracesContent() {
                       return null;
                     }}
                   />
-                  <Line
+                  <Area
                     type="monotone"
-                    dataKey="cost"
-                    stroke="hsl(var(--primary))"
+                    dataKey="requests"
+                    stroke="var(--chart-2)"
+                    fill="var(--chart-2)"
+                    fillOpacity={0.1}
                     strokeWidth={2}
-                    dot={false}
                   />
-                </LineChart>
+                </AreaChart>
               </ResponsiveContainer>
             </div>
           </div>
         </Card>
       </div>
 
-      {/* Filters and Table */}
-      <Card className="p-6 border-(--border)">
-        <div className="border-b border-border border-(--border) p-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Button variant="soft" size="sm" onClick={() => setShowFilters(!showFilters)}>
-                <Filter className="h-4 w-4" />
-                Filters
-              </Button>
-              {hasActiveFilters && (
-                <>
-                  {serviceFilter !== 'all' && (
-                    <Badge variant="secondary">
-                      Service: {serviceFilter}
-                      <X
-                        className="h-3 w-3 ml-1 cursor-pointer"
-                        onClick={() => setServiceFilter('all')}
-                      />
-                    </Badge>
-                  )}
-                  {modelFilter !== 'all' && (
-                    <Badge variant="secondary">
-                      Model: {modelFilter}
-                      <X
-                        className="h-3 w-3 ml-1 cursor-pointer"
-                        onClick={() => setModelFilter('all')}
-                      />
-                    </Badge>
-                  )}
-                  {statusFilter !== 'all' && (
-                    <Badge variant="secondary">
-                      Status: {statusFilter}
-                      <X
-                        className="h-3 w-3 ml-1 cursor-pointer"
-                        onClick={() => setStatusFilter('all')}
-                      />
-                    </Badge>
-                  )}
-                  {endpointFilter && (
-                    <Badge variant="secondary">
-                      Endpoint: "{endpointFilter}"
-                      <X
-                        className="h-3 w-3 ml-1 cursor-pointer"
-                        onClick={() => setEndpointFilter('')}
-                      />
-                    </Badge>
-                  )}
-                  {timeRange !== 'all' && (
-                    <Badge variant="secondary">
-                      Time:{' '}
-                      {
-                        {
-                          '5m': 'Last 5 min',
-                          '1h': 'Last hour',
-                          '24h': 'Last 24h',
-                          '7d': 'Last 7 days',
-                        }[timeRange]
-                      }
-                      <X
-                        className="h-3 w-3 ml-1 cursor-pointer"
-                        onClick={() => setTimeRange('all')}
-                      />
-                    </Badge>
-                  )}
-                  <Button variant="ghost" size="sm" onClick={clearFilters}>
-                    Clear all
+      {/* Table */}
+      <Card className="border-(--border)">
+        <div className="p-4 border-b border-border border-(--border) flex justify-between items-center bg-muted/20">
+             <div className="text-sm font-medium">Traces</div>
+              <div className="flex gap-2">
+                 {hasActiveFilters && (
+                    <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs">
+                        <X className="h-3 w-3 mr-1" />
+                        Clear Filters
+                    </Button>
+                 )}
+                  <Button variant="secondary" size="sm" className="h-8 text-xs border border-border">
+                    <Download className="h-3 w-3 mr-1" />
+                    Export
                   </Button>
-                </>
-              )}
-            </div>
-            <div className="text-sm text-muted-foreground">{totalTraces} total traces</div>
-          </div>
-
-          {showFilters && (
-            <div className="space-y-3 pt-2">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                <Input
-                  placeholder="Filter by endpoint..."
-                  value={endpointFilter}
-                  onChange={(e) => setEndpointFilter(e.target.value)}
-                  className="w-full"
-                />
-
-                <Select value={serviceFilter} onValueChange={setServiceFilter}>
-                  <SelectTrigger size="sm">
-                    <SelectValue placeholder="Service" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Services</SelectItem>
-                    {services.map((service) => (
-                      <SelectItem key={service} value={service}>
-                        {service}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={modelFilter} onValueChange={setModelFilter}>
-                  <SelectTrigger size="sm">
-                    <SelectValue placeholder="Model" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Models</SelectItem>
-                    {models.map((model) => (
-                      <SelectItem key={model} value={model}>
-                        {model}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger size="sm">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="healthy">Healthy</SelectItem>
-                    <SelectItem value="degraded">Degraded</SelectItem>
-                    <SelectItem value="error">Error</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={timeRange} onValueChange={setTimeRange}>
-                  <SelectTrigger size="sm">
-                    <SelectValue placeholder="Time Range" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Time</SelectItem>
-                    <SelectItem value="5m">Last 5 minutes</SelectItem>
-                    <SelectItem value="1h">Last hour</SelectItem>
-                    <SelectItem value="24h">Last 24 hours</SelectItem>
-                    <SelectItem value="7d">Last 7 days</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
-            </div>
-          )}
         </div>
 
         <div className="relative w-full overflow-x-auto rounded-lg border border-(--border)">
           <table className="w-full caption-bottom text-sm">
             <TableHeader>
-              <TableRow>
-                <TableHead>Status</TableHead>
-                <TableHead>Service</TableHead>
-                <TableHead>Endpoint</TableHead>
-                <TableHead>Model</TableHead>
-                <TableHead className="text-right">Cost</TableHead>
-                <TableHead className="text-right">Latency</TableHead>
-                <TableHead>Time</TableHead>
+              <TableRow className="hover:bg-transparent border-b border-border">
+                <TableHead className="w-[100px]">Date</TableHead>
+                <TableHead className="w-[100px]">Time</TableHead>
+                <TableHead className="w-[150px]">Service</TableHead>
+                <TableHead>Operation</TableHead>
+                <TableHead className="w-[80px]">Method</TableHead>
+                <TableHead className="w-[100px]">Status Code</TableHead>
+                <TableHead className="text-right w-[100px]">Duration</TableHead>
               </TableRow>
             </TableHeader>
 
@@ -891,48 +636,77 @@ function TracesContent() {
                   </TableCell>
                 </TableRow>
               ) : (
-                traces.map((trace, index) => (
-                  <TableRow
-                    key={
-                      trace.trace_id && trace.span_id
-                        ? `${trace.trace_id}-${trace.span_id}`
-                        : `trace-${index}`
-                    }
-                    data-variant={getRowVariant(trace.status)}
-                    className="cursor-pointer hover:bg-muted/50 border-(--border)"
-                    onClick={() => handleTraceClick(trace)}
-                  >
-                    <TableCell>
-                      <StatusDot status={normalizeStatus(trace.status)} />
-                    </TableCell>
-                    <TableCell className="font-medium">{trace.service_name}</TableCell>
-                    <TableCell className="font-mono text-sm text-muted-foreground">
-                      {trace.endpoint}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className="rounded-md px-2 py-0.5">
-                        {trace.model}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">
-                      {formatCost(trace.cost_usd)}
-                    </TableCell>
-                    <TableCell
-                      className={cn(
-                        'text-right font-mono tabular-nums',
-                        trace.latency_ms > 3000 && 'text-red-600 dark:text-red-400',
-                        trace.latency_ms > 1500 &&
-                          trace.latency_ms <= 3000 &&
-                          'text-amber-600 dark:text-amber-400'
-                      )}
+                traces.map((trace) => {
+                  const dateObj = new Date(trace.timestamp);
+                  const dateStr = dateObj.toLocaleDateString(undefined, {
+                    month: 'short',
+                    day: 'numeric',
+                  });
+                  const timeStr = dateObj.toLocaleTimeString(undefined, {
+                    hour12: false,
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                  });
+
+                  // Attempt to guess Method from endpoint if not in data
+                  const method = trace.endpoint.startsWith('GET')
+                    ? 'GET'
+                    : trace.endpoint.startsWith('POST')
+                      ? 'POST'
+                      : 'POST'; // Default for AI APIs
+
+                  // Clean endpoint name if it has method prefix
+                  const operationName = trace.endpoint.replace(/^(GET|POST|PUT|DELETE)\s+/, '');
+
+                  return (
+                    <TableRow
+                      key={trace.trace_id}
+                      className="cursor-pointer hover:bg-muted/40 border-b border-border/50 h-9 transition-colors"
+                      onClick={() => handleTraceClick(trace)}
                     >
-                      {formatLatency(trace.latency_ms)}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {new Date(trace.timestamp).toLocaleTimeString()}
-                    </TableCell>
-                  </TableRow>
-                ))
+                      <TableCell className="py-2 text-xs text-muted-foreground whitespace-nowrap">
+                        {dateStr}
+                      </TableCell>
+                      <TableCell className="py-2 text-xs font-mono text-muted-foreground whitespace-nowrap">
+                        {timeStr}
+                      </TableCell>
+                      <TableCell className="py-2 text-xs font-medium text-foreground">
+                        {trace.service_name}
+                      </TableCell>
+                      <TableCell className="py-2 text-xs font-mono text-foreground/90 truncate max-w-[200px]" title={operationName}>
+                        {operationName}
+                      </TableCell>
+                      <TableCell className="py-2">
+                        <span className="inline-flex items-center rounded-sm bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 dark:text-blue-400 ring-1 ring-inset ring-blue-500/20">
+                          {method}
+                        </span>
+                      </TableCell>
+                      <TableCell className="py-2">
+                         <div className="flex items-center gap-1.5">
+                            <div className={cn("h-1.5 w-1.5 rounded-full",
+                                trace.status === 'error' ? "bg-red-500" : "bg-emerald-500"
+                            )} />
+                            <span className={cn("text-xs font-medium",
+                                trace.status === 'error' ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"
+                            )}>
+                                {trace.status === 'error' ? '500' : '200'} OK
+                            </span>
+                         </div>
+                      </TableCell>
+                      <TableCell className="py-2 text-right">
+                        <span
+                          className={cn(
+                            'text-xs font-mono tabular-nums',
+                            trace.latency_ms > 1000 ? 'text-amber-600 font-semibold' : 'text-foreground'
+                          )}
+                        >
+                          {trace.latency_ms}ms
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </table>

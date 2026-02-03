@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -13,19 +13,9 @@ import {
 } from '@/components/ui/drawer';
 import { SpanTimeline } from './trace-timeline';
 import { SpanTree } from './span-tree';
-import {
-  Clock,
-  DollarSign,
-  User,
-  Hash,
-  Copy,
-  Check,
-  WrapText,
-  Code2,
-  X,
-  ExternalLink,
-} from 'lucide-react';
-import type { UITrace, HierarchicalSpan } from '@/types/trace';
+import { Copy, Check, WrapText, X } from 'lucide-react';
+import type { UITrace } from '@/types/trace';
+import { cn } from '@/lib/utils';
 
 interface TraceDetailDrawerProps {
   trace: UITrace | null;
@@ -38,12 +28,6 @@ export function TraceDetailDrawer({ trace, open, onOpenChange }: TraceDetailDraw
   const [copiedResponse, setCopiedResponse] = useState(false);
   const [wrapPrompt, setWrapPrompt] = useState(true);
   const [wrapResponse, setWrapResponse] = useState(true);
-  const [selectedSpan, setSelectedSpan] = useState<HierarchicalSpan | null>(null);
-
-  // Reset selected span when trace changes
-  useEffect(() => {
-    setSelectedSpan(trace?.hierarchicalSpan || null);
-  }, [trace]);
 
   const copyToClipboard = async (text: string, type: 'prompt' | 'response') => {
     await navigator.clipboard.writeText(text);
@@ -58,423 +42,197 @@ export function TraceDetailDrawer({ trace, open, onOpenChange }: TraceDetailDraw
 
   if (!trace) return null;
 
-  // Use selected span data or fallback to trace data
-  const displayData = selectedSpan
-    ? {
-        prompt: selectedSpan.prompt,
-        response: selectedSpan.response,
-        promptTokens: selectedSpan.prompt_tokens,
-        completionTokens: selectedSpan.completion_tokens,
-      }
-    : {
-        prompt: trace.prompt,
-        response: trace.response,
-        promptTokens: trace.metadata?.tokensIn,
-        completionTokens: trace.metadata?.tokensOut,
-      };
-
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="focus:outline-none border-(--border)">
         <div className="mx-auto w-full h-full overflow-y-auto">
-          <div className="space-y-6 p-6 pb-12">
+          <div className="space-y-6 pt-6 px-6 pb-12">
             {/* Header */}
-            <DrawerHeader className="p-0">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <DrawerTitle>Trace Details</DrawerTitle>
-                  <Badge variant="secondary" className="font-mono text-xs">
-                    {trace.id}
-                  </Badge>
-                </div>
+            <div className="flex items-center justify-between border-b border-border pb-4">
+              <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 cursor-pointer!"
-                    onClick={() => window.open(`/traces/${trace.id}`, '_blank')}
-                    title="Open in new tab"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => onOpenChange(false)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
+                   <h2 className="text-xl font-semibold tracking-tight">{trace.endpoint}</h2>
+                   <Badge variant="outline" className="font-mono text-xs">{trace.service}</Badge>
+                </div>
+                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                   <span className="font-mono text-xs">{trace.id}</span>
+                   <span>•</span>
+                   <span>{new Date(trace.createdAt).toLocaleString()}</span>
                 </div>
               </div>
-              <DrawerDescription className="text-left">
-                {trace.service} • {trace.endpoint}
-              </DrawerDescription>
-            </DrawerHeader>
-
-            {/* Metadata cards */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="rounded-lg border border-(--accent) border-border bg-card p-4">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                  <Clock className="h-4 w-4" />
-                  <span>Latency</span>
-                </div>
-                <p className="text-2xl font-semibold">{trace.latencyMs}ms</p>
-              </div>
-
-              <div className="rounded-lg border border-(--accent) border-border bg-card p-4">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                  <DollarSign className="h-4 w-4" />
-                  <span>Cost</span>
-                </div>
-                <p className="text-2xl font-semibold">
-                  ${typeof trace.costUsd === 'number' ? trace.costUsd.toFixed(4) : '0.0000'}
-                </p>
-              </div>
-
-              <div className="rounded-lg border border-(--accent) border-border bg-card p-4">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                  <Hash className="h-4 w-4" />
-                  <span>Model</span>
-                </div>
-                <p className="text-xl font-semibold">{trace.model}</p>
-              </div>
-
-              <div className="rounded-lg border  border-(--accent) border-border bg-card p-4">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                  <User className="h-4 w-4" />
-                  <span>Status</span>
-                </div>
-                <Badge
-                  variant={
-                    trace.status === 'healthy'
-                      ? 'success'
-                      : trace.status === 'degraded'
-                        ? 'warning'
-                        : 'destructive'
-                  }
+              <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => onOpenChange(false)}
                 >
-                  {trace.status}
-                </Badge>
-              </div>
+                  <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Summary Bar */}
+            <div className="flex flex-wrap gap-6 p-4 rounded-lg bg-muted/20 border border-border">
+                <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground uppercase">Duration</p>
+                    <p className="font-mono font-semibold text-lg">{trace.latencyMs}ms</p>
+                </div>
+                <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground uppercase">Status</p>
+                    <div className="flex items-center gap-2">
+                         <div className={cn("h-2 w-2 rounded-full",
+                              trace.status === 'healthy' ? "bg-emerald-500" :
+                              trace.status === 'degraded' ? "bg-amber-500" : "bg-red-500"
+                         )} />
+                         <span className="font-medium capitalize">{trace.status}</span>
+                    </div>
+                </div>
+                 <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground uppercase">Cost</p>
+                    <p className="font-mono font-semibold text-lg">${typeof trace.costUsd === 'number' ? trace.costUsd.toFixed(5) : '0.00000'}</p>
+                </div>
+                <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground uppercase">Model</p>
+                    <p className="font-medium text-lg">{trace.model}</p>
+                </div>
+                 <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground uppercase">Total Tokens</p>
+                    <p className="font-mono font-semibold text-lg">
+                      {trace.metadata?.tokensIn !== undefined && trace.metadata?.tokensOut !== undefined
+                        ? (trace.metadata.tokensIn + trace.metadata.tokensOut).toLocaleString()
+                        : '-'}
+                    </p>
+                </div>
             </div>
 
             {/* Span Timeline or Hierarchical Tree */}
-            {trace.hierarchicalSpan ? (
-              <div className="space-y-3">
-                <h3 className="text-lg font-semibold">Span Hierarchy</h3>
-                <div className="rounded-lg border border-(--accent) border-border bg-card p-6">
-                  <SpanTree
-                    span={trace.hierarchicalSpan}
-                    selectedSpanId={selectedSpan?.span_id}
-                    onSpanSelect={setSelectedSpan}
-                  />
+            <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Trace Overview</h3>
+                {trace.hierarchicalSpan ? (
+                <div className="rounded-lg border border-border bg-card overflow-hidden">
+                    <SpanTree span={trace.hierarchicalSpan} />
                 </div>
-              </div>
-            ) : trace.spans && trace.spans.length > 0 ? (
-              <div className="space-y-3">
-                <h3 className="text-lg font-semibold">Execution Timeline</h3>
-                <div className="rounded-lg border border-(--accent) border-border bg-card p-6">
-                  <SpanTimeline spans={trace.spans} totalDuration={trace.latencyMs} />
+                ) : trace.spans && trace.spans.length > 0 ? (
+                <div className="rounded-lg border border-border bg-card p-4">
+                    <SpanTimeline spans={trace.spans} totalDuration={trace.latencyMs} />
                 </div>
-              </div>
-            ) : null}
+                ) : null}
+            </div>
 
-            {/* Enhanced Tabs for prompt/response/metadata */}
+            {/* Tabs */}
             <Tabs defaultValue="prompt" className="w-full">
-              <TabsList className="grid w-full grid-cols-3 h-auto p-1">
-                <TabsTrigger
-                  value="prompt"
-                  className="flex-col  items-start gap-1 py-3 data-[state=active]:bg-background"
-                >
-                  <span className="font-medium">Prompt</span>
-                  {displayData.promptTokens !== undefined && (
-                    <span className="text-xs text-muted-foreground font-normal">
-                      {typeof displayData.promptTokens === 'number'
-                        ? displayData.promptTokens.toLocaleString()
-                        : ''}{' '}
-                      tokens
-                    </span>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="response"
-                  className="flex-col items-start gap-1 py-3 data-[state=active]:bg-background"
-                >
-                  <span className="font-medium">Response</span>
-                  {displayData.completionTokens !== undefined && (
-                    <span className="text-xs text-muted-foreground font-normal">
-                      {typeof displayData.completionTokens === 'number'
-                        ? displayData.completionTokens.toLocaleString()
-                        : ''}{' '}
-                      tokens
-                    </span>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="metadata"
-                  className="flex-col items-start gap-1 py-3 data-[state=active]:bg-background"
-                >
-                  <span className="font-medium">Metadata</span>
-                  <span className="text-xs text-muted-foreground font-normal">{trace.model}</span>
-                </TabsTrigger>
-              </TabsList>
+              <div className="border-b border-border">
+                <TabsList className="h-auto w-full justify-start gap-6 bg-transparent p-0 rounded-none">
+                  <TabsTrigger
+                    value="prompt"
+                    className="rounded-none border-b-2 border-transparent px-0 py-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                  >
+                    Prompt
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="response"
+                    className="rounded-none border-b-2 border-transparent px-0 py-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                  >
+                    Response
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="metadata"
+                    className="rounded-none border-b-2 border-transparent px-0 py-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                  >
+                    Attributes
+                  </TabsTrigger>
+                </TabsList>
+              </div>
 
-              <TabsContent value="prompt" className="mt-6 animate-fade-in">
-                <div className="rounded-lg border border-(--accent) bg-card overflow-hidden">
-                  {/* Header with actions */}
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
-                    <div className="flex items-center gap-2">
-                      <Code2 className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">Input Prompt</span>
-                      {displayData.promptTokens !== undefined && (
-                        <Badge variant="secondary" className="text-xs">
-                          {typeof displayData.promptTokens === 'number'
-                            ? displayData.promptTokens.toLocaleString()
-                            : ''}{' '}
-                          tokens
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 gap-2"
-                        onClick={() => setWrapPrompt(!wrapPrompt)}
-                      >
-                        <WrapText className="h-3.5 w-3.5" />
-                        <span className="text-xs">{wrapPrompt ? 'Nowrap' : 'Wrap'}</span>
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 gap-2"
-                        onClick={() => copyToClipboard(displayData.prompt || '', 'prompt')}
-                      >
-                        {copiedPrompt ? (
-                          <>
-                            <Check className="h-3.5 w-3.5 text-green-500" />
-                            <span className="text-xs text-green-500">Copied</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="h-3.5 w-3.5" />
-                            <span className="text-xs">Copy</span>
-                          </>
-                        )}
-                      </Button>
-                    </div>
+              <TabsContent value="prompt" className="mt-4 animate-fade-in relative group">
+                  <div className="absolute right-2 top-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                       <Button variant="secondary" size="xs" onClick={() => copyToClipboard(trace.prompt || '', 'prompt')}>
+                            {copiedPrompt ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
+                            {copiedPrompt ? 'Copied' : 'Copy'}
+                       </Button>
+                        <Button variant="secondary" size="xs" onClick={() => setWrapPrompt(!wrapPrompt)}>
+                            <WrapText className="h-3 w-3 mr-1" />
+                            {wrapPrompt ? 'No Wrap' : 'Wrap'}
+                        </Button>
                   </div>
-                  {/* Content */}
-                  <div className="max-h-100 overflow-auto bg-muted/50">
+                  <div className="bg-muted/30 rounded-lg border border-border overflow-hidden">
                     <pre
-                      className={`p-6 text-sm font-mono leading-relaxed ${
-                        wrapPrompt ? 'whitespace-pre-wrap wrap-break-word' : 'whitespace-pre'
+                      className={`p-4 text-sm font-mono leading-relaxed ${
+                        wrapPrompt ? 'whitespace-pre-wrap' : 'whitespace-pre'
                       }`}
                     >
-                      {displayData.prompt || 'No prompt data available'}
+                      {trace.prompt || 'No prompt data available'}
                     </pre>
                   </div>
-                </div>
               </TabsContent>
 
-              <TabsContent value="response" className="mt-6 animate-fade-in">
-                <div className="rounded-lg border border-(--accent) bg-card overflow-hidden">
-                  {/* Header with actions */}
-                  <div className="flex items-center border-(--border) justify-between px-4 py-3 border-b border-border bg-muted/30">
-                    <div className="flex items-center gap-2">
-                      <Code2 className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">AI Response</span>
-                      {displayData.completionTokens !== undefined && (
-                        <Badge variant="secondary" className="text-xs">
-                          {typeof displayData.completionTokens === 'number'
-                            ? displayData.completionTokens.toLocaleString()
-                            : ''}{' '}
-                          tokens
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 gap-2"
-                        onClick={() => setWrapResponse(!wrapResponse)}
-                      >
-                        <WrapText className="h-3.5 w-3.5" />
-                        <span className="text-xs">{wrapResponse ? 'Nowrap' : 'Wrap'}</span>
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 gap-2"
-                        onClick={() => copyToClipboard(displayData.response || '', 'response')}
-                      >
-                        {copiedResponse ? (
-                          <>
-                            <Check className="h-3.5 w-3.5 text-green-500" />
-                            <span className="text-xs text-green-500">Copied</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="h-3.5 w-3.5" />
-                            <span className="text-xs">Copy</span>
-                          </>
-                        )}
-                      </Button>
-                    </div>
+              <TabsContent value="response" className="mt-4 animate-fade-in relative group">
+                  <div className="absolute right-2 top-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                       <Button variant="secondary" size="xs" onClick={() => copyToClipboard(trace.response || '', 'response')}>
+                            {copiedResponse ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
+                            {copiedResponse ? 'Copied' : 'Copy'}
+                       </Button>
+                        <Button variant="secondary" size="xs" onClick={() => setWrapResponse(!wrapResponse)}>
+                            <WrapText className="h-3 w-3 mr-1" />
+                            {wrapResponse ? 'No Wrap' : 'Wrap'}
+                        </Button>
                   </div>
-                  {/* Content */}
-                  <div className="max-h-100 overflow-auto bg-muted/50">
+                  <div className="bg-muted/30 rounded-lg border border-border overflow-hidden">
                     <pre
-                      className={`p-6 text-sm font-mono leading-relaxed ${
-                        wrapResponse ? 'whitespace-pre-wrap wrap-break-word' : 'whitespace-pre'
+                      className={`p-4 text-sm font-mono leading-relaxed ${
+                        wrapResponse ? 'whitespace-pre-wrap' : 'whitespace-pre'
                       }`}
                     >
-                      {displayData.response || 'No response data available'}
+                      {trace.response || 'No response data available'}
                     </pre>
                   </div>
-                </div>
               </TabsContent>
 
-              <TabsContent value="metadata" className="mt-6 animate-fade-in">
-                <div className="rounded-lg border border-(--accent) bg-card overflow-hidden">
-                  {/* Header */}
-                  <div className="px-6 py-4 border-b border-(--border) border-border bg-muted/30">
-                    <h3 className="text-sm font-medium">Trace Metadata</h3>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Complete details about this trace execution
-                    </p>
-                  </div>
+              <TabsContent value="metadata" className="mt-4 animate-fade-in">
+                 <div className="rounded-md border border-border bg-card overflow-hidden">
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-muted/50 text-muted-foreground font-medium border-b border-border">
+                            <tr>
+                                <th className="px-4 py-2 w-1/3">Key</th>
+                                <th className="px-4 py-2">Value</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/50">
+                            {/* Standard Attributes */}
+                            <tr className="hover:bg-muted/20">
+                                <td className="px-4 py-2 font-medium text-muted-foreground">trace_id</td>
+                                <td className="px-4 py-2 font-mono select-all">
+                                    <div className="flex items-center gap-2">
+                                        {trace.id}
+                                        <Copy className="h-3 w-3 cursor-pointer text-muted-foreground hover:text-foreground" onClick={() => copyToClipboard(trace.id, 'prompt')} />
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr className="hover:bg-muted/20">
+                                <td className="px-4 py-2 font-medium text-muted-foreground">service_name</td>
+                                <td className="px-4 py-2 font-mono">{trace.service}</td>
+                            </tr>
+                            <tr className="hover:bg-muted/20">
+                                <td className="px-4 py-2 font-medium text-muted-foreground">span_name</td>
+                                <td className="px-4 py-2 font-mono">{trace.endpoint}</td>
+                            </tr>
+                            <tr className="hover:bg-muted/20">
+                                <td className="px-4 py-2 font-medium text-muted-foreground">model</td>
+                                <td className="px-4 py-2 font-mono">{trace.model}</td>
+                            </tr>
 
-                  {/* Content */}
-                  <div className="p-6 space-y-6">
-                    {/* Token & Cost Information */}
-                    {(trace.metadata?.tokensIn !== undefined ||
-                      trace.metadata?.tokensOut !== undefined) && (
-                      <div>
-                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                          Token Usage & Cost
-                        </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {trace.metadata?.tokensIn !== undefined && (
-                            <div className="rounded-lg border-(--border) border border-border bg-muted/30 p-4">
-                              <p className="text-xs text-muted-foreground mb-1">Input Tokens</p>
-                              <p className="text-2xl font-semibold font-mono">
-                                {typeof trace.metadata.tokensIn === 'number'
-                                  ? trace.metadata.tokensIn.toLocaleString()
-                                  : ''}
-                              </p>
-                            </div>
-                          )}
-                          {trace.metadata?.tokensOut !== undefined && (
-                            <div className="rounded-lg border border-(--border) border-border bg-muted/30 p-4">
-                              <p className="text-xs text-muted-foreground mb-1">Output Tokens</p>
-                              <p className="text-2xl font-semibold font-mono">
-                                {typeof trace.metadata.tokensOut === 'number'
-                                  ? trace.metadata.tokensOut.toLocaleString()
-                                  : ''}
-                              </p>
-                            </div>
-                          )}
-                          {trace.metadata?.tokensIn !== undefined &&
-                            trace.metadata?.tokensOut !== undefined && (
-                              <div
-                                className="rounded-lg  border-(--border)
-                              border border-border bg-muted/30 p-4 md:col-span-2"
-                              >
-                                <p className="text-xs text-muted-foreground mb-1">Total Tokens</p>
-                                <p className="text-2xl font-semibold font-mono">
-                                  {typeof trace.metadata.tokensIn === 'number' &&
-                                  typeof trace.metadata.tokensOut === 'number'
-                                    ? (
-                                        trace.metadata.tokensIn + trace.metadata.tokensOut
-                                      ).toLocaleString()
-                                    : ''}
-                                </p>
-                              </div>
-                            )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Model Configuration */}
-                    <div>
-                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                        Model Configuration
-                      </h4>
-                      <dl className="grid grid-cols-1 gap-x-6 gap-y-3">
-                        <div className="flex items-center justify-between py-2 border-b border-(--border) border-border">
-                          <dt className="text-sm text-muted-foreground">Model</dt>
-                          <dd className="text-sm font-mono font-medium">{trace.model}</dd>
-                        </div>
-                        {trace.metadata?.temperature !== undefined && (
-                          <div className="flex items-center justify-between py-2 border-b border-(--border) border-border">
-                            <dt className="text-sm text-muted-foreground">Temperature</dt>
-                            <dd className="text-sm font-mono font-medium">
-                              {trace.metadata.temperature}
-                            </dd>
-                          </div>
-                        )}
-                        <div className="flex items-center justify-between py-2 border-b border-(--border) border-border">
-                          <dt className="text-sm text-muted-foreground">Service</dt>
-                          <dd className="text-sm font-mono font-medium">{trace.service}</dd>
-                        </div>
-                        <div className="flex items-center justify-between py-2 border-b  border-(--border) border-border">
-                          <dt className="text-sm text-muted-foreground">Endpoint</dt>
-                          <dd className="text-sm font-mono font-medium">{trace.endpoint}</dd>
-                        </div>
-                      </dl>
-                    </div>
-
-                    {/* Session Information */}
-                    {(trace.metadata?.userId || trace.metadata?.sessionId) && (
-                      <div>
-                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                          Session Information
-                        </h4>
-                        <dl className="grid grid-cols-1 gap-x-6 gap-y-3">
-                          {trace.metadata?.userId && (
-                            <div className="flex items-center justify-between py-2 border-b border-(--border) border-border">
-                              <dt className="text-sm text-muted-foreground">User ID</dt>
-                              <dd className="text-sm font-mono font-medium">
-                                {trace.metadata.userId}
-                              </dd>
-                            </div>
-                          )}
-                          {trace.metadata?.sessionId && (
-                            <div className="flex items-center justify-between py-2 border-b border-(--border) border-border">
-                              <dt className="text-sm text-muted-foreground">Session ID</dt>
-                              <dd className="text-sm font-mono font-medium">
-                                {trace.metadata.sessionId}
-                              </dd>
-                            </div>
-                          )}
-                        </dl>
-                      </div>
-                    )}
-
-                    {/* Timing Information */}
-                    <div>
-                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                        Timing Information
-                      </h4>
-                      <dl className="grid grid-cols-1 gap-x-6 gap-y-3">
-                        <div className="flex items-center justify-between py-2 border-b border-(--border) border-border">
-                          <dt className="text-sm text-muted-foreground">Created At</dt>
-                          <dd className="text-sm font-mono font-medium">
-                            {trace.createdAt ? new Date(trace.createdAt).toLocaleString() : ''}
-                          </dd>
-                        </div>
-                        <div className="flex items-center justify-between py-2 border-b border-(--border) border-border">
-                          <dt className="text-sm text-muted-foreground">Trace ID</dt>
-                          <dd className="text-sm font-mono font-medium">{trace.id}</dd>
-                        </div>
-                      </dl>
-                    </div>
-                  </div>
-                </div>
+                            {/* Dynamic Metadata */}
+                            {Object.entries(trace.metadata || {})
+                                .filter(([_, value]) => value !== undefined && value !== null && value !== '')
+                                .sort(([a], [b]) => a.localeCompare(b))
+                                .map(([key, value]) => (
+                                <tr key={key} className="hover:bg-muted/20">
+                                    <td className="px-4 py-2 font-medium text-muted-foreground">{key}</td>
+                                    <td className="px-4 py-2 font-mono break-all whitespace-pre-wrap">{String(value)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                 </div>
               </TabsContent>
             </Tabs>
           </div>

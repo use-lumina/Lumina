@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -48,13 +49,9 @@ import {
   getCostSummary,
   getCostAnomalies,
   getEndpointTrends,
-  getTraces,
-  getTraceById,
-  type Trace,
 } from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { TraceDetailDrawer } from '@/components/traces/trace-detail-drawer';
-import type { UITrace, TraceSpan } from '@/types/trace';
+
 
 interface EndpointData {
   endpoint: string;
@@ -92,9 +89,7 @@ export default function CostPage() {
   const [totalEndpoints, setTotalEndpoints] = useState(0);
   const ITEMS_PER_PAGE = 10;
 
-  // Trace drawer state
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [selectedTrace, setSelectedTrace] = useState<UITrace | null>(null);
+  const router = useRouter();
 
   // Fetch cost data
   const fetchCostData = async () => {
@@ -158,23 +153,20 @@ export default function CostPage() {
         limit: 20,
       });
 
-      // Create a map of trends and models by endpoint
+      // Create a map of trends by endpoint
       const trendsMap = new Map();
       trendsData.data.forEach((item) => {
-        trendsMap.set(item.endpoint, { trend: item.trend, model: item.model });
+        trendsMap.set(item.endpoint, item.trend);
       });
 
-      const formattedEndpoints: EndpointData[] = breakdownData.data.map((item: any) => {
-        const trendData = trendsMap.get(item.group_name);
-        return {
-          endpoint: item.group_name,
-          model: trendData?.model || item.model || '-',
-          requests: item.request_count,
-          totalCost: parseFloat(item.total_cost.toString()),
-          avgCost: parseFloat(item.avg_cost.toString()),
-          trend: trendData?.trend || 'stable',
-        };
-      });
+      const formattedEndpoints: EndpointData[] = breakdownData.data.map((item: any) => ({
+        endpoint: item.group_name,
+        model: item.model || '-',
+        requests: item.request_count,
+        totalCost: parseFloat(item.total_cost.toString()),
+        avgCost: parseFloat(item.avg_cost.toString()),
+        trend: trendsMap.get(item.group_name) || 'stable',
+      }));
       setEndpoints(formattedEndpoints);
       setTotalEndpoints(breakdownData.pagination?.total || breakdownData.data.length);
 
@@ -302,82 +294,17 @@ export default function CostPage() {
     setSelectedModel(selectedModel === modelName ? null : modelName);
   };
 
-  const handleEndpointClick = async (endpoint: string) => {
-    try {
-      // Fetch the most expensive trace for this endpoint
-      const tracesResponse = await getTraces({
-        endpoint,
-        limit: 1,
-        sortBy: 'cost',
-        sortOrder: 'desc',
-      });
-
-      if (tracesResponse.data && tracesResponse.data.length > 0) {
-        const trace = tracesResponse.data[0];
-
-        // Guard: Don't fetch if trace_id is missing
-        if (!trace.trace_id) {
-          console.error('Cannot fetch trace: trace_id is undefined');
-          return;
-        }
-
-        // Fetch full trace details
-        const fullTrace = await getTraceById(trace.trace_id);
-
-        // Flatten the hierarchical trace structure into a flat array of spans
-        const flattenSpans = (span: Trace): TraceSpan[] => {
-          const spans: TraceSpan[] = [
-            {
-              name: span.service_name,
-              startMs: 0,
-              durationMs: span.latency_ms,
-              type: 'processing',
-            },
-          ];
-
-          if (span.children && span.children.length > 0) {
-            span.children.forEach((child) => {
-              spans.push(...flattenSpans(child));
-            });
-          }
-
-          return spans;
-        };
-
-        const spans = flattenSpans(fullTrace.trace);
-
-        // Map API trace to UI trace format (matching traces page mapping)
-        const mappedTrace: UITrace = {
-          id: fullTrace.trace.trace_id,
-          service: fullTrace.trace.service_name,
-          endpoint: fullTrace.trace.endpoint,
-          model: fullTrace.trace.model,
-          status:
-            fullTrace.trace.status === 'ok' || fullTrace.trace.status === 'healthy'
-              ? 'healthy'
-              : (fullTrace.trace.status as 'healthy' | 'degraded' | 'error'),
-          latencyMs: fullTrace.trace.latency_ms,
-          costUsd: fullTrace.trace.cost_usd || 0,
-          createdAt: fullTrace.trace.timestamp,
-          prompt: fullTrace.trace.prompt,
-          response: fullTrace.trace.response,
-          spans,
-          metadata: {
-            tokensIn: fullTrace.trace.prompt_tokens,
-            tokensOut: fullTrace.trace.completion_tokens,
-            temperature: fullTrace.trace.metadata?.temperature,
-            userId: fullTrace.trace.metadata?.userId || fullTrace.trace.customer_id,
-            sessionId: fullTrace.trace.metadata?.sessionId,
-            ...fullTrace.trace.metadata,
-          },
-        };
-
-        setSelectedTrace(mappedTrace);
-        setDrawerOpen(true);
-      }
-    } catch (error) {
-      console.error('Failed to fetch trace:', error);
+  const handleEndpointClick = (endpoint: string) => {
+    // Navigate to traces page with filters
+    const params = new URLSearchParams();
+    params.set('endpoint', endpoint);
+    if (selectedModel) {
+      params.set('model', selectedModel);
     }
+    // Also set the time range to match context
+    params.set('timeRange', timeView);
+
+    router.push(`/traces?${params.toString()}`);
   };
 
   // Highlight search term in endpoint name
@@ -786,19 +713,19 @@ export default function CostPage() {
                   <AreaChart data={costData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id="costGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                        <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid
                       strokeDasharray="3 3"
-                      stroke="hsl(var(--border))"
+                      stroke="var(--border)"
                       vertical={false}
                       opacity={0.5}
                     />
                     <XAxis
                       dataKey="time"
-                      stroke="hsl(var(--foreground))"
+                      stroke="var(--foreground)"
                       fontSize={12}
                       tickLine={false}
                       axisLine={false}
@@ -807,7 +734,7 @@ export default function CostPage() {
                       opacity={0.7}
                     />
                     <YAxis
-                      stroke="hsl(var(--foreground))"
+                      stroke="var(--foreground)"
                       fontSize={12}
                       tickLine={false}
                       axisLine={false}
@@ -848,7 +775,7 @@ export default function CostPage() {
                         return null;
                       }}
                       cursor={{
-                        stroke: 'hsl(var(--primary))',
+                        stroke: 'var(--primary)',
                         strokeWidth: 1,
                         strokeDasharray: '5 5',
                       }}
@@ -856,10 +783,10 @@ export default function CostPage() {
                     <Area
                       type="monotone"
                       dataKey="cost"
-                      stroke="hsl(var(--primary))"
+                      stroke="var(--primary)"
                       strokeWidth={2.5}
                       fill="url(#costGradient)"
-                      activeDot={{ r: 6, strokeWidth: 2, stroke: 'hsl(var(--background))' }}
+                      activeDot={{ r: 6, strokeWidth: 2, stroke: 'var(--background)' }}
                       animationDuration={1000}
                     />
                   </AreaChart>
@@ -934,7 +861,7 @@ export default function CostPage() {
                           fill={entry.color}
                           opacity={selectedModel && selectedModel !== entry.name ? 0.2 : 1}
                           className="cursor-pointer transition-all duration-200 hover:opacity-90"
-                          stroke="hsl(var(--background))"
+                          stroke="var(--background)"
                           strokeWidth={2}
                         />
                       ))}
@@ -1142,8 +1069,7 @@ export default function CostPage() {
         </Card>
       </div>
 
-      {/* Trace Details Drawer */}
-      <TraceDetailDrawer trace={selectedTrace} open={drawerOpen} onOpenChange={setDrawerOpen} />
+
     </div>
   );
 }

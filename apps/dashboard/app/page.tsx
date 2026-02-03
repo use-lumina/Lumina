@@ -576,18 +576,18 @@ export default function Home() {
                     <LineChart data={costData}>
                       <CartesianGrid
                         strokeDasharray="3 3"
-                        stroke="hsl(var(--border))"
+                        stroke="var(--border)"
                         vertical={false}
                       />
                       <XAxis
                         dataKey="time"
-                        stroke="hsl(var(--muted-foreground))"
+                        stroke="var(--muted-foreground)"
                         fontSize={11}
                         tickLine={false}
                         axisLine={false}
                       />
                       <YAxis
-                        stroke="hsl(var(--muted-foreground))"
+                        stroke="var(--muted-foreground)"
                         fontSize={11}
                         tickLine={false}
                         axisLine={false}
@@ -615,7 +615,7 @@ export default function Home() {
                       <Line
                         type="monotone"
                         dataKey="cost"
-                        stroke="hsl(var(--primary))"
+                        stroke="var(--primary)"
                         strokeWidth={2}
                         dot={false}
                       />
