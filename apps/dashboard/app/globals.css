@@ -183,8 +183,8 @@
   animation-delay: 0.2s;
 }
 
-/* Smooth transitions */
-* {
+/* Smooth transitions – exclude SVG internals so recharts can animate freely */
+*:not(svg *) {
   transition-property: color, background-color, border-color, opacity, transform;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 150ms;
