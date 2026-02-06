@@ -27,6 +27,7 @@
     "docker:up": "cd infra/docker && docker compose up -d",
     "docker:down": "cd infra/docker && docker compose down",
     "docker:logs": "cd infra/docker && docker compose logs -f",
+    "docker:build": "cd infra/docker && docker compose build",
     "migrate": "cd services/ingestion && bun run src/database/migrate-cli.ts",
     "create-customer": "bun run infra/scripts/create-customer.ts",
     "test:alerts": "bun run infra/scripts/test-alerts.ts",
