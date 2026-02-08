@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import useSWR from 'swr';
 import { fetcher } from '@/lib/fetcher';
 import logo from '@/assets/images/logo.png';
+import { NotificationData, Alert } from '@/types/notification';
 import {
   Activity,
   DollarSign,
@@ -84,7 +85,7 @@ function formatTimeAgo(timestamp: string) {
   return `${diffDays}d ago`;
 }
 
-function getAlertTitle(alert: any) {
+function getAlertTitle(alert: Alert) {
   switch (alert.alert_type) {
     case 'cost_spike':
       return 'Cost spike detected';
@@ -99,20 +100,25 @@ function getAlertTitle(alert: any) {
 
 // SideLabel now controlled by Framer Motion via parent context or direct variants
 // We just pass children here, animations are handled inline where used
-function SideLabel({ children, className, isExpanded }: { children: React.ReactNode; className?: string, isExpanded: boolean }) {
+function SideLabel({
+  children,
+  className,
+  isExpanded,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  isExpanded: boolean;
+}) {
   return (
     <motion.span
       initial={{ opacity: 0, x: -10, display: 'none' }}
       animate={{
         opacity: isExpanded ? 1 : 0,
         x: isExpanded ? 0 : -10,
-        display: isExpanded ? 'block' : 'none'
+        display: isExpanded ? 'block' : 'none',
       }}
       transition={{ duration: 0.2, delay: isExpanded ? 0.1 : 0 }}
-      className={cn(
-        'whitespace-nowrap overflow-hidden',
-        className
-      )}
+      className={cn('whitespace-nowrap overflow-hidden', className)}
     >
       {children}
     </motion.span>
@@ -130,18 +136,18 @@ export function Sidebar() {
   }, []);
 
   // Auth state with SWR
-  const { data: user, isLoading: loading, mutate: mutateUser } = useSWR<UserInfo>(
-    `${API_BASE}/auth/me`,
-    fetcher,
-    {
-      refreshInterval: 5 * 60 * 1000, // Check auth every 5 mins
-      shouldRetryOnError: false,
-    }
-  );
+  const {
+    data: user,
+    isLoading: loading,
+    mutate: mutateUser,
+  } = useSWR<UserInfo | null>(`${API_BASE}/auth/me`, fetcher, {
+    refreshInterval: 5 * 60 * 1000, // Check auth every 5 mins
+    shouldRetryOnError: false,
+  });
 
   // Notifications state with SWR
   // Only fetch if user is logged in
-  const { data: notificationData } = useSWR(
+  const { data: notificationData } = useSWR<NotificationData>(
     user ? `${API_BASE}/alerts?status=pending&limit=10` : null,
     fetcher,
     {
@@ -150,7 +156,7 @@ export function Sidebar() {
   );
 
   const notificationCount = notificationData?.pagination?.total || 0;
-  const recentAlerts = notificationData?.data || [];
+  const recentAlerts: Alert[] = notificationData?.data || [];
 
   const handleLogout = async () => {
     try {
@@ -177,12 +183,12 @@ export function Sidebar() {
       {/* Logo */}
       <div className="flex items-center justify-center py-2 shrink-0 min-h-[4rem]">
         <motion.div
-           animate={{
-               width: isHovered ? 100 : 32,
-               height: isHovered ? 100 : 32
-           }}
-           transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-           className="relative"
+          animate={{
+            width: isHovered ? 100 : 32,
+            height: isHovered ? 100 : 32,
+          }}
+          transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+          className="relative"
         >
           <Image
             src={logo}
@@ -200,7 +206,9 @@ export function Sidebar() {
         <div className="px-2 mb-1">
           <button className="flex items-center h-9 w-full px-3.5 gap-3 rounded-md text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors overflow-hidden">
             <Search className="h-4 w-4 shrink-0" />
-            <SideLabel isExpanded={isHovered} className="flex-1 text-left text-[13px]">Search</SideLabel>
+            <SideLabel isExpanded={isHovered} className="flex-1 text-left text-[13px]">
+              Search
+            </SideLabel>
             <SideLabel isExpanded={isHovered}>
               <kbd className="inline-flex h-4 items-center gap-0.5 rounded border border-(--sidebar-border) bg-sidebar-accent px-1 font-mono text-[10px] text-sidebar-foreground/50">
                 <Command className="h-2.5 w-2.5" />K
@@ -217,8 +225,7 @@ export function Sidebar() {
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive =
-            pathname === item.href ||
-            (item.href !== '/' && pathname.startsWith(item.href + '/'));
+            pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href + '/'));
           const badgeCount = item.badgeKey === 'alerts' ? notificationCount : null;
           const showDivider = lastSection >= 0 && item.section !== lastSection;
           lastSection = item.section;
@@ -241,7 +248,9 @@ export function Sidebar() {
                     <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-destructive block" />
                   )}
                 </div>
-                <SideLabel isExpanded={isHovered} className="flex-1">{item.label}</SideLabel>
+                <SideLabel isExpanded={isHovered} className="flex-1">
+                  {item.label}
+                </SideLabel>
                 {badgeCount !== null && badgeCount > 0 && (
                   <SideLabel isExpanded={isHovered}>
                     <span
@@ -275,7 +284,10 @@ export function Sidebar() {
                     <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-destructive" />
                   )}
                 </div>
-                <SideLabel isExpanded={isHovered} className="flex-1 text-left text-[13px] font-medium">
+                <SideLabel
+                  isExpanded={isHovered}
+                  className="flex-1 text-left text-[13px] font-medium"
+                >
                   Notifications
                 </SideLabel>
                 {notificationCount > 0 && (
@@ -308,9 +320,7 @@ export function Sidebar() {
                           <div className="flex items-center gap-2 w-full">
                             <AlertIcon className={cn('h-4 w-4', color)} />
                             <span className="font-medium text-sm">{title}</span>
-                            <span className="text-xs text-muted-foreground ml-auto">
-                              {timeAgo}
-                            </span>
+                            <span className="text-xs text-muted-foreground ml-auto">{timeAgo}</span>
                           </div>
                           <p className="text-xs text-muted-foreground pl-6">
                             {alert.reasoning || alert.message || 'No details available'}
@@ -345,7 +355,12 @@ export function Sidebar() {
             <DropdownMenuTrigger asChild>
               <button className="flex items-center h-9 w-full px-3.5 gap-3 rounded-md text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors overflow-hidden">
                 <HelpCircle className="h-4 w-4 shrink-0" />
-                <SideLabel isExpanded={isHovered} className="flex-1 text-left text-[13px] font-medium">Help</SideLabel>
+                <SideLabel
+                  isExpanded={isHovered}
+                  className="flex-1 text-left text-[13px] font-medium"
+                >
+                  Help
+                </SideLabel>
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent side="right" align="end" className="w-56">
@@ -434,7 +449,9 @@ export function Sidebar() {
               <Link href="/auth">
                 <button className="flex items-center h-9 w-full px-3.5 gap-3 rounded-md text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors overflow-hidden">
                   <LogIn className="h-4 w-4 shrink-0" />
-                  <SideLabel isExpanded={isHovered} className="text-[13px] font-medium">Sign In</SideLabel>
+                  <SideLabel isExpanded={isHovered} className="text-[13px] font-medium">
+                    Sign In
+                  </SideLabel>
                 </button>
               </Link>
             )}

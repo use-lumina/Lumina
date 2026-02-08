@@ -52,7 +52,6 @@ import {
 } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
-
 interface EndpointData {
   endpoint: string;
   model: string;
@@ -1068,8 +1067,6 @@ export default function CostPage() {
           </div>
         </Card>
       </div>
-
-
     </div>
   );
 }

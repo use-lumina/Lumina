@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 
 // Force dynamic rendering (don't pre-render at build time)
 export const dynamic = 'force-dynamic';
-import { Badge } from '@/components/ui/badge';
+
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -16,27 +16,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { RealtimeIndicator } from '@/components/ui/realtime-indicator';
-import {
-  TableSkeleton,
-  ChartCardSkeleton,
-} from '@/components/ui/loading-skeletons';
+import { TableSkeleton, ChartCardSkeleton } from '@/components/ui/loading-skeletons';
 import { EmptyState } from '@/components/ui/empty-state';
 import { TraceDetailDrawer } from '@/components/traces/trace-detail-drawer';
 import { TablePagination } from '@/components/ui/table-pagination';
 import { cn } from '@/lib/utils';
-import {
-  Download,
-  X,
-  Inbox,
-} from 'lucide-react';
+import { Download, X, Inbox } from 'lucide-react';
 import {
   AreaChart,
   Area,
@@ -46,12 +33,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import {
-  getTraces,
-  getTraceById,
-  getCostTimeline,
-  type Trace as APITrace,
-} from '@/lib/api';
+import { getTraces, getTraceById, getCostTimeline, type Trace as APITrace } from '@/lib/api';
 import type { UITrace, TraceSpan } from '@/types/trace';
 
 // API Trace type for this page (keeping snake_case from API)
@@ -109,8 +91,6 @@ function mapApiTraceToUI(trace: Trace): UITrace {
   };
 }
 
-
-
 function TracesContent() {
   // State management
   const searchParams = useSearchParams();
@@ -157,8 +137,8 @@ function TracesContent() {
       if (timeRange !== 'all' && ranges[timeRange]) {
         startTime = new Date(now.getTime() - ranges[timeRange]);
       } else if (timeRange !== 'all') {
-         // Default to 1 hour if strict match failed but not 'all' (defensive)
-         startTime = new Date(now.getTime() - 60 * 60 * 1000);
+        // Default to 1 hour if strict match failed but not 'all' (defensive)
+        startTime = new Date(now.getTime() - 60 * 60 * 1000);
       }
 
       // Calculate offset for pagination
@@ -238,8 +218,6 @@ function TracesContent() {
 
       setLatencyChartData(latencyData);
       setRequestChartData(requestData);
-
-
     } catch (error) {
       console.error('Failed to fetch traces data:', error);
     }
@@ -306,7 +284,6 @@ function TracesContent() {
   }, [isInitialLoading, searchParams, traces]);
 
   // Calculate metrics from traces (all filters are server-side now)
-
 
   // Get unique values for filters
   const services = Array.from(new Set(traces.map((t) => t.service_name)));
@@ -583,19 +560,19 @@ function TracesContent() {
       {/* Table */}
       <Card className="border-(--border)">
         <div className="p-4 border-b border-border border-(--border) flex justify-between items-center bg-muted/20">
-             <div className="text-sm font-medium">Traces</div>
-              <div className="flex gap-2">
-                 {hasActiveFilters && (
-                    <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs">
-                        <X className="h-3 w-3 mr-1" />
-                        Clear Filters
-                    </Button>
-                 )}
-                  <Button variant="secondary" size="sm" className="h-8 text-xs border border-border">
-                    <Download className="h-3 w-3 mr-1" />
-                    Export
-                  </Button>
-              </div>
+          <div className="text-sm font-medium">Traces</div>
+          <div className="flex gap-2">
+            {hasActiveFilters && (
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs">
+                <X className="h-3 w-3 mr-1" />
+                Clear Filters
+              </Button>
+            )}
+            <Button variant="secondary" size="sm" className="h-8 text-xs border border-border">
+              <Download className="h-3 w-3 mr-1" />
+              Export
+            </Button>
+          </div>
         </div>
 
         <div className="relative w-full overflow-x-auto rounded-lg border border-(--border)">
@@ -674,7 +651,10 @@ function TracesContent() {
                       <TableCell className="py-2 text-xs font-medium text-foreground">
                         {trace.service_name}
                       </TableCell>
-                      <TableCell className="py-2 text-xs font-mono text-foreground/90 truncate max-w-[200px]" title={operationName}>
+                      <TableCell
+                        className="py-2 text-xs font-mono text-foreground/90 truncate max-w-[200px]"
+                        title={operationName}
+                      >
                         {operationName}
                       </TableCell>
                       <TableCell className="py-2">
@@ -683,22 +663,32 @@ function TracesContent() {
                         </span>
                       </TableCell>
                       <TableCell className="py-2">
-                         <div className="flex items-center gap-1.5">
-                            <div className={cn("h-1.5 w-1.5 rounded-full",
-                                trace.status === 'error' ? "bg-red-500" : "bg-emerald-500"
-                            )} />
-                            <span className={cn("text-xs font-medium",
-                                trace.status === 'error' ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"
-                            )}>
-                                {trace.status === 'error' ? '500' : '200'} OK
-                            </span>
-                         </div>
+                        <div className="flex items-center gap-1.5">
+                          <div
+                            className={cn(
+                              'h-1.5 w-1.5 rounded-full',
+                              trace.status === 'error' ? 'bg-red-500' : 'bg-emerald-500'
+                            )}
+                          />
+                          <span
+                            className={cn(
+                              'text-xs font-medium',
+                              trace.status === 'error'
+                                ? 'text-red-600 dark:text-red-400'
+                                : 'text-emerald-600 dark:text-emerald-400'
+                            )}
+                          >
+                            {trace.status === 'error' ? '500' : '200'} OK
+                          </span>
+                        </div>
                       </TableCell>
                       <TableCell className="py-2 text-right">
                         <span
                           className={cn(
                             'text-xs font-mono tabular-nums',
-                            trace.latency_ms > 1000 ? 'text-amber-600 font-semibold' : 'text-foreground'
+                            trace.latency_ms > 1000
+                              ? 'text-amber-600 font-semibold'
+                              : 'text-foreground'
                           )}
                         >
                           {trace.latency_ms}ms
