@@ -3,7 +3,15 @@
  * Handles message publishing and consumption with persistence
  */
 
-import { connect, type NatsConnection, type JetStreamClient, StreamConfig } from 'nats';
+import {
+  connect,
+  type NatsConnection,
+  type JetStreamClient,
+  StreamConfig,
+  RetentionPolicy,
+  StorageType,
+  DiscardPolicy,
+} from 'nats';
 
 let nc: NatsConnection | null = null;
 let js: JetStreamClient | null = null;
@@ -81,13 +89,13 @@ async function ensureStream(): Promise<void> {
   const streamConfig: Partial<StreamConfig> = {
     name: STREAM_NAME,
     subjects: [`${SUBJECT_TRACES}`],
-    retention: 'limits', // Delete old messages when limits reached
+    retention: RetentionPolicy.Limits, // Delete old messages when limits reached
     max_age: 24 * 60 * 60 * 1e9, // 24 hours in nanoseconds
     max_msgs: 1_000_000, // Max 1M messages
     max_bytes: 1024 * 1024 * 1024, // 1GB
-    storage: 'file', // Persist to disk
+    storage: StorageType.File, // Persist to disk
     num_replicas: 1, // Single node for now
-    discard: 'old', // Discard oldest messages when full
+    discard: DiscardPolicy.Old, // Discard oldest messages when full
   };
 
   try {

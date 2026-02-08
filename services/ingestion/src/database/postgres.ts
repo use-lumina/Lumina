@@ -18,11 +18,19 @@ export class LuminaDB {
   public baselines!: BaselinesTable;
   public alerts!: AlertsTable;
 
+  public getClient(): ReturnType<typeof postgres> {
+    if (!this.sql) {
+      throw new Error('Database not initialized. Call initialize() first.');
+    }
+    return this.sql;
+  }
+
   constructor(connectionString?: string) {
-    this.connectionString = connectionString || Bun.env.DATABASE_URL;
-    if (!this.connectionString) {
+    const finalConnectionString = connectionString || Bun.env.DATABASE_URL;
+    if (!finalConnectionString) {
       throw new Error('DATABASE_URL environment variable is required');
     }
+    this.connectionString = finalConnectionString;
   }
 
   /**

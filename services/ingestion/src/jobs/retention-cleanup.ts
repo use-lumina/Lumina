@@ -24,8 +24,7 @@ export async function cleanupOldTraces(): Promise<{
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - RETENTION_DAYS);
 
-    // Delete traces older than retention period
-    const sql = db.getSqlClient();
+    const sql = db.getClient();
     const result = await sql`
       DELETE FROM traces
       WHERE timestamp < ${cutoffDate.toISOString()}
@@ -101,7 +100,7 @@ export async function getRetentionStats(): Promise<{
 }> {
   try {
     const db = getDB();
-    const sql = db.getSqlClient();
+    const sql = db.getClient();
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - RETENTION_DAYS);
 

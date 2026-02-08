@@ -27,7 +27,10 @@ function getDailyKey(): string {
  */
 export async function rateLimitMiddleware(c: Context, next: Next) {
   try {
-    const cache = getCache();
+    const cache = (await getCache('')) as {
+      get: (key: string) => Promise<string | null>;
+      set: (key: string, value: string, ttl: number) => Promise<void>;
+    };
 
     if (!cache) {
       // No Redis cache available - allow request but log warning
@@ -71,7 +74,10 @@ export async function rateLimitMiddleware(c: Context, next: Next) {
  */
 export async function incrementTraceCount(dailyKey: string, traceCount: number) {
   try {
-    const cache = getCache();
+    const cache = (await getCache('')) as {
+      get: (key: string) => Promise<string | null>;
+      set: (key: string, value: string, ttl: number) => Promise<void>;
+    };
 
     if (!cache) {
       return;
@@ -117,7 +123,10 @@ export async function getRateLimitStats(): Promise<{
   remaining: number;
   resetTime: string;
 }> {
-  const cache = getCache();
+  const cache = (await getCache('')) as {
+    get: (key: string) => Promise<string | null>;
+    set: (key: string, value: string, ttl: number) => Promise<void>;
+  };
 
   if (!cache) {
     return {

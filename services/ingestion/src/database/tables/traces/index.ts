@@ -193,7 +193,13 @@ export class TracesTable {
       endpoint: row.endpoint as string,
       environment: row.environment as 'live' | 'test',
       model: row.model as string,
-      provider: (row.provider as string | null) || undefined,
+      provider: (() => {
+        const providerValue = row.provider as string | null;
+        const validProviders = ['openai', 'anthropic', 'cohere', 'other'];
+        return providerValue && validProviders.includes(providerValue)
+          ? (providerValue as 'openai' | 'anthropic' | 'cohere' | 'other')
+          : undefined;
+      })(),
       prompt: row.prompt as string,
       response: row.response as string,
       tokens: Number(row.tokens),
