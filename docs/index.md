@@ -1,11 +1,3 @@
----
-layout: default
-title: Home
-nav_order: 1
-description: 'Lumina is an open-source, OpenTelemetry-native observability platform for AI systems'
-permalink: /
----
-
 # Lumina Documentation
 
 **Open-source, OpenTelemetry-native observability for AI systems**
@@ -18,8 +10,8 @@ Lumina is a lightweight observability platform for LLM applications that helps y
 
 Get Lumina running in 5 minutes:
 
-1. **[Quickstart Guide](./guides/QUICKSTART.md)** - Step-by-step installation
-2. **[Integration Guides](./guides/INTEGRATIONS.md)** - Connect your LLM apps
+1. **[Quickstart Guide](./guides/quickstart.md)** - Step-by-step installation
+2. **[Integration Guides](./guides/integrations.md)** - Connect your LLM apps
 3. **[API Reference](./api/API_REFERENCE.md)** - Complete API docs
 
 ---
@@ -28,13 +20,13 @@ Get Lumina running in 5 minutes:
 
 ### Getting Started
 
-- **[Quickstart Guide](./guides/QUICKSTART.md)** - Install and run Lumina in 5 minutes
-- **[FAQ](./guides/FAQ.md)** - Common questions answered
-- **[Troubleshooting](./guides/TROUBLESHOOTING.md)** - Fix common issues
+- **[Quickstart Guide](./guides/quickstart.md)** - Install and run Lumina in 5 minutes
+- **[FAQ](./guides/faq.md)** - Common questions answered
+- **[Troubleshooting](./guides/troubleshooting.md)** - Fix common issues
 
 ### Integration Guides
 
-- **[Integrations Overview](./guides/INTEGRATIONS.md)** - All supported providers
+- **[Integrations Overview](./guides/integrations.md)** - All supported providers
 - OpenAI Integration
 - Anthropic (Claude) Integration
 - LangChain Integration
@@ -42,7 +34,7 @@ Get Lumina running in 5 minutes:
 
 ### Architecture & Advanced
 
-- **[Architecture Overview](./guides/ARCHITECTURE.md)** - System design and components
+- **[Architecture Overview](./guides/architecture.md)** - System design and components
 - **[Multi-Span Tracing](./guides/multi-span-tracing.md)** - Complex trace patterns
 - **[RAG Integration](./guides/rag-integration.md)** - RAG pipeline observability
 - **[Best Practices](./guides/ai-pipeline-best-practices.md)** - Production tips
@@ -135,12 +127,12 @@ Built with production in mind:
 - NATS JetStream for high-throughput ingestion
 - PostgreSQL for analytical queries
 - Redis for caching
-- Real-time alerting (<500ms)
+- Real-time alerting (\<500ms)
 - Horizontal scaling (handles 10M+ traces/day)
 
 ### Cost + Quality Correlation
 
-The only platform that can query `cost > $0.50 AND quality < 0.8` in a single dashboard. When your `/chat` endpoint gets expensive **and** broken, you know immediately.
+The only platform that can query `cost > {'$0.50'} AND quality < {'0.8'}` in a single dashboard. When your `/chat` endpoint gets expensive **and** broken, you know immediately.
 
 ---
 
@@ -199,7 +191,7 @@ const response = await lumina.traceLLM(
 );
 ```
 
-See [Integration Guides](./guides/INTEGRATIONS.md) for more examples.
+See [Integration Guides](./guides/integrations.md) for more examples.
 
 ---
 

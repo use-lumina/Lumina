@@ -674,6 +674,6 @@ lumina/
 
 ## Related Documentation
 
-- [Quickstart Guide](./QUICKSTART.md)
+- [Quickstart Guide](./quickstart.md)
 - [API Reference](./API_REFERENCE.md)
-- [Troubleshooting](./TROUBLESHOOTING.md)
+- [Troubleshooting](./troubleshooting.md)

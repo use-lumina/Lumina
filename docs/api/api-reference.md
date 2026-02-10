@@ -1,22 +1,8 @@
----
-layout: default
-title: API Reference
-nav_order: 4
-has_children: false
----
-
 # API Reference
-
-{: .no_toc }
 
 Lumina provides OpenAPI/Swagger documentation for all APIs.
 
 ## Table of contents
-
-{: .no_toc .text-delta }
-
-1. TOC
-   {:toc}
 
 ## View API Documentation
 
@@ -198,4 +184,4 @@ Unlimited traces. No rate limits.
 
 ## Examples
 
-See [QUICKSTART.md](./QUICKSTART.md) for complete usage examples with curl and code samples.
+See [quickstart.md](./quickstart.md) for complete usage examples with curl and code samples.

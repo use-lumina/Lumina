@@ -60,3 +60,6 @@ infra/scripts/
 *.log
 tmp/
 temp/
+lumina-landing/
+lumina-brand/
+lumina-docs/

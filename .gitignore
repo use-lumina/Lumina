@@ -9,6 +9,8 @@ out/
 .next/
 *.tsbuildinfo
 lumina-landing/
+lumina-brand/
+lumina-docs/
 
 # Environment variables
 .env

@@ -355,7 +355,7 @@ Lumina is free and open-source software. You can use it for any purpose, includi
 
 ## Support
 
-- **Documentation:** [docs/](http://docs.uselumina.io/)
+- **Documentation:** [docs](http://docs.uselumina.io/)
 - **GitHub Issues:** [Bug reports & feature requests](https://github.com/use-lumina/Lumina/issues)
 - **GitHub Discussions:** [Questions & community chat](https://github.com/use-lumina/Lumina/discussions)
 - **Examples:** [examples/nextjs-rag](./examples/nextjs-rag)

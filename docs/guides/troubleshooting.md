@@ -854,6 +854,6 @@ If you've tried these solutions and still have issues:
 
 ## Related Documentation
 
-- [Quickstart Guide](./QUICKSTART.md)
+- [Quickstart Guide](./quickstart.md)
 - [API Reference](./API_REFERENCE.md)
-- [Architecture](./ARCHITECTURE.md)
+- [Architecture](./architecture.md)

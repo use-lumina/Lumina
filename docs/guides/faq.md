@@ -7,16 +7,7 @@ nav_order: 3
 
 # Frequently Asked Questions (FAQ)
 
-{: .no_toc }
-
 ## Table of contents
-
-{: .no_toc .text-delta }
-
-1. TOC
-   {:toc}
-
----
 
 ## General
 
@@ -99,7 +90,7 @@ However, we recommend keeping the defaults for optimal performance.
 
 ### What's the performance impact?
 
-Lumina uses OpenTelemetry's `BatchSpanProcessor` for zero-overhead async ingestion. Typical overhead is **<1ms** per LLM call. The SDK batches traces and sends them in the background without blocking your application.
+Lumina uses OpenTelemetry's `BatchSpanProcessor` for zero-overhead async ingestion. Typical overhead is **\<1ms** per LLM call. The SDK batches traces and sends them in the background without blocking your application.
 
 ### How is data secured?
 
@@ -116,7 +107,7 @@ Lumina uses OpenTelemetry's `BatchSpanProcessor` for zero-overhead async ingesti
 
 Absolutely! Lumina is built for production:
 
-- Real-time ingestion (<500ms from trace to alert)
+- Real-time ingestion (\<500ms from trace to alert)
 - At-least-once delivery guarantees
 - Horizontal scaling (handles 10M+ traces/day)
 - Infrastructure-grade architecture (PostgreSQL, NATS JetStream, Redis)
@@ -255,7 +246,7 @@ OPENAI_API_KEY=sk-your-key-here
 
 4. Create a replay set, configure model/prompt, and run!
 
-See the full [Replay Guide](./REPLAY.md) for detailed instructions.
+See the full [Replay Guide](./replay.md) for detailed instructions.
 
 ### What's the cost of running replays?
 

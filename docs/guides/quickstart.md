@@ -1,16 +1,6 @@
----
-layout: default
-title: Quickstart Guide
-parent: Getting Started
-nav_order: 1
----
-
 # Lumina Quickstart Guide
 
-{: .no_toc }
-
 Get Lumina running locally in 5 minutes with Docker Compose.
-{: .fs-6 .fw-300 }
 
 ## What is Lumina?
 
@@ -270,9 +260,9 @@ This gives you an end-to-end view of your entire operation, helping you pinpoint
 
 See our integration guides:
 
-- [OpenAI Integration](./INTEGRATIONS.md#openai)
-- [Anthropic Integration](./INTEGRATIONS.md#anthropic)
-- [LangChain Integration](./INTEGRATIONS.md#langchain)
+- [OpenAI Integration](./integrations.md#openai)
+- [Anthropic Integration](./integrations.md#anthropic)
+- [LangChain Integration](./integrations.md#langchain)
 
 ### 2. Set Up Alerts
 
@@ -409,12 +399,12 @@ docker run --rm \
 
 ## What's Next?
 
-- 📖 [Architecture Overview](./ARCHITECTURE.md) - Understand how Lumina works
-- 🔌 [Integration Guides](./INTEGRATIONS.md) - Connect your LLM applications
+- 📖 [Architecture Overview](./architecture.md) - Understand how Lumina works
+- 🔌 [Integration Guides](./integrations.md) - Connect your LLM applications
 - 🚨 [Alert Configuration](./ALERTS.md) - Configure cost and quality alerts
-- 🔁 [Replay Guide](./REPLAY.md) - Test changes safely
-- ❓ [FAQ](./FAQ.md) - Common questions answered
-- 🔧 [Troubleshooting](./TROUBLESHOOTING.md) - Fix common issues
+- 🔁 [Replay Guide](./replay.md) - Test changes safely
+- ❓ [FAQ](./faq.md) - Common questions answered
+- 🔧 [Troubleshooting](./troubleshooting.md) - Fix common issues
 
 ## Need Help?
 

@@ -418,9 +418,9 @@ To enable real LLM calls, add API keys as shown above.
 
 - 📊 [View cost analytics](http://localhost:3000/cost)
 - 🚨 [Configure alerts](./ALERTS.md)
-- 🔌 [Integration guides](./INTEGRATIONS.md)
-- ❓ [FAQ](./FAQ.md)
+- 🔌 [Integration guides](./integrations.md)
+- ❓ [FAQ](./faq.md)
 
 ---
 
-**Questions?** Open a [GitHub Discussion](https://github.com/use-lumina/Lumina/discussions) or check the [FAQ](./FAQ.md).
+**Questions?** Open a [GitHub Discussion](https://github.com/use-lumina/Lumina/discussions) or check the [FAQ](./faq.md).

@@ -1,13 +1,4 @@
----
-layout: default
-title: Integration Examples
-parent: Integrations
-nav_order: 1
----
-
 # Lumina Integration Guides
-
-{: .no_toc }
 
 This guide shows you how to integrate Lumina with popular LLM providers and frameworks.
 
@@ -661,7 +652,7 @@ try {
 ## Next Steps
 
 - 🚨 [Set Up Alerts](./ALERTS.md) - Get notified of cost spikes and quality drops
-- 🔁 [Use Replay](./REPLAY.md) - Test prompt changes safely
+- 🔁 [Use Replay](./replay.md) - Test prompt changes safely
 - 📊 [View Your Traces](http://localhost:3000/traces) - Explore the dashboard
 - 📖 [API Reference](../api/API_REFERENCE.md) - Full SDK documentation
 
