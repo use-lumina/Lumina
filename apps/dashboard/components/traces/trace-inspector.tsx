@@ -116,10 +116,14 @@ export function TraceInspector({ trace, onClose }: TraceInspectorProps) {
                 </span>
                 <Badge
                   variant="outline"
-                  className="font-mono text-[10px] text-slate-500 h-5 px-1.5 gap-1 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors cursor-pointer"
+                  className="font-mono text-[10px] text-slate-500 h-5 px-1.5 gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors cursor-pointer"
                   onClick={() => navigator.clipboard.writeText(trace.id)}
                 >
-                  ID <Copy className="h-3 w-3" />
+                  <span className="opacity-70">ID</span>
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">
+                    {trace.id}
+                  </span>
+                  <Copy className="h-3 w-3" />
                 </Badge>
               </div>
             </div>
