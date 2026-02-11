@@ -292,9 +292,10 @@ textarea:disabled,
   cursor: move;
 }
 
-/* Help cursor for elements with tooltips */
-.cursor-help {
-  cursor: help;
+/* Help cursor class removed to avoid accidental usage */
+/* Override any library that might force cursor: help on [title] */
+[title] {
+  cursor: inherit !important;
 }
 
 /* Crosshair for precise selection */
