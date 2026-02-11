@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { motion } from 'framer-motion';
 import useSWR from 'swr';
 import { fetcher } from '@/lib/fetcher';
 import logo from '@/assets/images/logo.png';
@@ -15,11 +14,7 @@ import {
   AlertTriangle,
   PlayCircle,
   Home,
-  Search,
   Bell,
-  HelpCircle,
-  FileText,
-  Command,
   User,
   Settings,
   LogOut,
@@ -39,6 +34,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081';
 
@@ -49,11 +45,11 @@ interface UserInfo {
 }
 
 const navItems = [
-  { label: 'Dashboard', href: '/', icon: Home, badgeKey: null, section: 0 },
-  { label: 'Live Traces', href: '/traces', icon: Activity, badgeKey: null, section: 1 },
-  { label: 'Alerts', href: '/alerts', icon: AlertTriangle, badgeKey: 'alerts', section: 1 },
-  { label: 'Cost Analysis', href: '/cost', icon: DollarSign, badgeKey: null, section: 2 },
-  { label: 'Replay', href: '/replay', icon: PlayCircle, badgeKey: null, section: 2 },
+  { label: 'Dashboard', href: '/', icon: Home, badgeKey: null },
+  { label: 'Live Traces', href: '/traces', icon: Activity, badgeKey: null },
+  { label: 'Alerts', href: '/alerts', icon: AlertTriangle, badgeKey: 'alerts' },
+  { label: 'Cost Analysis', href: '/cost', icon: DollarSign, badgeKey: null },
+  { label: 'Replay', href: '/replay', icon: PlayCircle, badgeKey: null },
 ];
 
 function getAlertIcon(alertType: string) {
@@ -98,38 +94,10 @@ function getAlertTitle(alert: Alert) {
   }
 }
 
-// SideLabel now controlled by Framer Motion via parent context or direct variants
-// We just pass children here, animations are handled inline where used
-function SideLabel({
-  children,
-  className,
-  isExpanded,
-}: {
-  children: React.ReactNode;
-  className?: string;
-  isExpanded: boolean;
-}) {
-  return (
-    <motion.span
-      initial={{ opacity: 0, x: -10, display: 'none' }}
-      animate={{
-        opacity: isExpanded ? 1 : 0,
-        x: isExpanded ? 0 : -10,
-        display: isExpanded ? 'block' : 'none',
-      }}
-      transition={{ duration: 0.2, delay: isExpanded ? 0.1 : 0 }}
-      className={cn('whitespace-nowrap overflow-hidden', className)}
-    >
-      {children}
-    </motion.span>
-  );
-}
-
 export function Sidebar() {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -141,17 +109,16 @@ export function Sidebar() {
     isLoading: loading,
     mutate: mutateUser,
   } = useSWR<UserInfo | null>(`${API_BASE}/auth/me`, fetcher, {
-    refreshInterval: 5 * 60 * 1000, // Check auth every 5 mins
+    refreshInterval: 5 * 60 * 1000,
     shouldRetryOnError: false,
   });
 
   // Notifications state with SWR
-  // Only fetch if user is logged in
   const { data: notificationData } = useSWR<NotificationData>(
     user ? `${API_BASE}/alerts?status=pending&limit=10` : null,
     fetcher,
     {
-      refreshInterval: 30000, // Poll every 30s
+      refreshInterval: 30000,
     }
   );
 
@@ -161,141 +128,82 @@ export function Sidebar() {
   const handleLogout = async () => {
     try {
       await logout();
-      mutateUser(null); // Optimistically update auth state
+      mutateUser(null);
     } catch (error) {
       console.error('Logout failed:', error);
       window.location.href = '/auth';
     }
   };
 
-  // Group nav items by section
-  let lastSection = -1;
-
   return (
-    <motion.aside
-      initial={{ width: '4rem' }}
-      animate={{ width: isHovered ? '15rem' : '4rem' }}
-      transition={{ type: 'spring', stiffness: 400, damping: 40 }}
-      onHoverStart={() => setIsHovered(true)}
-      onHoverEnd={() => setIsHovered(false)}
-      className="group/sidebar overflow-hidden border-r border-(--sidebar-border) bg-sidebar flex flex-col h-full shrink-0 z-50 relative"
-    >
+    <aside className="w-[220px] border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex flex-col h-full shrink-0">
       {/* Logo */}
-      <div className="flex items-center justify-center py-2 shrink-0 min-h-[4rem]">
-        <motion.div
-          animate={{
-            width: isHovered ? 100 : 32,
-            height: isHovered ? 100 : 32,
-          }}
-          transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-          className="relative"
-        >
-          <Image
-            src={logo}
-            alt="Lumina AI"
-            className="object-contain"
-            fill
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            priority
-          />
-        </motion.div>
+      <div className="h-14 flex items-center px-4 border-b border-slate-200 dark:border-slate-800">
+        <div className="relative w-8 h-8">
+          <Image src={logo} alt="Lumina AI" fill sizes="32px" priority className="object-contain" />
+        </div>
+        <span className="ml-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+          Lumina
+        </span>
       </div>
 
-      {/* Search trigger */}
-      {user && (
-        <div className="px-2 mb-1">
-          <button className="flex items-center h-9 w-full px-3.5 gap-3 rounded-md text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors overflow-hidden">
-            <Search className="h-4 w-4 shrink-0" />
-            <SideLabel isExpanded={isHovered} className="flex-1 text-left text-[13px]">
-              Search
-            </SideLabel>
-            <SideLabel isExpanded={isHovered}>
-              <kbd className="inline-flex h-4 items-center gap-0.5 rounded border border-(--sidebar-border) bg-sidebar-accent px-1 font-mono text-[10px] text-sidebar-foreground/50">
-                <Command className="h-2.5 w-2.5" />K
-              </kbd>
-            </SideLabel>
-          </button>
-        </div>
-      )}
+      {/* Navigation */}
+      <ScrollArea className="flex-1">
+        <nav className="p-2 space-y-0.5">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive =
+              pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href + '/'));
+            const badgeCount = item.badgeKey === 'alerts' ? notificationCount : null;
 
-      <div className="h-px bg-(--sidebar-border) mx-3" />
-
-      {/* Primary navigation */}
-      <nav className="flex-1 overflow-y-auto py-2 px-2 overflow-x-hidden">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive =
-            pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href + '/'));
-          const badgeCount = item.badgeKey === 'alerts' ? notificationCount : null;
-          const showDivider = lastSection >= 0 && item.section !== lastSection;
-          lastSection = item.section;
-
-          return (
-            <div key={item.href}>
-              {showDivider && <div className="h-px bg-(--sidebar-border) mx-2 my-2" />}
+            return (
               <Link
+                key={item.href}
                 href={item.href}
                 className={cn(
-                  'flex items-center h-9 px-3.5 gap-3 rounded-md text-[13px] font-medium transition-colors overflow-hidden',
+                  'flex items-center h-8 px-2 gap-2 rounded-md text-xs font-medium transition-colors',
                   isActive
-                    ? 'bg-sidebar-primary/15 text-sidebar-primary'
-                    : 'text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent'
+                    ? 'bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-slate-100'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-900/50'
                 )}
               >
-                <div className="relative shrink-0">
-                  <Icon className="h-4 w-4" />
-                  {badgeCount !== null && badgeCount > 0 && !isHovered && (
-                    <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-destructive block" />
-                  )}
-                </div>
-                <SideLabel isExpanded={isHovered} className="flex-1">
-                  {item.label}
-                </SideLabel>
+                <Icon className="h-4 w-4 shrink-0" />
+                <span className="flex-1">{item.label}</span>
                 {badgeCount !== null && badgeCount > 0 && (
-                  <SideLabel isExpanded={isHovered}>
-                    <span
-                      className={cn(
-                        'inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full text-[10px] font-semibold tabular-nums',
-                        isActive
-                          ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                          : 'bg-sidebar-foreground/10 text-sidebar-foreground/70'
-                      )}
-                    >
-                      {badgeCount}
-                    </span>
-                  </SideLabel>
+                  <Badge
+                    variant="secondary"
+                    className="h-5 min-w-5 px-1.5 text-[10px] font-semibold"
+                  >
+                    {badgeCount}
+                  </Badge>
                 )}
               </Link>
-            </div>
-          );
-        })}
-      </nav>
+            );
+          })}
+        </nav>
+      </ScrollArea>
 
       {/* Bottom section */}
-      <div className="border-t border-(--sidebar-border) py-2 px-2 space-y-0.5 overflow-hidden">
+      <div className="border-t border-slate-200 dark:border-slate-800 p-2 space-y-0.5">
         {/* Notifications */}
         {user && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center h-9 w-full px-3.5 gap-3 rounded-md text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors overflow-hidden">
+              <button className="flex items-center h-8 w-full px-2 gap-2 rounded-md text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
                 <div className="relative shrink-0">
                   <Bell className="h-4 w-4" />
-                  {notificationCount > 0 && !isHovered && (
-                    <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-destructive" />
+                  {notificationCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-red-500" />
                   )}
                 </div>
-                <SideLabel
-                  isExpanded={isHovered}
-                  className="flex-1 text-left text-[13px] font-medium"
-                >
-                  Notifications
-                </SideLabel>
+                <span className="flex-1 text-left">Notifications</span>
                 {notificationCount > 0 && (
-                  <SideLabel isExpanded={isHovered}>
-                    <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full text-[10px] font-semibold tabular-nums bg-sidebar-foreground/10 text-sidebar-foreground/70">
-                      {notificationCount}
-                    </span>
-                  </SideLabel>
+                  <Badge
+                    variant="secondary"
+                    className="h-5 min-w-5 px-1.5 text-[10px] font-semibold"
+                  >
+                    {notificationCount}
+                  </Badge>
                 )}
               </button>
             </DropdownMenuTrigger>
@@ -349,55 +257,32 @@ export function Sidebar() {
           </DropdownMenu>
         )}
 
-        {/* Help */}
+        {/* Settings */}
         {user && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex items-center h-9 w-full px-3.5 gap-3 rounded-md text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors overflow-hidden">
-                <HelpCircle className="h-4 w-4 shrink-0" />
-                <SideLabel
-                  isExpanded={isHovered}
-                  className="flex-1 text-left text-[13px] font-medium"
-                >
-                  Help
-                </SideLabel>
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent side="right" align="end" className="w-56">
-              <DropdownMenuLabel>Help & Resources</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="cursor-pointer">
-                <FileText className="mr-2 h-4 w-4" />
-                Documentation
-              </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer">
-                <Command className="mr-2 h-4 w-4" />
-                Keyboard Shortcuts
-              </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer">
-                <Activity className="mr-2 h-4 w-4" />
-                API Status
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Link href="/settings">
+            <button className="flex items-center h-8 w-full px-2 gap-2 rounded-md text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
+              <Settings className="h-4 w-4 shrink-0" />
+              <span className="flex-1 text-left">Settings</span>
+            </button>
+          </Link>
         )}
 
         {/* Theme toggle */}
         <button
           onClick={() => mounted && setTheme(theme === 'dark' ? 'light' : 'dark')}
-          className="flex items-center h-9 w-full px-3.5 gap-3 rounded-md text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors overflow-hidden"
+          className="flex items-center h-8 w-full px-2 gap-2 rounded-md text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors"
         >
           {mounted && theme === 'dark' ? (
             <Sun className="h-4 w-4 shrink-0" />
           ) : (
             <Moon className="h-4 w-4 shrink-0" />
           )}
-          <SideLabel isExpanded={isHovered} className="text-[13px] font-medium">
+          <span className="flex-1 text-left">
             {mounted && theme === 'dark' ? 'Light mode' : 'Dark mode'}
-          </SideLabel>
+          </span>
         </button>
 
-        <div className="h-px bg-(--sidebar-border) mx-2 my-1" />
+        <div className="h-px bg-slate-200 dark:bg-slate-800 my-1" />
 
         {/* User */}
         {!loading && (
@@ -405,18 +290,18 @@ export function Sidebar() {
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex items-center h-9 w-full px-3.5 gap-3 rounded-md text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors overflow-hidden">
-                    <div className="flex items-center justify-center h-6 w-6 rounded-full bg-linear-to-br from-blue-500 to-purple-500 shrink-0">
+                  <button className="flex items-center h-9 w-full px-2 gap-2 rounded-md text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
+                    <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 shrink-0">
                       <User className="h-3 w-3 text-white" />
                     </div>
-                    <SideLabel isExpanded={isHovered} className="flex-1 min-w-0 text-left">
-                      <span className="block text-[13px] font-medium leading-none truncate text-sidebar-foreground">
+                    <div className="flex-1 min-w-0 text-left">
+                      <div className="text-xs font-medium leading-none truncate text-slate-900 dark:text-slate-100">
                         {user.name}
-                      </span>
-                      <span className="block text-[10px] leading-none mt-0.5 truncate text-sidebar-foreground/50">
+                      </div>
+                      <div className="text-[10px] leading-none mt-0.5 truncate text-slate-500 dark:text-slate-400">
                         {user.email}
-                      </span>
-                    </SideLabel>
+                      </div>
+                    </div>
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent side="right" align="end" className="w-56">
@@ -447,17 +332,15 @@ export function Sidebar() {
               </DropdownMenu>
             ) : (
               <Link href="/auth">
-                <button className="flex items-center h-9 w-full px-3.5 gap-3 rounded-md text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors overflow-hidden">
+                <button className="flex items-center h-8 w-full px-2 gap-2 rounded-md text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
                   <LogIn className="h-4 w-4 shrink-0" />
-                  <SideLabel isExpanded={isHovered} className="text-[13px] font-medium">
-                    Sign In
-                  </SideLabel>
+                  <span className="flex-1 text-left">Sign In</span>
                 </button>
               </Link>
             )}
           </>
         )}
       </div>
-    </motion.aside>
+    </aside>
   );
 }

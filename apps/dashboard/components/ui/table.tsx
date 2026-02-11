@@ -131,9 +131,9 @@ function TableCaption({ className, ...props }: React.ComponentProps<'caption'>) 
 
 /* ----------------------------- Status Dot ----------------------------- */
 
-function StatusDot({ status }: { status: UITrace['status'] }) {
+function StatusDot({ status, className }: { status: UITrace['status']; className?: string }) {
   return (
-    <span className="flex items-center gap-2">
+    <span className={cn('flex items-center gap-2', className)}>
       <span
         className={cn(
           'h-2.5 w-2.5 rounded-full',

@@ -25,6 +25,14 @@ export type HierarchicalSpan = {
   children: HierarchicalSpan[];
 };
 
+export type Evaluation = {
+  id: string;
+  evaluator: string;
+  score: number;
+  reasoning?: string;
+  createdAt: string;
+};
+
 // UI Trace type (used by components)
 export type UITrace = {
   id: string;
@@ -39,12 +47,16 @@ export type UITrace = {
   response?: string;
   spans?: TraceSpan[];
   hierarchicalSpan?: HierarchicalSpan;
+  evaluations?: Evaluation[];
+  release?: string;
+  sessionId?: string;
+  userId?: string;
+  tags?: string[];
   metadata?: {
     tokensIn?: number;
     tokensOut?: number;
     temperature?: number;
-    userId?: string;
-    sessionId?: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [key: string]: any;
   };
 };
