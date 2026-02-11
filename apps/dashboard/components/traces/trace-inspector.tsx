@@ -14,6 +14,8 @@ import {
   Minimize2,
   Database,
   PenLine,
+  AlignLeft,
+  Braces,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { UITrace, HierarchicalSpan } from '@/types/trace';
@@ -279,23 +281,25 @@ export function TraceInspector({ trace, onClose }: TraceInspectorProps) {
                 <button
                   onClick={() => setViewMode('formatted')}
                   className={cn(
-                    'px-3 h-full rounded-sm text-[12px] font-medium transition-all flex items-center justify-center',
+                    'px-3 h-full rounded-sm text-[12px] font-medium transition-all flex items-center justify-center gap-1.5',
                     viewMode === 'formatted'
                       ? 'bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 shadow-sm'
                       : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
                   )}
                 >
+                  <AlignLeft className="h-3 w-3" />
                   Formatted
                 </button>
                 <button
                   onClick={() => setViewMode('json')}
                   className={cn(
-                    'px-3 h-full rounded-sm text-[12px] font-medium transition-all flex items-center justify-center',
+                    'px-3 h-full rounded-sm text-[12px] font-medium transition-all flex items-center justify-center gap-1.5',
                     viewMode === 'json'
                       ? 'bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 shadow-sm'
                       : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
                   )}
                 >
+                  <Braces className="h-3 w-3" />
                   JSON
                 </button>
               </div>
@@ -374,11 +378,7 @@ export function TraceInspector({ trace, onClose }: TraceInspectorProps) {
                             </p>
                           </div>
                           {/* Custom attributes */}
-                          {currentSpan && Object.keys(currentSpan).length > 10 && (
-                            <div className="col-span-2 mt-2">
-                              <JsonViewer data={currentSpan} />
-                            </div>
-                          )}
+                          {/* JSON Fallback removed per user request */}
                         </div>
                       </div>
 
