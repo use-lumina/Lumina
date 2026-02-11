@@ -261,16 +261,16 @@ export function TraceInspector({ trace, onClose }: TraceInspectorProps) {
         <div className="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-950">
           <Tabs defaultValue="preview" className="flex-1 flex flex-col overflow-hidden">
             <div className="border-b border-slate-200 dark:border-slate-800 px-4 flex items-center justify-between shrink-0 bg-white dark:bg-slate-950">
-              <TabsList className="bg-transparent p-0 h-10 gap-6">
+              <TabsList className="bg-transparent p-0 h-10 gap-6 justify-start w-auto">
                 <TabsTrigger
                   value="preview"
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-slate-900 dark:data-[state=active]:text-slate-100 px-1 py-2 text-sm font-medium bg-transparent shadow-none"
+                  className="rounded-none border-0 border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-slate-900 dark:data-[state=active]:text-slate-100 px-1 py-2 text-sm font-semibold bg-transparent shadow-none"
                 >
                   Preview
                 </TabsTrigger>
                 <TabsTrigger
                   value="log"
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-slate-900 dark:data-[state=active]:text-slate-100 px-1 py-2 text-sm font-medium bg-transparent shadow-none"
+                  className="rounded-none border-0 border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-slate-900 dark:data-[state=active]:text-slate-100 px-1 py-2 text-sm font-medium bg-transparent shadow-none"
                 >
                   Log View
                 </TabsTrigger>
