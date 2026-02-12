@@ -5,75 +5,95 @@
 [![CI](https://github.com/use-lumina/Lumina/actions/workflows/ci.yml/badge.svg)](https://github.com/use-lumina/Lumina/actions/workflows/ci.yml)
 [![GitHub stars](https://img.shields.io/github/stars/use-lumina/Lumina?style=social)](https://github.com/use-lumina/Lumina/stargazers)
 
-**Open-source, OpenTelemetry-native observability for AI systems.**
+**Production-grade observability for AI applications.**
 
-A lightweight observability platform for LLM applications. Track costs, latency, and quality across your AI systems with minimal overhead.
+Lumina is an OpenTelemetry-native platform for monitoring LLM applications in production. Track costs, latency, and quality across distributed AI systems with full trace visibility and regression testing.
 
-**🔓 Fully open-source** • **🏠 Self-hostable** • **☁️ Managed cloud option available**
+Self-hosted. Open source. Zero vendor lock-in.
 
 ![Lumina Dashboard](./docs/assets/screenshots/dashboard-home.png)
 
+---
+
+## Why Lumina
+
+AI applications are fundamentally different from traditional software. Token costs accumulate rapidly. Response quality degrades silently. Latency compounds across multi-step workflows. Production incidents require full trace context to debug.
+
+Existing APM tools treat LLM calls as opaque HTTP requests. Lumina provides native observability for AI systems with automatic cost calculation, quality tracking, and hierarchical tracing for complex pipelines like RAG and agents.
+
+Built on OpenTelemetry standards, Lumina integrates into your existing infrastructure without vendor lock-in.
+
+---
+
 ## Features
 
-- **Real-time Trace Ingestion** - OpenTelemetry-compatible trace collection
-- **Cost & Latency Tracking** - Automatic calculation and analytics
-- **Regression Testing** - Replay production traffic to detect quality regressions
-- **Flexible Querying** - Filter by service, model, tags, cost, latency
-- **Semantic Comparison** - Compare responses for similarity
-- **Zero-Config Storage** - PostgreSQL backend with automatic schema creation
+**Cost Tracking**
+Automatic cost calculation for OpenAI, Anthropic, and other providers. Track spending per service, model, user, or query.
 
-## Self-Hosted Limits
+**Distributed Tracing**
+OpenTelemetry-native architecture with hierarchical span support. Visualize complex AI workflows including RAG pipelines, agent loops, and multi-model systems.
 
-The free self-hosted version includes:
+**Regression Testing**
+Capture production traces and replay them with modified prompts. Compare responses side-by-side with semantic similarity scoring to detect quality regressions before deployment.
 
-- **50,000 traces per day** - Resets daily at midnight UTC
-- **7-day retention** - Traces older than 7 days are automatically deleted
-- **All features included** - Alerts, replay testing, semantic scoring, and more
+**Real-Time Analytics**
+Query traces by service, model, tags, cost, latency, or custom metadata. Built on PostgreSQL with efficient indexing for production workloads.
 
-For unlimited traces and retention, consider our managed cloud offering. [Contact us](mailto:your-email@example.com) to learn more.
+**Smart Alerting**
+Configure thresholds for cost spikes, latency degradation, and quality drops. Webhook integration for Slack, PagerDuty, or custom endpoints.
 
-## Zero Setup - No Authentication Required
+**Production Ready**
+PostgreSQL backend with automatic schema management. NATS-based queue for reliable ingestion. Configurable retention policies and rate limits.
 
-Self-hosted Lumina runs completely open with **no login or account creation needed**. Just start the services with Docker Compose and access the dashboard immediately at `http://localhost:3000`.
-
-Perfect for local development, testing, and production deployments where you control access via network security.
+---
 
 ## Quick Start
 
+### Docker Compose (Recommended)
+
+Start Lumina with all services in under 60 seconds:
+
 ```bash
-# 1. Clone and install
-git clone https://github.com/use-lumina/Lumina.git lumina
-cd lumina
+git clone https://github.com/use-lumina/Lumina.git
+cd Lumina/infra/docker
+docker compose up -d
+```
+
+Access the dashboard at `http://localhost:3000`.
+
+All services run without authentication by default. Secure via network isolation or reverse proxy in production.
+
+### Manual Setup
+
+For development or custom deployments:
+
+```bash
+# 1. Clone and install dependencies
+git clone https://github.com/use-lumina/Lumina.git
+cd Lumina
 bun install
 
-# 2. Create database
+# 2. Initialize database
 createdb lumina
 
-# 3. Start services (in separate terminals)
+# 3. Start services
 cd services/ingestion && bun run dev  # Port 9411
-cd services/query && bun run dev      # Port 8081
+cd services/api && bun run dev        # Port 8081
 cd services/replay && bun run dev     # Port 8082
+cd apps/dashboard && bun run dev      # Port 3000
 ```
 
-### Optional: API Keys for Replay Feature
-
-To use the replay feature with real LLM calls, add API keys to your `.env` file:
-
-```bash
-# For Claude models
-ANTHROPIC_API_KEY=sk-ant-api03-your-key-here
-
-# For GPT models
-OPENAI_API_KEY=sk-your-key-here
-```
-
-> **Note:** API keys are **only required for the replay feature**. All other features work without API keys.
+---
 
 ## Instrument Your Application
 
+Install the SDK:
+
 ```bash
-bun add @uselumina/sdk
+npm install @uselumina/sdk
 ```
+
+Wrap your LLM calls:
 
 ```typescript
 import Anthropic from '@anthropic-ai/sdk';
@@ -83,10 +103,9 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const lumina = initLumina({
   endpoint: 'http://localhost:9411/v1/traces',
-  service_name: 'my-app',
+  service_name: 'my-service',
 });
 
-// Wrap your LLM calls
 const response = await lumina.traceLLM(
   async () =>
     anthropic.messages.create({
@@ -95,271 +114,307 @@ const response = await lumina.traceLLM(
       messages: [{ role: 'user', content: 'Hello!' }],
     }),
   {
-    name: 'chat',
+    name: 'chat-completion',
     system: 'anthropic',
     prompt: 'Hello!',
+    metadata: { userId: 'user-123' },
   }
 );
 ```
 
-## Hierarchical (Multi-Span) Tracing
+Traces appear in the dashboard immediately with automatic cost calculation and token tracking.
 
-Beyond tracing single LLM calls, Lumina supports hierarchical tracing to monitor complex, multi-step workflows like RAG (Retrieval-Augmented Generation) applications or agent-based systems.
+### Hierarchical Tracing
 
-Use the `lumina.trace()` method to create a parent span for an entire operation. Any `traceLLM` or other `trace` calls inside it will automatically be nested as child spans, giving you a complete end-to-end view.
+Track complex workflows with parent-child span relationships:
 
 ```typescript
-// Trace a complex RAG operation with a parent span
-const answer = await lumina.trace('rag_request', async (parentSpan) => {
-  parentSpan.setAttribute('user_query', 'What is multi-span tracing?');
+const result = await lumina.trace('rag_pipeline', async (parentSpan) => {
+  parentSpan.setAttribute('user_query', query);
 
-  // 1. First child operation: retrieval
-  const documents = await retrieveDocuments(query);
-  parentSpan.addEvent('Retrieved documents');
+  // Child operation 1: Vector retrieval
+  const documents = await lumina.trace('vector_search', async () => {
+    return await vectorDB.search(query);
+  });
 
-  // 2. Second child operation: synthesis (nested LLM call)
-  // This traceLLM call will be a child of 'rag_request'
-  const response = await lumina.traceLLM(
-    () => llm.generate({ prompt: createPrompt(query, documents) }),
-    { name: 'synthesis' }
+  // Child operation 2: LLM synthesis (automatically nested)
+  const completion = await lumina.traceLLM(
+    () =>
+      anthropic.messages.create({
+        model: 'claude-sonnet-4-5',
+        messages: [{ role: 'user', content: buildPrompt(query, documents) }],
+      }),
+    { name: 'llm_synthesis', system: 'anthropic' }
   );
 
-  return response.completion;
+  return completion;
 });
 ```
 
-This creates a complete, debuggable trace in the Lumina UI, showing the `rag_request` as the top-level operation with `synthesis` nested inside it, allowing you to analyze latency and behavior for both the overall process and its individual components.
+View the complete trace hierarchy in the dashboard with per-span costs and latency breakdowns.
+
+---
 
 ## Architecture
 
 ```
 ┌─────────────────────┐
-│  Your LLM App       │
+│  Application        │
 │  + @uselumina/sdk   │
 └──────────┬──────────┘
            │ OTLP/HTTP
            v
-┌───────────────────────────────────────────────────┐
-│  Lumina Platform (Docker Compose)                 │
-│                                                   │
-│  ┌──────────┐    ┌──────────┐   ┌────────────┐  │
-│  │Ingestion │───►│   NATS   │──►│  Workers   │  │
-│  │  :9411   │    │  Queue   │   │ (Cost &    │  │
-│  └──────────┘    └──────────┘   │  Quality)  │  │
-│                                  └─────┬──────┘  │
-│                                        │          │
-│  ┌──────────┐    ┌────────────────────▼──┐      │
-│  │  Query   │◄───│    PostgreSQL          │      │
-│  │  :8081   │    │  (7-day retention)     │      │
-│  └────┬─────┘    └────────────────────────┘      │
-│       │                                           │
-│  ┌────▼──────┐   ┌──────────────┐                │
-│  │ Dashboard │   │Replay Engine │                │
-│  │  :3000    │   │    :8082     │                │
-│  └───────────┘   └──────────────┘                │
-└───────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│  Lumina Platform                             │
+│                                              │
+│  ┌──────────┐    ┌──────────┐   ┌────────┐ │
+│  │Ingestion │───►│   NATS   │──►│Workers │ │
+│  │  :9411   │    │  Queue   │   │(Async) │ │
+│  └──────────┘    └──────────┘   └───┬────┘ │
+│                                      │      │
+│  ┌──────────┐    ┌──────────────────▼────┐ │
+│  │ Query    │◄───│    PostgreSQL         │ │
+│  │ API      │    │  (Traces + Analytics) │ │
+│  │  :8081   │    └───────────────────────┘ │
+│  └────┬─────┘                               │
+│       │                                     │
+│  ┌────▼──────┐   ┌──────────────┐          │
+│  │ Dashboard │   │Replay Engine │          │
+│  │  :3000    │   │    :8082     │          │
+│  └───────────┘   └──────────────┘          │
+└──────────────────────────────────────────────┘
 ```
 
-**📊 [View Detailed Architecture](./docs/guides/ARCHITECTURE.md)** - See interactive Mermaid diagram and full system design with component details, data flows, and scaling considerations.
+**Ingestion Service**
+Receives OTLP traces over HTTP. Validates schema and publishes to NATS for async processing.
 
-## Key Features in Action
+**Worker Pool**
+Consumes traces from queue. Calculates costs, extracts metadata, and persists to PostgreSQL.
 
-### 🔍 Real-Time Trace Monitoring
+**Query API**
+Provides REST endpoints for trace retrieval, analytics, and filtering. Powers the dashboard and external integrations.
 
-Monitor every LLM call with detailed traces showing prompts, responses, costs, and latency.
+**Replay Engine**
+Captures production traces, re-executes with modified parameters, and compares outputs using semantic similarity models.
 
-![Trace Monitoring](./docs/assets/screenshots/trace-detail.png)
+**Dashboard**
+Next.js application for visualization, trace inspection, and replay management.
 
-### 💰 Cost Analytics
-
-Track spending across models and services. Identify expensive queries and optimize costs.
-
-![Cost Analytics](./docs/assets/screenshots/cost-analytics.png)
-
-### 🔄 Replay Testing with Semantic Diff
-
-Capture production traces, replay with new prompts, and see side-by-side diffs with semantic quality scores.
-
-![Replay Testing](./docs/assets/screenshots/replay-testing.png)
-
-### 🚨 Smart Alerting
-
-Get notified when costs spike or response quality degrades. Configure custom thresholds and webhook endpoints.
-
-![Alerts](./docs/assets/screenshots/alert-triggered.png)
-
-## Documentation
-
-- **[Quickstart Guide](./docs/guides/QUICKSTART.md)** - Get started in 5 minutes
-- **[API Reference](./docs/api/API_REFERENCE.md)** - Complete API documentation (OpenAPI/Swagger)
-- **[Architecture](./docs/guides/ARCHITECTURE.md)** - System design and component details
-- **[Troubleshooting](./docs/guides/TROUBLESHOOTING.md)** - Common issues and solutions
-
-## Project Structure
-
-```
-lumina/
-├── packages/
-│   ├── sdk/              # Client SDK for instrumentation
-│   └── core/             # Shared business logic
-│       ├── cost-calculator.ts
-│       ├── diff-engine.ts
-│       ├── hash.ts
-│       └── ...
-├── services/
-│   ├── ingestion/        # Trace ingestion (Port 9411)
-│   ├── query/            # Query API (Port 8081)
-│   └── replay/           # Replay engine (Port 8082)
-├── examples/
-│   └── nextjs-rag/       # Example Next.js application
-└── docs/                 # Documentation
-```
-
-## API Endpoints
-
-### Ingestion Service (Port 9411)
-
-- `POST /v1/traces` - Ingest traces
-- `GET /health` - Health check
-
-### Query API (Port 8081)
-
-- `GET /api/traces` - Query traces
-- `GET /api/traces/{id}` - Get specific trace
-- `GET /api/analytics/cost` - Cost analytics
-- `GET /api/analytics/latency` - Latency analytics
-
-### Replay Engine (Port 8082)
-
-- `POST /replay/capture` - Create replay set
-- `POST /replay/run` - Execute replay
-- `GET /replay/{id}` - Get replay status
-- `GET /replay/{id}/diff` - Get diff results
-- `GET /replay` - List replay sets
-
-See [API Reference](./docs/api/API_REFERENCE.md) for complete documentation.
-
-## Example Usage
-
-### Query Traces
-
-```bash
-curl "http://localhost:8081/api/traces?service=my-app&limit=10"
-```
-
-### Get Cost Analytics
-
-```bash
-curl "http://localhost:8081/api/analytics/cost?service=my-app&startDate=2024-01-01"
-```
-
-### Run Regression Tests
-
-```bash
-# 1. Create replay set
-curl -X POST http://localhost:8082/replay/capture \
-  -H "Content-Type: application/json" \
-  -d '{"name":"My Test","traceIds":["trace1","trace2"]}'
-
-# 2. Execute replay
-curl -X POST http://localhost:8082/replay/run \
-  -H "Content-Type: application/json" \
-  -d '{"replayId":"<replay-id-from-step-1>"}'
-
-# 3. View results
-curl "http://localhost:8082/replay/<replay-id>/diff"
-```
-
-## Tech Stack
-
-- **Runtime:** Bun
-- **Language:** TypeScript
-- **Framework:** Hono
-- **Database:** PostgreSQL
-- **Standards:** OpenTelemetry
-
-## Requirements
-
-- Bun 1.0+
-- PostgreSQL 14+
-- Node.js 20+ (for examples)
-
-## Development
-
-```bash
-# Install dependencies
-bun install
-
-# Run tests (if available)
-bun test
-
-# Start services in dev mode
-cd services/ingestion && bun run dev
-cd services/query && bun run dev
-cd services/replay && bun run dev
-```
-
-## Configuration
-
-Set environment variables:
-
-```bash
-# Database
-export DATABASE_URL="postgres://user@localhost:5432/lumina"
-
-# Service ports (optional)
-export INGESTION_PORT=9411
-export QUERY_PORT=8081
-export REPLAY_PORT=8082
-```
-
-## Deployment Options
-
-### Self-Hosting (Recommended for getting started)
-
-Lumina is designed to be self-hosted on your infrastructure:
-
-- **Full control** over your data and infrastructure
-- **Zero vendor lock-in** - you own your observability data
-- **Deploy anywhere** - Docker, Kubernetes, bare metal
-- **Production-ready** - PostgreSQL backend, OTEL-compliant
-
-Follow the [Quick Start](#quick-start) guide above to get running locally. Docker Compose and Kubernetes deployment guides coming soon.
-
-### Managed Cloud (Coming Soon)
-
-For teams that want a fully managed solution:
-
-- **Hosted infrastructure** - we handle scaling, updates, backups
-- **Enterprise features** - SSO, RBAC, SLA guarantees
-- **Free tier available** for development and small teams
-- **Pricing based on usage** - traces ingested, storage, replays
-
-[Join the waitlist at uselumina.io](https://uselumina.io) for early access to managed Lumina.
-
-## Contributing
-
-We welcome contributions from the community!
-
-- **Read the [Contributing Guide](./CONTRIBUTING.md)** for development setup and guidelines
-- **Check [Good First Issues](https://github.com/use-lumina/Lumina/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)** for beginner-friendly tasks
-- **Join the discussion** in [GitHub Discussions](https://github.com/use-lumina/Lumina/discussions)
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed instructions.
-
-## License
-
-Apache 2.0 - See [LICENSE](./LICENSE) for details.
-
-Lumina is free and open-source software. You can use it for any purpose, including commercial projects.
-
-## Support
-
-- **Documentation:** [docs](http://docs.uselumina.io/)
-- **GitHub Issues:** [Bug reports & feature requests](https://github.com/use-lumina/Lumina/issues)
-- **GitHub Discussions:** [Questions & community chat](https://github.com/use-lumina/Lumina/discussions)
-- **Examples:** [examples/nextjs-rag](./examples/nextjs-rag)
+Full architecture documentation: [docs/guides/ARCHITECTURE.md](./docs/guides/ARCHITECTURE.md)
 
 ---
 
-**Built with ❤️ by the Lumina community** • [Star us on GitHub](https://github.com/use-lumina/Lumina) ⭐
+## Self-Hosted Limits
+
+The open-source version includes usage limits to prevent abuse:
+
+- **50,000 traces per day** — Resets at midnight UTC
+- **7-day retention** — Automatic cleanup of older traces
+- **All features enabled** — No paywalled functionality
+
+For unlimited usage, deploy with custom configuration or consider the managed cloud offering.
+
+---
+
+## Configuration
+
+### Environment Variables
+
+```bash
+# Database
+DATABASE_URL=postgres://user:password@localhost:5432/lumina
+
+# Service Ports
+INGESTION_PORT=9411
+QUERY_PORT=8081
+REPLAY_PORT=8082
+
+# Retention Policy
+TRACE_RETENTION_DAYS=7
+DAILY_TRACE_LIMIT=50000
+
+# Replay (optional - only for LLM re-execution)
+ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_API_KEY=sk-...
+```
+
+### SDK Configuration
+
+```typescript
+const lumina = initLumina({
+  endpoint: 'http://localhost:9411/v1/traces',
+  service_name: 'my-service',
+
+  // Optional: disable in development
+  enabled: process.env.NODE_ENV === 'production',
+
+  // Optional: custom metadata
+  resource: {
+    environment: 'production',
+    version: '1.2.0',
+  },
+});
+```
+
+---
+
+## API Reference
+
+### Ingestion (Port 9411)
+
+```bash
+POST /v1/traces
+```
+
+Accepts OTLP/JSON formatted traces. Compatible with OpenTelemetry SDKs.
+
+### Query API (Port 8081)
+
+```bash
+GET  /api/traces
+GET  /api/traces/:id
+GET  /api/analytics/cost
+GET  /api/analytics/latency
+POST /api/alerts
+```
+
+Full API documentation: [docs/api/API_REFERENCE.md](./docs/api/API_REFERENCE.md)
+
+### Replay Engine (Port 8082)
+
+```bash
+POST /replay/capture     # Create replay set from trace IDs
+POST /replay/run         # Execute replay with new parameters
+GET  /replay/:id         # Get replay status
+GET  /replay/:id/diff    # Compare original vs replayed outputs
+```
+
+---
+
+## Use Cases
+
+**Production Monitoring**
+Track all LLM calls across microservices. Identify expensive queries, slow endpoints, and quality degradations.
+
+**Cost Optimization**
+Analyze spending by model, service, and user. Find opportunities to switch models or optimize prompts.
+
+**Regression Testing**
+Test prompt changes against real production queries before deployment. Catch quality regressions with semantic scoring.
+
+**Debugging**
+Reproduce production issues with full trace context. View prompt, response, model parameters, and execution timeline.
+
+**Compliance**
+Audit all AI interactions with complete logs. Filter by user, timestamp, or custom metadata.
+
+---
+
+## Documentation
+
+- [Quickstart Guide](./docs/guides/QUICKSTART.md) — Get running in 5 minutes
+- [Architecture](./docs/guides/ARCHITECTURE.md) — System design and components
+- [API Reference](./docs/api/API_REFERENCE.md) — Complete REST API documentation
+- [Multi-Span Tracing](./docs/guides/multi-span-tracing.md) — Hierarchical trace implementation
+- [Troubleshooting](./docs/guides/TROUBLESHOOTING.md) — Common issues and solutions
+
+---
+
+## Examples
+
+Full example applications in `/examples`:
+
+- **[nextjs-rag](./examples/nextjs-rag)** — Next.js RAG application with hierarchical tracing
+- **[anthropic-basic](./examples/anthropic-basic)** — Basic Claude integration
+- **[openai-basic](./examples/openai-basic)** — Basic GPT integration
+
+---
+
+## Deployment
+
+### Docker
+
+Use the provided Docker Compose configuration for production deployments:
+
+```bash
+cd infra/docker
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+```
+
+### Kubernetes
+
+Helm charts coming soon. See [infra/k8s](./infra/k8s) for manifests.
+
+### Managed Cloud
+
+For teams preferring a fully managed solution with enterprise features, SSO, and SLA guarantees, visit [uselumina.io](https://uselumina.io).
+
+---
+
+## Requirements
+
+- **Runtime:** Bun 1.0+ or Node.js 20+
+- **Database:** PostgreSQL 14+
+- **Queue:** NATS 2.9+
+- **Memory:** 2GB minimum, 4GB recommended
+
+---
+
+## Roadmap
+
+- [ ] Helm charts for Kubernetes deployment
+- [ ] Support for additional LLM providers (Cohere, Replicate, Together)
+- [ ] Custom alert rules with complex thresholds
+- [ ] Trace sampling for high-volume workloads
+- [ ] Multi-tenancy support
+- [ ] Prometheus metrics export
+
+See [GitHub Issues](https://github.com/use-lumina/Lumina/issues) for detailed roadmap and feature requests.
+
+---
+
+## Contributing
+
+Contributions are welcome from developers of all experience levels.
+
+**Getting Started**
+
+1. Read the [Contributing Guide](./CONTRIBUTING.md)
+2. Browse [Good First Issues](https://github.com/use-lumina/Lumina/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+3. Join the discussion in [GitHub Discussions](https://github.com/use-lumina/Lumina/discussions)
+
+**Development Setup**
+
+```bash
+git clone https://github.com/use-lumina/Lumina.git
+cd Lumina
+bun install
+createdb lumina
+
+# Run tests
+bun test
+
+# Start services in dev mode
+bun run dev
+```
+
+---
+
+## License
+
+Apache 2.0 — See [LICENSE](./LICENSE) for details.
+
+Lumina is free and open-source software. Use it for any purpose, including commercial projects, without restriction.
+
+---
+
+## Support
+
+- **Documentation:** [docs.uselumina.io](http://docs.uselumina.io/)
+- **Bug Reports:** [GitHub Issues](https://github.com/use-lumina/Lumina/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/use-lumina/Lumina/discussions)
+- **Commercial Support:** Contact us at [uselumina.io](https://uselumina.io)
+
+---
+
+Built by the open-source community. [Star us on GitHub](https://github.com/use-lumina/Lumina) if Lumina helps your team.
