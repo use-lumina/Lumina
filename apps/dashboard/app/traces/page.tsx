@@ -65,36 +65,13 @@ import {
   type Trace as APITrace,
   type TraceTrendsResponse,
 } from '@/lib/api';
-import type { UITrace, TraceSpan } from '@/types/trace';
+import type { UITrace } from '@/types/trace';
 
 // API Trace type for this page (keeping snake_case from API)
 export type Trace = APITrace;
 
-// Map API trace to UI trace
+// Map API trace to UI trace for drawer
 function mapApiTraceToUI(trace: Trace): UITrace {
-  // Flatten the hierarchical trace structure into a flat array of spans
-  const flattenSpans = (span: Trace): TraceSpan[] => {
-    const spans: TraceSpan[] = [
-      {
-        name: span.service_name,
-        startMs: 0, // We'll calculate relative timing based on timestamp
-        durationMs: span.latency_ms,
-        type: 'processing',
-      },
-    ];
-
-    // Add children spans
-    if (span.children && span.children.length > 0) {
-      span.children.forEach((child) => {
-        spans.push(...flattenSpans(child));
-      });
-    }
-
-    return spans;
-  };
-
-  const spans = flattenSpans(trace);
-
   return {
     id: trace.trace_id,
     service: trace.service_name,
@@ -109,7 +86,6 @@ function mapApiTraceToUI(trace: Trace): UITrace {
     createdAt: trace.timestamp,
     prompt: trace.prompt,
     response: trace.response,
-    spans,
     hierarchicalSpan: trace,
     metadata: {
       tokensIn: trace.prompt_tokens,
@@ -348,8 +324,7 @@ function TracesContent() {
     if (traceId) {
       const trace = traces.find((t) => t.trace_id === traceId);
       if (trace) {
-        setSelectedTrace(mapApiTraceToUI(trace));
-        setDrawerOpen(true);
+        handleTraceClick(trace);
       }
     }
   }, [isInitialLoading, searchParams, traces]);
@@ -372,7 +347,7 @@ function TracesContent() {
   const services = Array.from(new Set(traces.map((t) => t.service_name)));
   const models = Array.from(new Set(traces.map((t) => t.model)));
 
-  // Handle trace click
+  // Handle trace click - open drawer
   const handleTraceClick = async (trace: Trace) => {
     // Fetch full trace details with prompt and response
     try {

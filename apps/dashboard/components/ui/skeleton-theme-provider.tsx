@@ -1,11 +1,19 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { SkeletonTheme } from 'react-loading-skeleton';
 import { useTheme } from '@/components/theme-provider';
 
 export function SkeletonThemeProvider({ children }: { children: React.ReactNode }) {
   const { theme } = useTheme();
-  const isDark = theme === 'dark';
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Use a neutral theme during SSR to match initial client render
+  const isDark = mounted ? theme === 'dark' : false;
 
   return (
     <SkeletonTheme

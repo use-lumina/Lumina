@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -13,8 +13,19 @@ import {
 } from '@/components/ui/drawer';
 import { SpanTimeline } from './trace-timeline';
 import { SpanTree } from './span-tree';
-import { Clock, DollarSign, User, Hash, Copy, Check, WrapText, Code2, X } from 'lucide-react';
-import type { UITrace } from '@/types/trace';
+import {
+  Clock,
+  DollarSign,
+  User,
+  Hash,
+  Copy,
+  Check,
+  WrapText,
+  Code2,
+  X,
+  ExternalLink,
+} from 'lucide-react';
+import type { UITrace, HierarchicalSpan } from '@/types/trace';
 
 interface TraceDetailDrawerProps {
   trace: UITrace | null;
@@ -27,6 +38,12 @@ export function TraceDetailDrawer({ trace, open, onOpenChange }: TraceDetailDraw
   const [copiedResponse, setCopiedResponse] = useState(false);
   const [wrapPrompt, setWrapPrompt] = useState(true);
   const [wrapResponse, setWrapResponse] = useState(true);
+  const [selectedSpan, setSelectedSpan] = useState<HierarchicalSpan | null>(null);
+
+  // Reset selected span when trace changes
+  useEffect(() => {
+    setSelectedSpan(trace?.hierarchicalSpan || null);
+  }, [trace]);
 
   const copyToClipboard = async (text: string, type: 'prompt' | 'response') => {
     await navigator.clipboard.writeText(text);
@@ -40,6 +57,21 @@ export function TraceDetailDrawer({ trace, open, onOpenChange }: TraceDetailDraw
   };
 
   if (!trace) return null;
+
+  // Use selected span data or fallback to trace data
+  const displayData = selectedSpan
+    ? {
+        prompt: selectedSpan.prompt,
+        response: selectedSpan.response,
+        promptTokens: selectedSpan.prompt_tokens,
+        completionTokens: selectedSpan.completion_tokens,
+      }
+    : {
+        prompt: trace.prompt,
+        response: trace.response,
+        promptTokens: trace.metadata?.tokensIn,
+        completionTokens: trace.metadata?.tokensOut,
+      };
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -55,14 +87,25 @@ export function TraceDetailDrawer({ trace, open, onOpenChange }: TraceDetailDraw
                     {trace.id}
                   </Badge>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => onOpenChange(false)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 !cursor-pointer"
+                    onClick={() => window.open(`/traces/${trace.id}`, '_blank')}
+                    title="Open in new tab"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => onOpenChange(false)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
               <DrawerDescription className="text-left">
                 {trace.service} • {trace.endpoint}
@@ -121,7 +164,11 @@ export function TraceDetailDrawer({ trace, open, onOpenChange }: TraceDetailDraw
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">Span Hierarchy</h3>
                 <div className="rounded-lg border border-(--accent) border-border bg-card p-6">
-                  <SpanTree span={trace.hierarchicalSpan} />
+                  <SpanTree
+                    span={trace.hierarchicalSpan}
+                    selectedSpanId={selectedSpan?.span_id}
+                    onSpanSelect={setSelectedSpan}
+                  />
                 </div>
               </div>
             ) : trace.spans && trace.spans.length > 0 ? (
@@ -141,10 +188,10 @@ export function TraceDetailDrawer({ trace, open, onOpenChange }: TraceDetailDraw
                   className="flex-col  items-start gap-1 py-3 data-[state=active]:bg-background"
                 >
                   <span className="font-medium">Prompt</span>
-                  {trace.metadata?.tokensIn !== undefined && (
+                  {displayData.promptTokens !== undefined && (
                     <span className="text-xs text-muted-foreground font-normal">
-                      {typeof trace.metadata.tokensIn === 'number'
-                        ? trace.metadata.tokensIn.toLocaleString()
+                      {typeof displayData.promptTokens === 'number'
+                        ? displayData.promptTokens.toLocaleString()
                         : ''}{' '}
                       tokens
                     </span>
@@ -155,10 +202,10 @@ export function TraceDetailDrawer({ trace, open, onOpenChange }: TraceDetailDraw
                   className="flex-col items-start gap-1 py-3 data-[state=active]:bg-background"
                 >
                   <span className="font-medium">Response</span>
-                  {trace.metadata?.tokensOut !== undefined && (
+                  {displayData.completionTokens !== undefined && (
                     <span className="text-xs text-muted-foreground font-normal">
-                      {typeof trace.metadata.tokensOut === 'number'
-                        ? trace.metadata.tokensOut.toLocaleString()
+                      {typeof displayData.completionTokens === 'number'
+                        ? displayData.completionTokens.toLocaleString()
                         : ''}{' '}
                       tokens
                     </span>
@@ -180,10 +227,10 @@ export function TraceDetailDrawer({ trace, open, onOpenChange }: TraceDetailDraw
                     <div className="flex items-center gap-2">
                       <Code2 className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm font-medium">Input Prompt</span>
-                      {trace.metadata?.tokensIn !== undefined && (
+                      {displayData.promptTokens !== undefined && (
                         <Badge variant="secondary" className="text-xs">
-                          {typeof trace.metadata.tokensIn === 'number'
-                            ? trace.metadata.tokensIn.toLocaleString()
+                          {typeof displayData.promptTokens === 'number'
+                            ? displayData.promptTokens.toLocaleString()
                             : ''}{' '}
                           tokens
                         </Badge>
@@ -203,7 +250,7 @@ export function TraceDetailDrawer({ trace, open, onOpenChange }: TraceDetailDraw
                         variant="ghost"
                         size="sm"
                         className="h-8 gap-2"
-                        onClick={() => copyToClipboard(trace.prompt || '', 'prompt')}
+                        onClick={() => copyToClipboard(displayData.prompt || '', 'prompt')}
                       >
                         {copiedPrompt ? (
                           <>
@@ -226,7 +273,7 @@ export function TraceDetailDrawer({ trace, open, onOpenChange }: TraceDetailDraw
                         wrapPrompt ? 'whitespace-pre-wrap wrap-break-word' : 'whitespace-pre'
                       }`}
                     >
-                      {trace.prompt || 'No prompt data available'}
+                      {displayData.prompt || 'No prompt data available'}
                     </pre>
                   </div>
                 </div>
@@ -239,10 +286,10 @@ export function TraceDetailDrawer({ trace, open, onOpenChange }: TraceDetailDraw
                     <div className="flex items-center gap-2">
                       <Code2 className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm font-medium">AI Response</span>
-                      {trace.metadata?.tokensOut !== undefined && (
+                      {displayData.completionTokens !== undefined && (
                         <Badge variant="secondary" className="text-xs">
-                          {typeof trace.metadata.tokensOut === 'number'
-                            ? trace.metadata.tokensOut.toLocaleString()
+                          {typeof displayData.completionTokens === 'number'
+                            ? displayData.completionTokens.toLocaleString()
                             : ''}{' '}
                           tokens
                         </Badge>
@@ -262,7 +309,7 @@ export function TraceDetailDrawer({ trace, open, onOpenChange }: TraceDetailDraw
                         variant="ghost"
                         size="sm"
                         className="h-8 gap-2"
-                        onClick={() => copyToClipboard(trace.response || '', 'response')}
+                        onClick={() => copyToClipboard(displayData.response || '', 'response')}
                       >
                         {copiedResponse ? (
                           <>
@@ -285,7 +332,7 @@ export function TraceDetailDrawer({ trace, open, onOpenChange }: TraceDetailDraw
                         wrapResponse ? 'whitespace-pre-wrap wrap-break-word' : 'whitespace-pre'
                       }`}
                     >
-                      {trace.response || 'No response data available'}
+                      {displayData.response || 'No response data available'}
                     </pre>
                   </div>
                 </div>

@@ -1,14 +1,50 @@
+'use client';
+
+import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SpanTimeline } from './trace-timeline';
+import { SpanTree } from './span-tree';
 import { Clock, DollarSign, User, Hash } from 'lucide-react';
-import type { UITrace } from '@/types/trace';
+import type { UITrace, HierarchicalSpan } from '@/types/trace';
 
 interface TraceDetailProps {
   trace: UITrace;
 }
 
 export function TraceDetail({ trace }: TraceDetailProps) {
+  // Track the selected span (defaults to root/parent span)
+  const [selectedSpan, setSelectedSpan] = useState<HierarchicalSpan | null>(
+    trace.hierarchicalSpan || null
+  );
+
+  // Use selected span data or fallback to trace data
+  const displayData = selectedSpan
+    ? {
+        service: selectedSpan.service_name,
+        endpoint: selectedSpan.endpoint,
+        model: selectedSpan.model,
+        latencyMs: selectedSpan.latency_ms,
+        costUsd: selectedSpan.cost_usd ?? 0,
+        prompt: selectedSpan.prompt,
+        response: selectedSpan.response,
+        promptTokens: selectedSpan.prompt_tokens,
+        completionTokens: selectedSpan.completion_tokens,
+        status: selectedSpan.status,
+      }
+    : {
+        service: trace.service,
+        endpoint: trace.endpoint,
+        model: trace.model,
+        latencyMs: trace.latencyMs,
+        costUsd: trace.costUsd,
+        prompt: trace.prompt,
+        response: trace.response,
+        promptTokens: trace.metadata?.tokensIn,
+        completionTokens: trace.metadata?.tokensOut,
+        status: trace.status,
+      };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -20,7 +56,7 @@ export function TraceDetail({ trace }: TraceDetailProps) {
           </Badge>
         </div>
         <p className="text-muted-foreground">
-          {trace.service} • {trace.endpoint}
+          {displayData.service} • {displayData.endpoint}
         </p>
       </div>
 
@@ -31,7 +67,7 @@ export function TraceDetail({ trace }: TraceDetailProps) {
             <Clock className="h-4 w-4" />
             <span>Latency</span>
           </div>
-          <p className="text-2xl font-semibold">{trace.latencyMs}ms</p>
+          <p className="text-2xl font-semibold">{displayData.latencyMs}ms</p>
         </div>
 
         <div className="rounded-lg border border-border bg-card p-4">
@@ -39,7 +75,7 @@ export function TraceDetail({ trace }: TraceDetailProps) {
             <DollarSign className="h-4 w-4" />
             <span>Cost</span>
           </div>
-          <p className="text-2xl font-semibold">${trace.costUsd.toFixed(4)}</p>
+          <p className="text-2xl font-semibold">${displayData.costUsd.toFixed(4)}</p>
         </div>
 
         <div className="rounded-lg border border-border bg-card p-4">
@@ -47,7 +83,7 @@ export function TraceDetail({ trace }: TraceDetailProps) {
             <Hash className="h-4 w-4" />
             <span>Model</span>
           </div>
-          <p className="text-2xl font-semibold">{trace.model}</p>
+          <p className="text-2xl font-semibold">{displayData.model}</p>
         </div>
 
         <div className="rounded-lg border border-(--border) bg-card p-4">
@@ -57,27 +93,38 @@ export function TraceDetail({ trace }: TraceDetailProps) {
           </div>
           <Badge
             variant={
-              trace.status === 'healthy'
+              displayData.status === 'healthy' || displayData.status === 'success'
                 ? 'success'
-                : trace.status === 'degraded'
+                : displayData.status === 'degraded'
                   ? 'warning'
                   : 'destructive'
             }
           >
-            {trace.status}
+            {displayData.status}
           </Badge>
         </div>
       </div>
 
-      {/* Span Timeline */}
-      {trace.spans && trace.spans.length > 0 && (
+      {/* Hierarchical Span Tree or Span Timeline */}
+      {trace.hierarchicalSpan ? (
+        <div className="space-y-3">
+          <h3 className="text-lg font-semibold">Span Hierarchy</h3>
+          <div className="rounded-lg border border-border bg-card p-6">
+            <SpanTree
+              span={trace.hierarchicalSpan}
+              selectedSpanId={selectedSpan?.span_id}
+              onSpanSelect={setSelectedSpan}
+            />
+          </div>
+        </div>
+      ) : trace.spans && trace.spans.length > 0 ? (
         <div className="space-y-3">
           <h3 className="text-lg font-semibold">Execution Timeline</h3>
           <div className="rounded-lg border border-border bg-card p-6">
             <SpanTimeline spans={trace.spans} totalDuration={trace.latencyMs} />
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Tabs for prompt/response/metadata */}
       <Tabs defaultValue="prompt" className="w-full">
@@ -90,7 +137,7 @@ export function TraceDetail({ trace }: TraceDetailProps) {
         <TabsContent value="prompt" className="mt-4">
           <div className="rounded-lg border border-(--sidebar-border) bg-muted p-6">
             <pre className="whitespace-pre-wrap text-sm font-mono">
-              {trace.prompt || 'No prompt data available'}
+              {displayData.prompt || 'No prompt data available'}
             </pre>
           </div>
         </TabsContent>
@@ -98,7 +145,7 @@ export function TraceDetail({ trace }: TraceDetailProps) {
         <TabsContent value="response" className="mt-4">
           <div className="rounded-lg border border-(--sidebar-border) bg-muted p-6">
             <pre className="whitespace-pre-wrap text-sm font-mono">
-              {trace.response || 'No response data available'}
+              {displayData.response || 'No response data available'}
             </pre>
           </div>
         </TabsContent>
@@ -106,34 +153,32 @@ export function TraceDetail({ trace }: TraceDetailProps) {
         <TabsContent value="metadata" className="mt-4">
           <div className="rounded-lg border border-(--sidebar-border) bg-card p-6">
             <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {trace.metadata?.userId && (
-                <>
-                  <dt className="text-sm font-medium text-muted-foreground">User ID</dt>
-                  <dd className="text-sm font-mono">{trace.metadata.userId}</dd>
-                </>
-              )}
-              {trace.metadata?.sessionId && (
-                <>
-                  <dt className="text-sm font-medium text-muted-foreground">Session ID</dt>
-                  <dd className="text-sm font-mono">{trace.metadata.sessionId}</dd>
-                </>
-              )}
-              {trace.metadata?.tokensIn !== undefined && (
+              {displayData.promptTokens !== undefined && (
                 <>
                   <dt className="text-sm font-medium text-muted-foreground">Tokens In</dt>
-                  <dd className="text-sm font-mono">{trace.metadata.tokensIn}</dd>
+                  <dd className="text-sm font-mono">{displayData.promptTokens}</dd>
                 </>
               )}
-              {trace.metadata?.tokensOut !== undefined && (
+              {displayData.completionTokens !== undefined && (
                 <>
                   <dt className="text-sm font-medium text-muted-foreground">Tokens Out</dt>
-                  <dd className="text-sm font-mono">{trace.metadata.tokensOut}</dd>
+                  <dd className="text-sm font-mono">{displayData.completionTokens}</dd>
                 </>
               )}
-              {trace.metadata?.temperature !== undefined && (
+              <dt className="text-sm font-medium text-muted-foreground">Service</dt>
+              <dd className="text-sm font-mono">{displayData.service}</dd>
+              <dt className="text-sm font-medium text-muted-foreground">Endpoint</dt>
+              <dd className="text-sm font-mono">{displayData.endpoint}</dd>
+              <dt className="text-sm font-medium text-muted-foreground">Model</dt>
+              <dd className="text-sm font-mono">{displayData.model}</dd>
+              <dt className="text-sm font-medium text-muted-foreground">Latency</dt>
+              <dd className="text-sm font-mono">{displayData.latencyMs}ms</dd>
+              <dt className="text-sm font-medium text-muted-foreground">Cost</dt>
+              <dd className="text-sm font-mono">${displayData.costUsd.toFixed(6)}</dd>
+              {selectedSpan && (
                 <>
-                  <dt className="text-sm font-medium text-muted-foreground">Temperature</dt>
-                  <dd className="text-sm font-mono">{trace.metadata.temperature}</dd>
+                  <dt className="text-sm font-medium text-muted-foreground">Span ID</dt>
+                  <dd className="text-sm font-mono">{selectedSpan.span_id}</dd>
                 </>
               )}
               <dt className="text-sm font-medium text-muted-foreground">Created At</dt>

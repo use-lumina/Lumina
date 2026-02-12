@@ -37,11 +37,11 @@ export function KPICardSkeleton() {
     <Card className="p-6 border-(--accent)">
       <div className="flex items-start justify-between">
         <div className="space-y-3 flex-1">
-          <Skeleton height={16} width={128} />
-          <Skeleton height={36} width={112} />
-          <Skeleton height={16} width={144} />
+          <Skeleton height={16} width="128px" />
+          <Skeleton height={36} width="112px" />
+          <Skeleton height={16} width="144px" />
         </div>
-        <Skeleton height={48} width={48} borderRadius={8} />
+        <Skeleton height={48} width={48} borderRadius="8px" />
       </div>
     </Card>
   );
@@ -53,10 +53,10 @@ export function ChartCardSkeleton({ className }: { className?: string }) {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="space-y-2">
-            <Skeleton height={20} width={160} />
-            <Skeleton height={12} width={192} />
+            <Skeleton height={20} width="160px" />
+            <Skeleton height={12} width="192px" />
           </div>
-          <Skeleton height={36} width={128} />
+          <Skeleton height={36} width="128px" />
         </div>
         <Skeleton height={300} />
       </div>
@@ -70,25 +70,25 @@ export function TraceDetailSkeleton() {
       {/* Header */}
       <div>
         <div className="flex items-center gap-3 mb-2">
-          <Skeleton height={32} width={160} />
-          <Skeleton height={20} width={96} />
+          <Skeleton height={32} width="160px" />
+          <Skeleton height={20} width="96px" />
         </div>
-        <Skeleton height={16} width={256} />
+        <Skeleton height={16} width="256px" />
       </div>
 
       {/* Metadata cards */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className="rounded-lg border border-border bg-card p-4">
-            <Skeleton height={16} width={64} className="mb-2" />
-            <Skeleton height={32} width={80} />
+            <Skeleton height={16} width="64px" className="mb-2" />
+            <Skeleton height={32} width="80px" />
           </div>
         ))}
       </div>
 
       {/* Timeline */}
       <div className="space-y-3">
-        <Skeleton height={24} width={192} />
+        <Skeleton height={24} width="192px" />
         <div className="rounded-lg border border-border bg-card p-6">
           <Skeleton height={128} />
         </div>
@@ -97,9 +97,9 @@ export function TraceDetailSkeleton() {
       {/* Tabs */}
       <div className="space-y-4">
         <div className="flex gap-2">
-          <Skeleton height={40} width={96} />
-          <Skeleton height={40} width={96} />
-          <Skeleton height={40} width={96} />
+          <Skeleton height={40} width="96px" />
+          <Skeleton height={40} width="96px" />
+          <Skeleton height={40} width="96px" />
         </div>
         <div className="rounded-lg border border-border bg-muted p-6">
           <Skeleton height={160} />
@@ -115,13 +115,13 @@ export function AlertCardSkeleton() {
       <div className="flex items-start justify-between">
         <div className="flex-1 space-y-2">
           <div className="flex items-center gap-2">
-            <Skeleton height={20} width={64} />
-            <Skeleton height={20} width={80} />
+            <Skeleton height={20} width="64px" />
+            <Skeleton height={20} width="80px" />
           </div>
           <Skeleton height={20} width="100%" style={{ maxWidth: '28rem' }} />
-          <Skeleton height={16} width={192} />
+          <Skeleton height={16} width="192px" />
         </div>
-        <Skeleton height={36} width={112} />
+        <Skeleton height={36} width="112px" />
       </div>
     </Card>
   );

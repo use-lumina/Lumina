@@ -293,7 +293,7 @@ textarea:disabled,
 }
 
 /* Help cursor for elements with tooltips */
-[title]:not(input):not(textarea),
+[title]:not(input):not(textarea):not(button),
 .cursor-help {
   cursor: help;
 }

@@ -8,22 +8,43 @@ import { Badge } from '@/components/ui/badge';
 interface SpanTreeProps {
   span: HierarchicalSpan;
   level?: number;
+  selectedSpanId?: string;
+  onSpanSelect?: (span: HierarchicalSpan) => void;
 }
 
-export function SpanTree({ span, level = 0 }: SpanTreeProps) {
+export function SpanTree({ span, level = 0, selectedSpanId, onSpanSelect }: SpanTreeProps) {
   const [expanded, setExpanded] = useState(level < 2); // Auto-expand first 2 levels
   const hasChildren = span.children && span.children.length > 0;
   const indent = level * 20;
+  const isSelected = selectedSpanId === span.span_id;
+
+  const handleSpanClick = () => {
+    onSpanSelect?.(span);
+  };
+
+  const handleExpandClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (hasChildren) {
+      setExpanded(!expanded);
+    }
+  };
 
   return (
     <div className="space-y-1">
       <div
-        className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-muted/50 cursor-pointer transition-colors"
+        className={`flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors ${
+          isSelected
+            ? 'bg-primary/10 border border-primary/30'
+            : 'hover:bg-muted/50 border border-transparent'
+        }`}
         style={{ marginLeft: `${indent}px` }}
-        onClick={() => hasChildren && setExpanded(!expanded)}
+        onClick={handleSpanClick}
       >
         {hasChildren ? (
-          <button className="flex items-center justify-center w-5 h-5 flex-shrink-0">
+          <button
+            className="flex items-center justify-center w-5 h-5 flex-shrink-0 hover:bg-muted rounded"
+            onClick={handleExpandClick}
+          >
             {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
           </button>
         ) : (
@@ -32,7 +53,9 @@ export function SpanTree({ span, level = 0 }: SpanTreeProps) {
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-medium text-sm truncate">{span.service_name}</span>
+            <span className={`font-medium text-sm truncate ${isSelected ? 'text-primary' : ''}`}>
+              {span.service_name}
+            </span>
             <Badge variant="secondary" className="text-xs flex-shrink-0">
               {span.span_id}
             </Badge>
@@ -57,7 +80,13 @@ export function SpanTree({ span, level = 0 }: SpanTreeProps) {
       {expanded && hasChildren && (
         <div className="space-y-1">
           {span.children.map((child) => (
-            <SpanTree key={child.span_id} span={child} level={level + 1} />
+            <SpanTree
+              key={child.span_id}
+              span={child}
+              level={level + 1}
+              selectedSpanId={selectedSpanId}
+              onSpanSelect={onSpanSelect}
+            />
           ))}
         </div>
       )}

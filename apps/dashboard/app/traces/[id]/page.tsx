@@ -1,12 +1,33 @@
 import { notFound } from 'next/navigation';
 import { getTraceById, type Trace } from '@/lib/api';
 import { TraceDetail } from '@/components/traces/trace-detail';
-import type { UITrace } from '@/types/trace';
+import type { UITrace, HierarchicalSpan } from '@/types/trace';
 
 export const dynamic = 'force-dynamic';
 
 interface Params {
-  params: { id: string };
+  params: Promise<{ id: string }>;
+}
+
+function mapTraceToHierarchicalSpan(trace: Trace): HierarchicalSpan {
+  return {
+    trace_id: trace.trace_id,
+    span_id: trace.span_id,
+    parent_span_id: trace.parent_span_id,
+    service_name: trace.service_name,
+    endpoint: trace.endpoint,
+    model: trace.model,
+    status: trace.status,
+    latency_ms: trace.latency_ms,
+    cost_usd: trace.cost_usd,
+    prompt_tokens: trace.prompt_tokens,
+    completion_tokens: trace.completion_tokens,
+    prompt: trace.prompt,
+    response: trace.response,
+    timestamp: trace.timestamp,
+    environment: trace.environment,
+    children: trace.children.map(mapTraceToHierarchicalSpan),
+  };
 }
 
 function mapApiTraceToUI(trace: Trace): UITrace {
@@ -25,6 +46,7 @@ function mapApiTraceToUI(trace: Trace): UITrace {
     prompt: trace.prompt,
     response: trace.response,
     spans: (trace.metadata as any)?.spans,
+    hierarchicalSpan: mapTraceToHierarchicalSpan(trace),
     metadata: {
       tokensIn: trace.prompt_tokens,
       tokensOut: trace.completion_tokens,
@@ -37,7 +59,7 @@ function mapApiTraceToUI(trace: Trace): UITrace {
 }
 
 export default async function TraceDetailPage({ params }: Params) {
-  const { id } = params;
+  const { id } = await params;
 
   try {
     const data = await getTraceById(id);
