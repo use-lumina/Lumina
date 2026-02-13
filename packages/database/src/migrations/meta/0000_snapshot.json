@@ -274,14 +274,8 @@
           "name": "alerts_trace_fk",
           "tableFrom": "alerts",
           "tableTo": "traces",
-          "columnsFrom": [
-            "trace_id",
-            "span_id"
-          ],
-          "columnsTo": [
-            "trace_id",
-            "span_id"
-          ],
+          "columnsFrom": ["trace_id", "span_id"],
+          "columnsTo": ["trace_id", "span_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -491,11 +485,7 @@
         "cost_baselines_service_endpoint_window_unique": {
           "name": "cost_baselines_service_endpoint_window_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "service_name",
-            "endpoint",
-            "window_size"
-          ]
+          "columns": ["service_name", "endpoint", "window_size"]
         }
       },
       "policies": {},
@@ -660,12 +650,8 @@
           "name": "replay_results_replay_set_fk",
           "tableFrom": "replay_results",
           "tableTo": "replay_sets",
-          "columnsFrom": [
-            "replay_id"
-          ],
-          "columnsTo": [
-            "replay_id"
-          ],
+          "columnsFrom": ["replay_id"],
+          "columnsTo": ["replay_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -673,14 +659,8 @@
           "name": "replay_results_trace_fk",
           "tableFrom": "replay_results",
           "tableTo": "traces",
-          "columnsFrom": [
-            "trace_id",
-            "span_id"
-          ],
-          "columnsTo": [
-            "trace_id",
-            "span_id"
-          ],
+          "columnsFrom": ["trace_id", "span_id"],
+          "columnsTo": ["trace_id", "span_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1085,10 +1065,7 @@
       "compositePrimaryKeys": {
         "traces_trace_id_span_id_pk": {
           "name": "traces_trace_id_span_id_pk",
-          "columns": [
-            "trace_id",
-            "span_id"
-          ]
+          "columns": ["trace_id", "span_id"]
         }
       },
       "uniqueConstraints": {},
@@ -1203,9 +1180,7 @@
         "users_email_unique": {
           "name": "users_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},
