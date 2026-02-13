@@ -3,6 +3,18 @@ import tseslint from 'typescript-eslint';
 import prettier from 'eslint-plugin-prettier/recommended';
 
 export default [
+  {
+    ignores: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/build/**',
+      '**/.next/**',
+      '**/coverage/**',
+      '**/*.config.js',
+      '**/*.config.ts',
+      '**/*.d.ts',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   prettier,
@@ -22,16 +34,5 @@ export default [
       '@typescript-eslint/no-non-null-assertion': 'warn',
       'no-console': ['warn', { allow: ['warn', 'error'] }],
     },
-  },
-  {
-    ignores: [
-      '**/node_modules/**',
-      '**/dist/**',
-      '**/build/**',
-      '**/.next/**',
-      '**/coverage/**',
-      '**/*.config.js',
-      '**/*.config.ts',
-    ],
   },
 ];
