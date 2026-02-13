@@ -290,7 +290,10 @@ export default function ReplayPage() {
   }
 
   const completedSets = replaySets.filter((s) => s.status === 'completed').length;
-  const totalTraces = replaySets.reduce((sum, s) => sum + s.total_traces, 0);
+  const totalTraces = replaySets.reduce(
+    (sum, s) => sum + (parseInt(String(s.total_traces)) || 0),
+    0
+  );
   const normalizedSummary = normalizeSummary(replaySummary);
 
   return (

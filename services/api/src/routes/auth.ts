@@ -4,7 +4,14 @@
  */
 
 import { Hono } from 'hono';
-import { getDB } from '../database/postgres';
+import { eq } from 'drizzle-orm';
+import {
+  getDatabase,
+  users,
+  apiKeys,
+  getUserByEmail,
+  updateUserPassword,
+} from '../database/client';
 import { generateToken } from '../lib/jwt';
 import { requireAuth, getAuth } from '../middleware/auth';
 
@@ -24,23 +31,17 @@ app.post('/login', async (c) => {
       return c.json({ error: 'Email and password are required' }, 400);
     }
 
-    const sql = getDB().getClient();
+    const db = getDatabase();
 
     // Find user by email
-    const users = await sql`
-      SELECT user_id, customer_id, email, password_hash, name, is_temporary_password
-      FROM users
-      WHERE email = ${email}
-    `;
+    const user = await getUserByEmail(db, email);
 
-    if (users.length === 0) {
+    if (!user) {
       return c.json({ error: 'Invalid email or password' }, 401);
     }
 
-    const user = users[0];
-
     // Verify password using Bun's built-in password verification
-    const isValid = await Bun.password.verify(password, user.password_hash);
+    const isValid = await Bun.password.verify(password, user.passwordHash);
 
     if (!isValid) {
       return c.json({ error: 'Invalid email or password' }, 401);
@@ -48,8 +49,8 @@ app.post('/login', async (c) => {
 
     // Generate JWT token
     const token = await generateToken({
-      userId: user.user_id,
-      customerId: user.customer_id,
+      userId: user.userId,
+      customerId: user.customerId,
       email: user.email,
     });
 
@@ -66,11 +67,11 @@ app.post('/login', async (c) => {
     return c.json({
       token,
       user: {
-        userId: user.user_id,
-        customerId: user.customer_id,
+        userId: user.userId,
+        customerId: user.customerId,
         email: user.email,
         name: user.name,
-        isTemporaryPassword: user.is_temporary_password,
+        isTemporaryPassword: user.isTemporaryPassword,
       },
     });
   } catch (error) {
@@ -102,23 +103,23 @@ app.post('/change-password', requireAuth, async (c) => {
       return c.json({ error: 'New password must be at least 8 characters' }, 400);
     }
 
-    const sql = getDB().getClient();
+    const db = getDatabase();
 
     // Get user's current password hash
-    const users = await sql`
-      SELECT password_hash
-      FROM users
-      WHERE user_id = ${auth.userId}
-    `;
+    const userResult = await db
+      .select({ passwordHash: users.passwordHash })
+      .from(users)
+      .where(eq(users.userId, auth.userId))
+      .limit(1);
 
-    if (users.length === 0) {
+    if (userResult.length === 0) {
       return c.json({ error: 'User not found' }, 404);
     }
 
-    const user = users[0];
+    const user = userResult[0];
 
     // Verify current password
-    const isValid = await Bun.password.verify(currentPassword, user.password_hash);
+    const isValid = await Bun.password.verify(currentPassword, user.passwordHash);
 
     if (!isValid) {
       return c.json({ error: 'Current password is incorrect' }, 401);
@@ -131,14 +132,7 @@ app.post('/change-password', requireAuth, async (c) => {
     });
 
     // Update password and mark as not temporary
-    await sql`
-      UPDATE users
-      SET
-        password_hash = ${newPasswordHash},
-        is_temporary_password = false,
-        updated_at = NOW()
-      WHERE user_id = ${auth.userId}
-    `;
+    await updateUserPassword(db, auth.userId, newPasswordHash, false);
 
     return c.json({
       message: 'Password changed successfully',
@@ -161,32 +155,38 @@ app.get('/me', requireAuth, async (c) => {
       return c.json({ error: 'Unauthorized' }, 401);
     }
 
-    const sql = getDB().getClient();
+    const db = getDatabase();
 
-    // Get user information
-    const users = await sql`
-      SELECT u.user_id, u.customer_id, u.email, u.name, u.is_temporary_password, u.created_at,
-             a.customer_name
-      FROM users u
-      LEFT JOIN api_keys a ON u.customer_id = a.customer_id
-      WHERE u.user_id = ${auth.userId}
-      LIMIT 1
-    `;
+    // Get user information with customer name from api_keys
+    const userResult = await db
+      .select({
+        userId: users.userId,
+        customerId: users.customerId,
+        email: users.email,
+        name: users.name,
+        isTemporaryPassword: users.isTemporaryPassword,
+        createdAt: users.createdAt,
+        customerName: apiKeys.customerName,
+      })
+      .from(users)
+      .leftJoin(apiKeys, eq(users.customerId, apiKeys.customerId))
+      .where(eq(users.userId, auth.userId))
+      .limit(1);
 
-    if (users.length === 0) {
+    if (userResult.length === 0) {
       return c.json({ error: 'User not found' }, 404);
     }
 
-    const user = users[0];
+    const user = userResult[0];
 
     return c.json({
-      userId: user.user_id,
-      customerId: user.customer_id,
-      customerName: user.customer_name,
+      userId: user.userId,
+      customerId: user.customerId,
+      customerName: user.customerName,
       email: user.email,
       name: user.name,
-      isTemporaryPassword: user.is_temporary_password,
-      createdAt: user.created_at,
+      isTemporaryPassword: user.isTemporaryPassword,
+      createdAt: user.createdAt,
     });
   } catch (error) {
     console.error('Get user error:', error);
@@ -219,8 +219,6 @@ app.post('/refresh', requireAuth, async (c) => {
   }
 });
 
-export default app;
-
 /**
  * POST /auth/logout
  * Clear the httpOnly token cookie
@@ -242,3 +240,5 @@ app.post('/logout', async (c) => {
     return c.json({ ok: true });
   }
 });
+
+export default app;

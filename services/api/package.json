@@ -13,6 +13,7 @@
     "@lumina/schema": "workspace:*",
     "@lumina/config": "workspace:*",
     "@lumina/core": "workspace:*",
+    "@lumina/database": "workspace:*",
     "hono": "^3.12.0",
     "jose": "^5.2.0",
     "postgres": "^3.4.3"

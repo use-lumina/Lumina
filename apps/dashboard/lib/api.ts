@@ -397,6 +397,7 @@ export interface EndpointTrendsParams extends TimeRangeParams {
 
 export interface EndpointTrend {
   endpoint: string;
+  model?: string;
   request_count: number;
   total_cost: number;
   avg_cost: number;

@@ -394,9 +394,13 @@ export default function Home() {
                   Live Traces
                 </div>
                 {recentTraces.length > 0 ? (
-                  recentTraces.map((trace) => (
+                  recentTraces.map((trace, index) => (
                     <div
-                      key={trace.trace_id}
+                      key={
+                        trace.trace_id && trace.span_id
+                          ? `${trace.trace_id}-${trace.span_id}`
+                          : `trace-${index}`
+                      }
                       className="w-full flex items-center gap-4 p-3 rounded-lg bg-muted/30 border border-(--border)"
                     >
                       <div

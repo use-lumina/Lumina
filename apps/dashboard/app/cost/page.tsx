@@ -158,20 +158,23 @@ export default function CostPage() {
         limit: 20,
       });
 
-      // Create a map of trends by endpoint
+      // Create a map of trends and models by endpoint
       const trendsMap = new Map();
       trendsData.data.forEach((item) => {
-        trendsMap.set(item.endpoint, item.trend);
+        trendsMap.set(item.endpoint, { trend: item.trend, model: item.model });
       });
 
-      const formattedEndpoints: EndpointData[] = breakdownData.data.map((item: any) => ({
-        endpoint: item.group_name,
-        model: item.model || '-',
-        requests: item.request_count,
-        totalCost: parseFloat(item.total_cost.toString()),
-        avgCost: parseFloat(item.avg_cost.toString()),
-        trend: trendsMap.get(item.group_name) || 'stable',
-      }));
+      const formattedEndpoints: EndpointData[] = breakdownData.data.map((item: any) => {
+        const trendData = trendsMap.get(item.group_name);
+        return {
+          endpoint: item.group_name,
+          model: trendData?.model || item.model || '-',
+          requests: item.request_count,
+          totalCost: parseFloat(item.total_cost.toString()),
+          avgCost: parseFloat(item.avg_cost.toString()),
+          trend: trendData?.trend || 'stable',
+        };
+      });
       setEndpoints(formattedEndpoints);
       setTotalEndpoints(breakdownData.pagination?.total || breakdownData.data.length);
 
@@ -311,6 +314,13 @@ export default function CostPage() {
 
       if (tracesResponse.data && tracesResponse.data.length > 0) {
         const trace = tracesResponse.data[0];
+
+        // Guard: Don't fetch if trace_id is missing
+        if (!trace.trace_id) {
+          console.error('Cannot fetch trace: trace_id is undefined');
+          return;
+        }
+
         // Fetch full trace details
         const fullTrace = await getTraceById(trace.trace_id);
 

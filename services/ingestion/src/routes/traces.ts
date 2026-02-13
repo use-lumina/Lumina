@@ -2,7 +2,12 @@ import { Hono } from 'hono';
 import type { OTLPTraceRequest } from '@lumina/schema';
 import { parseOTLPTraces } from '../parsers/otlp-parser';
 import { transformOTLPBatch } from '../transformers/otlp-transformer';
-import { getDB } from '../database/postgres';
+import {
+  getDatabase,
+  insertTracesBatch,
+  buildTraceQuery,
+  getTraceMetrics,
+} from '../database/client';
 import { publishTraces, isNATSConnected } from '../queue/nats-client';
 import { rateLimitMiddleware, incrementTraceCount } from '../middleware/rate-limit';
 import type { AppVariables } from '../types/hono';
@@ -56,8 +61,8 @@ traces.post('/v1/traces', async (c) => {
     const traces = transformOTLPBatch(parsedSpans, customerId);
 
     // Store in PostgreSQL (synchronous for immediate query availability)
-    const db = getDB();
-    await db.insertBatch(traces);
+    const db = getDatabase();
+    await insertTracesBatch(db, traces);
 
     // Increment rate limit counter after successful ingestion
     const rateLimitKey = c.get('rateLimitKey') as string | undefined;
@@ -138,8 +143,8 @@ traces.get('/v1/traces', async (c) => {
     const endTime = c.req.query('end_time') ? new Date(c.req.query('end_time')!) : undefined;
 
     // Query database
-    const db = getDB();
-    const result = await db.queryTraces({
+    const db = getDatabase();
+    const result = await buildTraceQuery(db, {
       customerId,
       environment,
       status,
@@ -185,8 +190,8 @@ traces.get('/v1/traces/metrics', async (c) => {
     const startTime = c.req.query('start_time') ? new Date(c.req.query('start_time')!) : undefined;
     const endTime = c.req.query('end_time') ? new Date(c.req.query('end_time')!) : undefined;
 
-    const db = getDB();
-    const metrics = await db.getMetrics({
+    const db = getDatabase();
+    const metrics = await getTraceMetrics(db, {
       customerId,
       environment,
       startTime,

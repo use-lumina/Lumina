@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
-import { getDB } from '../database/postgres';
+import { eq, and, gte, lte, desc, asc, isNull, sql, inArray } from 'drizzle-orm';
+import { getDatabase, traces, alerts } from '../database/client';
 import { requireAuth } from '../middleware/auth';
 
 const app = new Hono();
@@ -10,8 +11,7 @@ const app = new Hono();
  */
 app.get('/', requireAuth, async (c) => {
   try {
-    const db = getDB();
-    const sql = db.getClient();
+    const db = getDatabase();
 
     // Parse query parameters
     const {
@@ -27,99 +27,97 @@ app.get('/', requireAuth, async (c) => {
       sortOrder = 'desc',
     } = c.req.query();
 
-    // Build dynamic query
-    const conditions: string[] = [];
-    const params: any[] = [];
-    let paramCount = 0;
+    // Build dynamic query conditions
+    const conditions = [isNull(traces.parentSpanId)]; // Only root spans
 
     if (service) {
-      paramCount++;
-      conditions.push(`service_name = $${paramCount}`);
-      params.push(service);
+      conditions.push(eq(traces.serviceName, service));
     }
 
     if (endpoint) {
-      paramCount++;
-      conditions.push(`endpoint = $${paramCount}`);
-      params.push(endpoint);
+      conditions.push(eq(traces.endpoint, endpoint));
     }
 
     if (model) {
-      paramCount++;
-      conditions.push(`model = $${paramCount}`);
-      params.push(model);
+      conditions.push(eq(traces.model, model));
     }
 
     if (status) {
-      paramCount++;
-      conditions.push(`status = $${paramCount}`);
-      params.push(status);
+      conditions.push(eq(traces.status, status as any));
     }
 
     if (startTime) {
-      paramCount++;
-      conditions.push(`timestamp >= $${paramCount}`);
-      params.push(new Date(startTime));
+      conditions.push(gte(traces.timestamp, new Date(startTime)));
     }
 
     if (endTime) {
-      paramCount++;
-      conditions.push(`timestamp <= $${paramCount}`);
-      params.push(new Date(endTime));
+      conditions.push(lte(traces.timestamp, new Date(endTime)));
     }
 
-    // Build WHERE clause - only root spans (parent_span_id IS NULL)
-    const additionalConditions = conditions.length > 0 ? ` AND ${conditions.join(' AND ')}` : '';
+    // Determine sort column and direction
+    let sortColumn = traces.timestamp;
+    if (sortBy === 'costUsd') sortColumn = traces.costUsd;
+    else if (sortBy === 'latencyMs') sortColumn = traces.latencyMs;
+    else if (sortBy === 'model') sortColumn = traces.model;
+    else if (sortBy === 'endpoint') sortColumn = traces.endpoint;
 
-    // Validate and sanitize sortBy to prevent SQL injection
-    const allowedSortColumns = ['timestamp', 'cost_usd', 'latency_ms', 'model', 'endpoint'];
-    const sortColumn = allowedSortColumns.includes(sortBy) ? sortBy : 'timestamp';
-    const sortDirection = sortOrder.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+    const sortDirection = sortOrder.toLowerCase() === 'asc' ? asc : desc;
 
-    // Execute query with pagination - only select root spans (parent_span_id IS NULL) for list view
-    const traces = await sql.unsafe(
-      `
-      SELECT
-        trace_id,
-        span_id,
-        customer_id,
-        service_name,
-        endpoint,
-        model,
-        status,
-        latency_ms,
-        cost_usd,
-        prompt_tokens,
-        completion_tokens,
-        timestamp,
-        environment
-      FROM traces
-      WHERE parent_span_id IS NULL${additionalConditions}
-      ORDER BY ${sortColumn} ${sortDirection}
-      LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
-    `,
-      [...params, parseInt(limit), parseInt(offset)]
-    );
+    // Execute query with pagination
+    const traceResults = await db
+      .select({
+        traceId: traces.traceId,
+        spanId: traces.spanId,
+        customerId: traces.customerId,
+        serviceName: traces.serviceName,
+        endpoint: traces.endpoint,
+        model: traces.model,
+        status: traces.status,
+        latencyMs: traces.latencyMs,
+        costUsd: traces.costUsd,
+        promptTokens: traces.promptTokens,
+        completionTokens: traces.completionTokens,
+        timestamp: traces.timestamp,
+        environment: traces.environment,
+      })
+      .from(traces)
+      .where(and(...conditions))
+      .orderBy(sortDirection(sortColumn))
+      .limit(parseInt(limit))
+      .offset(parseInt(offset));
 
-    // Get total count for pagination - count only root spans (unique traces)
-    const countResult = await sql.unsafe(
-      `
-      SELECT COUNT(DISTINCT trace_id) as total
-      FROM traces
-      WHERE parent_span_id IS NULL${additionalConditions}
-    `,
-      params
-    );
+    // Get total count for pagination
+    const countResult = await db
+      .select({ total: sql<number>`COUNT(DISTINCT ${traces.traceId})::int` })
+      .from(traces)
+      .where(and(...conditions));
 
-    const total = parseInt(countResult[0]?.total || '0');
+    const total = countResult[0]?.total || 0;
+
+    // Convert to snake_case for dashboard compatibility
+    const formattedTraces = traceResults.map((trace) => ({
+      trace_id: trace.traceId,
+      span_id: trace.spanId,
+      customer_id: trace.customerId,
+      service_name: trace.serviceName,
+      endpoint: trace.endpoint,
+      model: trace.model,
+      status: trace.status,
+      latency_ms: trace.latencyMs,
+      cost_usd: trace.costUsd,
+      prompt_tokens: trace.promptTokens,
+      completion_tokens: trace.completionTokens,
+      timestamp: trace.timestamp,
+      environment: trace.environment,
+    }));
 
     return c.json({
-      data: traces,
+      data: formattedTraces,
       pagination: {
         total,
         limit: parseInt(limit),
         offset: parseInt(offset),
-        hasMore: parseInt(offset) + traces.length < total,
+        hasMore: parseInt(offset) + traceResults.length < total,
       },
     });
   } catch (error) {
@@ -140,8 +138,7 @@ app.get('/', requireAuth, async (c) => {
  */
 app.get('/trends', requireAuth, async (c) => {
   try {
-    const db = getDB();
-    const sql = db.getClient();
+    const db = getDatabase();
 
     // Parse query parameters
     const { startTime, endTime, service, endpoint, model, status } = c.req.query();
@@ -153,55 +150,51 @@ app.get('/trends', requireAuth, async (c) => {
     const previousStart = new Date(start.getTime() - periodDuration);
     const previousEnd = start;
 
-    // Build filter conditions
+    // Build filter conditions (excluding time range)
     const buildConditions = (timeStart: Date, timeEnd: Date) => {
-      const conditions: string[] = [
-        `timestamp >= '${timeStart.toISOString()}'`,
-        `timestamp <= '${timeEnd.toISOString()}'`,
-      ];
-      if (service) conditions.push(`service_name = '${service}'`);
-      if (endpoint) conditions.push(`endpoint = '${endpoint}'`);
-      if (model) conditions.push(`model = '${model}'`);
-      if (status) conditions.push(`status = '${status}'`);
-      return conditions.join(' AND ');
-    };
+      const conditions = [gte(traces.timestamp, timeStart), lte(traces.timestamp, timeEnd)];
 
-    const currentConditions = buildConditions(start, end);
-    const previousConditions = buildConditions(previousStart, previousEnd);
+      if (service) conditions.push(eq(traces.serviceName, service));
+      if (endpoint) conditions.push(eq(traces.endpoint, endpoint));
+      if (model) conditions.push(eq(traces.model, model));
+      if (status) conditions.push(eq(traces.status, status as any));
+
+      return conditions;
+    };
 
     // Get current period metrics
-    const currentMetrics = await sql.unsafe(`
-      SELECT
-        COUNT(*) as total_requests,
-        AVG(latency_ms) as avg_latency,
-        SUM(cost_usd) as total_cost,
-        COUNT(*) FILTER (WHERE status != 'ok' AND status != 'healthy') as error_count
-      FROM traces
-      WHERE ${currentConditions}
-    `);
+    const currentMetrics = await db
+      .select({
+        totalRequests: sql<number>`COUNT(*)::int`,
+        avgLatency: sql<number>`AVG(${traces.latencyMs})::float`,
+        totalCost: sql<number>`SUM(${traces.costUsd})::float`,
+        errorCount: sql<number>`COUNT(*) FILTER (WHERE ${traces.status} = 'error')::int`,
+      })
+      .from(traces)
+      .where(and(...buildConditions(start, end)));
 
     // Get previous period metrics
-    const previousMetrics = await sql.unsafe(`
-      SELECT
-        COUNT(*) as total_requests,
-        AVG(latency_ms) as avg_latency,
-        SUM(cost_usd) as total_cost,
-        COUNT(*) FILTER (WHERE status != 'ok' AND status != 'healthy') as error_count
-      FROM traces
-      WHERE ${previousConditions}
-    `);
+    const previousMetrics = await db
+      .select({
+        totalRequests: sql<number>`COUNT(*)::int`,
+        avgLatency: sql<number>`AVG(${traces.latencyMs})::float`,
+        totalCost: sql<number>`SUM(${traces.costUsd})::float`,
+        errorCount: sql<number>`COUNT(*) FILTER (WHERE ${traces.status} = 'error')::int`,
+      })
+      .from(traces)
+      .where(and(...buildConditions(previousStart, previousEnd)));
 
     const current = currentMetrics[0] || {
-      total_requests: '0',
-      avg_latency: '0',
-      total_cost: '0',
-      error_count: '0',
+      totalRequests: 0,
+      avgLatency: 0,
+      totalCost: 0,
+      errorCount: 0,
     };
     const previous = previousMetrics[0] || {
-      total_requests: '0',
-      avg_latency: '0',
-      total_cost: '0',
-      error_count: '0',
+      totalRequests: 0,
+      avgLatency: 0,
+      totalCost: 0,
+      errorCount: 0,
     };
 
     // Calculate trends (percentage change)
@@ -210,35 +203,28 @@ app.get('/trends', requireAuth, async (c) => {
       return ((currentVal - previousVal) / previousVal) * 100;
     };
 
-    const currentRequests = parseInt(String(current.total_requests || '0'));
-    const previousRequests = parseInt(String(previous.total_requests || '0'));
-    const currentLatency = parseFloat(String(current.avg_latency || '0'));
-    const previousLatency = parseFloat(String(previous.avg_latency || '0'));
-    const currentCost = parseFloat(String(current.total_cost || '0'));
-    const previousCost = parseFloat(String(previous.total_cost || '0'));
-    const currentErrors = parseInt(String(current.error_count || '0'));
-    const previousErrors = parseInt(String(previous.error_count || '0'));
-
-    const currentErrorRate = currentRequests > 0 ? (currentErrors / currentRequests) * 100 : 0;
-    const previousErrorRate = previousRequests > 0 ? (previousErrors / previousRequests) * 100 : 0;
+    const currentErrorRate =
+      current.totalRequests > 0 ? (current.errorCount / current.totalRequests) * 100 : 0;
+    const previousErrorRate =
+      previous.totalRequests > 0 ? (previous.errorCount / previous.totalRequests) * 100 : 0;
 
     return c.json({
       current: {
-        totalRequests: currentRequests,
-        avgLatency: currentLatency,
-        totalCost: currentCost,
+        totalRequests: current.totalRequests,
+        avgLatency: current.avgLatency,
+        totalCost: current.totalCost,
         errorRate: currentErrorRate,
       },
       previous: {
-        totalRequests: previousRequests,
-        avgLatency: previousLatency,
-        totalCost: previousCost,
+        totalRequests: previous.totalRequests,
+        avgLatency: previous.avgLatency,
+        totalCost: previous.totalCost,
         errorRate: previousErrorRate,
       },
       trends: {
-        requestsTrend: calculateTrend(currentRequests, previousRequests),
-        latencyTrend: calculateTrend(currentLatency, previousLatency),
-        costTrend: calculateTrend(currentCost, previousCost),
+        requestsTrend: calculateTrend(current.totalRequests, previous.totalRequests),
+        latencyTrend: calculateTrend(current.avgLatency, previous.avgLatency),
+        costTrend: calculateTrend(current.totalCost, previous.totalCost),
         errorRateTrend: calculateTrend(currentErrorRate, previousErrorRate),
       },
       timeRange: {
@@ -268,24 +254,50 @@ app.get('/trends', requireAuth, async (c) => {
  * Build a tree structure from flat spans
  */
 interface SpanNode {
-  trace_id: string;
-  span_id: string;
-  parent_span_id?: string;
-  customer_id: string;
-  service_name: string;
+  traceId: string;
+  spanId: string;
+  parentSpanId?: string | null;
+  customerId: string;
+  serviceName: string;
   endpoint: string;
   model: string;
-  prompt?: string;
-  response?: string;
+  prompt?: string | null;
+  response?: string | null;
   status: string;
-  latency_ms: number;
-  cost_usd?: number;
-  prompt_tokens?: number;
-  completion_tokens?: number;
-  timestamp: string;
-  environment?: string;
+  latencyMs: number;
+  costUsd?: number | null;
+  promptTokens?: number | null;
+  completionTokens?: number | null;
+  timestamp: Date;
+  environment?: string | null;
   metadata?: any;
   children: SpanNode[];
+}
+
+/**
+ * Convert SpanNode tree to snake_case format recursively
+ */
+function convertSpanToSnakeCase(span: SpanNode): any {
+  return {
+    trace_id: span.traceId,
+    span_id: span.spanId,
+    parent_span_id: span.parentSpanId,
+    customer_id: span.customerId,
+    service_name: span.serviceName,
+    endpoint: span.endpoint,
+    model: span.model,
+    prompt: span.prompt,
+    response: span.response,
+    status: span.status,
+    latency_ms: span.latencyMs,
+    cost_usd: span.costUsd,
+    prompt_tokens: span.promptTokens,
+    completion_tokens: span.completionTokens,
+    timestamp: span.timestamp,
+    environment: span.environment,
+    metadata: span.metadata,
+    children: span.children.map(convertSpanToSnakeCase),
+  };
 }
 
 function buildSpanTree(spans: any[]): SpanNode[] {
@@ -295,18 +307,34 @@ function buildSpanTree(spans: any[]): SpanNode[] {
 
   // Initialize all spans with empty children arrays
   spans.forEach((span) => {
-    spanMap.set(span.span_id, {
-      ...span,
+    spanMap.set(span.spanId, {
+      traceId: span.traceId,
+      spanId: span.spanId,
+      parentSpanId: span.parentSpanId,
+      customerId: span.customerId,
+      serviceName: span.serviceName,
+      endpoint: span.endpoint,
+      model: span.model,
+      prompt: span.prompt,
+      response: span.response,
+      status: span.status,
+      latencyMs: span.latencyMs,
+      costUsd: span.costUsd,
+      promptTokens: span.promptTokens,
+      completionTokens: span.completionTokens,
+      timestamp: span.timestamp,
+      environment: span.environment,
+      metadata: span.metadata,
       children: [],
     });
   });
 
   // Build parent-child relationships
   spans.forEach((span) => {
-    const spanNode = spanMap.get(span.span_id)!;
-    if (span.parent_span_id) {
+    const spanNode = spanMap.get(span.spanId)!;
+    if (span.parentSpanId) {
       // Add to parent's children
-      const parent = spanMap.get(span.parent_span_id);
+      const parent = spanMap.get(span.parentSpanId);
       if (parent) {
         parent.children.push(spanNode);
       } else {
@@ -329,74 +357,69 @@ function buildSpanTree(spans: any[]): SpanNode[] {
 app.get('/:id', requireAuth, async (c) => {
   try {
     const traceId = c.req.param('id');
-    const db = getDB();
-    const sql = db.getClient();
+    const db = getDatabase();
 
-    // Fetch all spans for this trace (not just LIMIT 1)
-    const traces = await sql`
-      SELECT
-        trace_id,
-        span_id,
-        parent_span_id,
-        customer_id,
-        service_name,
-        endpoint,
-        model,
-        prompt,
-        response,
-        status,
-        latency_ms,
-        cost_usd,
-        prompt_tokens,
-        completion_tokens,
-        timestamp,
-        environment,
-        metadata
-      FROM traces
-      WHERE trace_id = ${traceId}
-      ORDER BY timestamp ASC
-    `;
+    // Fetch all spans for this trace
+    const traceSpans = await db
+      .select()
+      .from(traces)
+      .where(eq(traces.traceId, traceId))
+      .orderBy(asc(traces.timestamp));
 
-    if (traces.length === 0) {
+    if (traceSpans.length === 0) {
       return c.json({ error: 'Trace not found' }, 404);
     }
 
     // Build hierarchical trace structure
-    const traceTree = buildSpanTree(traces);
+    const traceTree = buildSpanTree(traceSpans);
 
-    // Get the primary trace (first root span, or the only span in a single-span trace)
+    // Get the primary trace (first root span)
     const trace = traceTree[0] || null;
 
     if (!trace) {
       return c.json({ error: 'Trace not found' }, 404);
     }
 
-    // Fetch associated alerts
-    const alerts = await sql`
-      SELECT
-        alert_id,
-        alert_type,
-        severity,
-        current_cost,
-        baseline_cost,
-        cost_increase_percent,
-        hash_similarity,
-        semantic_score,
-        scoring_method,
-        semantic_cached,
-        reasoning,
-        timestamp,
-        status,
-        acknowledged_at,
-        resolved_at
-      FROM alerts
-      WHERE trace_id = ${traceId}
-      ORDER BY timestamp DESC
-    `;
+    // Fetch associated alerts for all spans in this trace
+    const spanIds = traceSpans.map((s) => s.spanId);
+    const traceAlerts = await db
+      .select({
+        alertId: alerts.alertId,
+        alertType: alerts.alertType,
+        severity: alerts.severity,
+        currentCost: alerts.currentCost,
+        baselineCost: alerts.baselineCost,
+        costIncreasePercent: alerts.costIncreasePercent,
+        hashSimilarity: alerts.hashSimilarity,
+        semanticScore: alerts.semanticScore,
+        reasoning: alerts.reasoning,
+        timestamp: alerts.timestamp,
+        status: alerts.status,
+        spanId: alerts.spanId,
+      })
+      .from(alerts)
+      .where(and(eq(alerts.traceId, traceId), inArray(alerts.spanId, spanIds)));
+
+    // Convert to snake_case for dashboard compatibility
+    const formattedTrace = convertSpanToSnakeCase(trace);
+    const formattedAlerts = traceAlerts.map((alert) => ({
+      alert_id: alert.alertId,
+      alert_type: alert.alertType,
+      severity: alert.severity,
+      current_cost: alert.currentCost,
+      baseline_cost: alert.baselineCost,
+      cost_increase_percent: alert.costIncreasePercent,
+      hash_similarity: alert.hashSimilarity,
+      semantic_score: alert.semanticScore,
+      reasoning: alert.reasoning,
+      timestamp: alert.timestamp,
+      status: alert.status,
+      span_id: alert.spanId,
+    }));
 
     return c.json({
-      trace,
-      alerts,
+      trace: formattedTrace,
+      alerts: formattedAlerts,
     });
   } catch (error) {
     console.error('Error fetching trace:', error);

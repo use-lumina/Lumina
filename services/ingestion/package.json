@@ -12,6 +12,7 @@
   "dependencies": {
     "@lumina/config": "workspace:*",
     "@lumina/core": "workspace:*",
+    "@lumina/database": "workspace:*",
     "@lumina/schema": "workspace:*",
     "hono": "^3.12.0",
     "postgres": "^3.4.7",

@@ -1,5 +1,5 @@
 import { getNATSConnection } from './nats-client';
-import { getDB } from '../database/postgres';
+import { getDatabase, buildTraceQuery, insertAlertsFromCore } from '../database/client';
 import { analyzeTrace, calculateBaseline } from '@lumina/core';
 import type { Trace } from '@lumina/schema';
 import { AckPolicy, DeliverPolicy, type JsMsg } from 'nats';
@@ -74,14 +74,14 @@ async function processTraceMessage(msg: JsMsg): Promise<void> {
     console.log(`📥 Processing trace ${trace.trace_id} for customer ${customerId}`);
 
     // Get database connection
-    const db = getDB();
+    const db = getDatabase();
 
     // Fetch baseline data for this service
     // Use last 7 days of data for baseline calculation
     const endTime = new Date();
     const startTime = new Date(endTime.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    const baselineTraces = await db.traces.queryTraces({
+    const baselineTraces = await buildTraceQuery(db, {
       customerId,
       serviceName: trace.service_name,
       startTime,
@@ -152,7 +152,8 @@ async function processTraceMessage(msg: JsMsg): Promise<void> {
       console.log(`🚨 Generated ${alerts.length} alert(s) for trace ${trace.trace_id}`);
 
       // Store alerts in database
-      await db.alerts.insertBatch(
+      await insertAlertsFromCore(
+        db,
         alerts.map((alert) => ({
           alert,
           customerId,

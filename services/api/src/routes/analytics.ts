@@ -1,17 +1,28 @@
 import { Hono } from 'hono';
-import { getDB } from '../database/postgres';
+import { eq, and, gte, lte, sql, desc } from 'drizzle-orm';
+import {
+  getDatabase,
+  getClient,
+  getCostTimeline,
+  getCostBreakdown,
+  getEndpointTrends,
+  getAnalyticsSummary,
+  alerts as alertsTable,
+  traces,
+  costBaselines,
+} from '../database/client';
 import { requireAuth } from '../middleware/auth';
 
 const app = new Hono();
 
 /**
- * GET /cost/timeline
- * Get time-series cost data
+ * GET /analytics/timeline
+ * Get time-series cost and usage data
  */
 app.get('/timeline', requireAuth, async (c) => {
   try {
-    const db = getDB();
-    const sql = db.getClient();
+    const client = getClient();
+    const customerId = c.get('customerId') as string;
 
     // Parse query parameters
     const {
@@ -20,78 +31,48 @@ app.get('/timeline', requireAuth, async (c) => {
       model,
       startTime,
       endTime,
-      granularity = 'hour', // hour, day, week
+      granularity = 'hour', // hour, day, week, month
+      environment,
     } = c.req.query();
 
     // Validate time range
     const end = endTime ? new Date(endTime) : new Date();
     const start = startTime ? new Date(startTime) : new Date(end.getTime() - 24 * 60 * 60 * 1000);
 
-    // Build conditions
-    const conditions: string[] = ['timestamp >= $1', 'timestamp <= $2'];
-    const params: any[] = [start, end];
-    let paramCount = 2;
+    // Validate granularity
+    const validGranularities = ['hour', 'day', 'week', 'month'];
+    const timeGranularity = validGranularities.includes(granularity) ? granularity : 'hour';
 
-    if (service) {
-      paramCount++;
-      conditions.push(`service_name = $${paramCount}`);
-      params.push(service);
-    }
+    // Get timeline data using raw postgres client
+    // Convert Date objects to ISO strings before passing to query
+    const timeline = await getCostTimeline(client, {
+      customerId,
+      startTime: start.toISOString(),
+      endTime: end.toISOString(),
+      granularity: timeGranularity as 'hour' | 'day' | 'week' | 'month',
+      environment: environment as 'live' | 'test' | undefined,
+    });
 
-    if (endpoint) {
-      paramCount++;
-      conditions.push(`endpoint = $${paramCount}`);
-      params.push(endpoint);
-    }
-
-    if (model) {
-      paramCount++;
-      conditions.push(`model = $${paramCount}`);
-      params.push(model);
-    }
-
-    const whereClause = conditions.join(' AND ');
-
-    // Determine time bucket based on granularity
-    const timeBucket =
-      granularity === 'day'
-        ? "date_trunc('day', timestamp)"
-        : granularity === 'week'
-          ? "date_trunc('week', timestamp)"
-          : "date_trunc('hour', timestamp)";
-
-    // Execute query
-    const timeline = await sql.unsafe(
-      `
-      SELECT
-        ${timeBucket} as time_bucket,
-        COUNT(*) as request_count,
-        SUM(cost_usd) as total_cost,
-        AVG(cost_usd) as avg_cost,
-        MIN(cost_usd) as min_cost,
-        MAX(cost_usd) as max_cost,
-        SUM(prompt_tokens) as total_prompt_tokens,
-        SUM(completion_tokens) as total_completion_tokens,
-        AVG(latency_ms) as avg_latency_ms,
-        MIN(latency_ms) as min_latency_ms,
-        MAX(latency_ms) as max_latency_ms
-      FROM traces
-      WHERE ${whereClause}
-      GROUP BY time_bucket
-      ORDER BY time_bucket ASC
-    `,
-      params
-    );
+    // Convert to snake_case format for dashboard compatibility
+    const timelineFormatted = timeline.map((point) => ({
+      time_bucket:
+        point.timeBucket instanceof Date ? point.timeBucket.toISOString() : point.timeBucket,
+      request_count: point.count,
+      total_cost: point.totalCost,
+      avg_latency_ms: point.avgLatency,
+      total_tokens: point.totalTokens,
+    }));
 
     return c.json({
-      data: timeline,
+      data: timelineFormatted,
       filters: {
         service,
         endpoint,
         model,
         startTime: start.toISOString(),
         endTime: end.toISOString(),
-        granularity,
+        granularity: timeGranularity,
+        environment,
       },
     });
   } catch (error) {
@@ -107,16 +88,22 @@ app.get('/timeline', requireAuth, async (c) => {
 });
 
 /**
- * GET /cost/breakdown
- * Get cost breakdown by service, endpoint, or model
+ * GET /analytics/breakdown
+ * Get cost breakdown by service, endpoint, model, or provider
  */
 app.get('/breakdown', requireAuth, async (c) => {
   try {
-    const db = getDB();
-    const sql = db.getClient();
+    const db = getDatabase();
+    const customerId = c.get('customerId') as string;
 
     // Parse query parameters
-    const { groupBy = 'service', startTime, endTime, limit = '10' } = c.req.query();
+    const {
+      groupBy = 'service_name',
+      startTime,
+      endTime,
+      limit = '20',
+      environment,
+    } = c.req.query();
 
     // Validate time range
     const end = endTime ? new Date(endTime) : new Date();
@@ -124,77 +111,39 @@ app.get('/breakdown', requireAuth, async (c) => {
       ? new Date(startTime)
       : new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    // Determine grouping column
-    const groupColumn =
-      groupBy === 'endpoint'
-        ? 'endpoint'
-        : groupBy === 'model'
-          ? 'model'
-          : groupBy === 'customer'
-            ? 'customer_id'
-            : 'service_name';
+    // Validate groupBy
+    const validGroupBy = ['service_name', 'model', 'endpoint', 'provider'];
+    const groupByColumn = validGroupBy.includes(groupBy) ? groupBy : 'service_name';
 
-    // Execute query - include model when grouping by endpoint
-    const selectClause =
-      groupBy === 'endpoint'
-        ? `
-      SELECT
-        ${groupColumn} as group_name,
-        MODE() WITHIN GROUP (ORDER BY model) as model,
-        COUNT(*) as request_count,
-        SUM(cost_usd) as total_cost,
-        AVG(cost_usd) as avg_cost,
-        MIN(cost_usd) as min_cost,
-        MAX(cost_usd) as max_cost,
-        SUM(prompt_tokens) as total_prompt_tokens,
-        SUM(completion_tokens) as total_completion_tokens,
-        AVG(latency_ms) as avg_latency_ms
-      FROM traces
-      WHERE timestamp >= $1 AND timestamp <= $2
-      GROUP BY ${groupColumn}
-      ORDER BY total_cost DESC
-      LIMIT $3
-    `
-        : `
-      SELECT
-        ${groupColumn} as group_name,
-        COUNT(*) as request_count,
-        SUM(cost_usd) as total_cost,
-        AVG(cost_usd) as avg_cost,
-        MIN(cost_usd) as min_cost,
-        MAX(cost_usd) as max_cost,
-        SUM(prompt_tokens) as total_prompt_tokens,
-        SUM(completion_tokens) as total_completion_tokens,
-        AVG(latency_ms) as avg_latency_ms
-      FROM traces
-      WHERE timestamp >= $1 AND timestamp <= $2
-      GROUP BY ${groupColumn}
-      ORDER BY total_cost DESC
-      LIMIT $3
-    `;
+    // Get breakdown data
+    const breakdown = await getCostBreakdown(db, {
+      customerId,
+      groupBy: groupByColumn as 'service_name' | 'model' | 'endpoint' | 'provider',
+      startTime: start,
+      endTime: end,
+      limit: parseInt(limit),
+      environment: environment as 'live' | 'test' | undefined,
+    });
 
-    const breakdown = await sql.unsafe(selectClause, [start, end, parseInt(limit)]);
+    // Calculate total cost for percentages
+    const totalCost = breakdown.reduce((sum, item) => sum + item.totalCost, 0);
 
-    // Calculate total for percentage
-    const totalResult = await sql`
-      SELECT SUM(cost_usd) as total_cost
-      FROM traces
-      WHERE timestamp >= ${start} AND timestamp <= ${end}
-    `;
-
-    const totalCost = parseFloat(totalResult[0]?.total_cost || '0');
-
-    // Add percentage to each item
-    const enrichedBreakdown = breakdown.map((item: any) => ({
-      ...item,
-      percentage: totalCost > 0 ? (parseFloat(item.total_cost) / totalCost) * 100 : 0,
+    // Convert to snake_case format for dashboard compatibility
+    const enrichedBreakdown = breakdown.map((item) => ({
+      group_name: item.dimension,
+      request_count: item.count,
+      total_cost: item.totalCost,
+      avg_cost: item.totalCost / item.count,
+      avg_latency: item.avgLatency,
+      total_tokens: item.totalTokens,
+      percentage: totalCost > 0 ? (item.totalCost / totalCost) * 100 : 0,
     }));
 
     return c.json({
       data: enrichedBreakdown,
       summary: {
         totalCost,
-        groupBy,
+        groupBy: groupByColumn,
         startTime: start.toISOString(),
         endTime: end.toISOString(),
       },
@@ -212,178 +161,16 @@ app.get('/breakdown', requireAuth, async (c) => {
 });
 
 /**
- * GET /cost/anomalies
- * Get recent cost anomalies (traces with alerts)
- */
-app.get('/anomalies', requireAuth, async (c) => {
-  try {
-    const db = getDB();
-    const sql = db.getClient();
-
-    // Parse query parameters
-    const { service, severity, limit = '50', offset = '0' } = c.req.query();
-
-    // Build conditions
-    const conditions: string[] = ["alert_type IN ('cost_spike', 'cost_and_quality')"];
-    const params: any[] = [];
-    let paramCount = 0;
-
-    if (service) {
-      paramCount++;
-      conditions.push(`t.service_name = $${paramCount}`);
-      params.push(service);
-    }
-
-    if (severity) {
-      paramCount++;
-      conditions.push(`a.severity = $${paramCount}`);
-      params.push(severity);
-    }
-
-    const whereClause = conditions.join(' AND ');
-
-    // Execute query with join
-    const anomalies = await sql.unsafe(
-      `
-      SELECT
-        a.alert_id,
-        a.trace_id,
-        a.alert_type,
-        a.severity,
-        a.current_cost,
-        a.baseline_cost,
-        a.cost_increase_percent,
-        a.reasoning,
-        a.timestamp as alert_timestamp,
-        a.status,
-        t.service_name,
-        t.endpoint,
-        t.model,
-        t.cost_usd,
-        t.timestamp as trace_timestamp
-      FROM alerts a
-      JOIN traces t ON a.trace_id = t.trace_id
-      WHERE ${whereClause}
-      ORDER BY a.timestamp DESC
-      LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
-    `,
-      [...params, parseInt(limit), parseInt(offset)]
-    );
-
-    // Get total count
-    const countResult = await sql.unsafe(
-      `
-      SELECT COUNT(*) as total
-      FROM alerts a
-      JOIN traces t ON a.trace_id = t.trace_id
-      WHERE ${whereClause}
-    `,
-      params
-    );
-
-    const total = parseInt(countResult[0]?.total || '0');
-
-    return c.json({
-      data: anomalies,
-      pagination: {
-        total,
-        limit: parseInt(limit),
-        offset: parseInt(offset),
-        hasMore: parseInt(offset) + anomalies.length < total,
-      },
-    });
-  } catch (error) {
-    console.error('Error fetching cost anomalies:', error);
-    return c.json(
-      {
-        error: 'Failed to fetch cost anomalies',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      },
-      500
-    );
-  }
-});
-
-/**
- * GET /cost/summary
- * Get overall cost summary statistics
- */
-app.get('/summary', requireAuth, async (c) => {
-  try {
-    const db = getDB();
-    const sql = db.getClient();
-
-    // Parse query parameters
-    const { startTime, endTime } = c.req.query();
-
-    // Validate time range - default to last 7 days
-    const end = endTime ? new Date(endTime) : new Date();
-    const start = startTime
-      ? new Date(startTime)
-      : new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
-
-    // Get overall statistics
-    const summary = await sql`
-      SELECT
-        COUNT(*) as total_requests,
-        SUM(cost_usd) as total_cost,
-        AVG(cost_usd) as avg_cost,
-        MIN(cost_usd) as min_cost,
-        MAX(cost_usd) as max_cost,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY cost_usd) as p50_cost,
-        PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY cost_usd) as p95_cost,
-        PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY cost_usd) as p99_cost,
-        SUM(prompt_tokens) as total_prompt_tokens,
-        SUM(completion_tokens) as total_completion_tokens,
-        AVG(latency_ms) as avg_latency_ms
-      FROM traces
-      WHERE timestamp >= ${start} AND timestamp <= ${end}
-    `;
-
-    // Get alert statistics
-    const alertStats = await sql`
-      SELECT
-        COUNT(*) as total_alerts,
-        COUNT(*) FILTER (WHERE severity = 'HIGH') as high_severity,
-        COUNT(*) FILTER (WHERE severity = 'MEDIUM') as medium_severity,
-        COUNT(*) FILTER (WHERE severity = 'LOW') as low_severity,
-        COUNT(*) FILTER (WHERE status = 'acknowledged') as acknowledged
-      FROM alerts
-      WHERE timestamp >= ${start} AND timestamp <= ${end}
-        AND alert_type IN ('cost_spike', 'cost_and_quality')
-    `;
-
-    return c.json({
-      summary: summary[0],
-      alerts: alertStats[0],
-      timeRange: {
-        startTime: start.toISOString(),
-        endTime: end.toISOString(),
-      },
-    });
-  } catch (error) {
-    console.error('Error fetching cost summary:', error);
-    return c.json(
-      {
-        error: 'Failed to fetch cost summary',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      },
-      500
-    );
-  }
-});
-
-/**
- * GET /cost/endpoint-trends
- * Get cost trends for endpoints (current vs previous period)
+ * GET /analytics/endpoint-trends
+ * Get endpoint performance trends
  */
 app.get('/endpoint-trends', requireAuth, async (c) => {
   try {
-    const db = getDB();
-    const sql = db.getClient();
+    const client = getClient();
+    const customerId = c.get('customerId') as string;
 
     // Parse query parameters
-    const { startTime, endTime, limit = '20' } = c.req.query();
+    const { serviceName, startTime, endTime, limit = '20' } = c.req.query();
 
     // Validate time range
     const end = endTime ? new Date(endTime) : new Date();
@@ -391,95 +178,33 @@ app.get('/endpoint-trends', requireAuth, async (c) => {
       ? new Date(startTime)
       : new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    const periodDuration = end.getTime() - start.getTime();
-    const previousStart = new Date(start.getTime() - periodDuration);
-    const previousEnd = start;
-
-    // Get current period endpoint costs
-    const currentPeriod = await sql.unsafe(
-      `
-      SELECT
-        endpoint,
-        COUNT(*) as request_count,
-        SUM(cost_usd) as total_cost,
-        AVG(cost_usd) as avg_cost
-      FROM traces
-      WHERE timestamp >= $1 AND timestamp <= $2
-      GROUP BY endpoint
-      ORDER BY total_cost DESC
-      LIMIT $3
-    `,
-      [start, end, parseInt(limit)]
-    );
-
-    // Get previous period endpoint costs
-    const previousPeriod = await sql.unsafe(
-      `
-      SELECT
-        endpoint,
-        SUM(cost_usd) as total_cost,
-        AVG(cost_usd) as avg_cost
-      FROM traces
-      WHERE timestamp >= $1 AND timestamp <= $2
-      GROUP BY endpoint
-    `,
-      [previousStart, previousEnd]
-    );
-
-    // Create a map for previous period data
-    const previousMap = new Map();
-    previousPeriod.forEach((item: any) => {
-      previousMap.set(item.endpoint, {
-        total_cost: parseFloat(item.total_cost || '0'),
-        avg_cost: parseFloat(item.avg_cost || '0'),
-      });
+    // Get endpoint trends using raw postgres client
+    const trends = await getEndpointTrends(client, {
+      customerId,
+      serviceName,
+      startTime: start,
+      endTime: end,
+      limit: parseInt(limit),
     });
 
-    // Calculate trends
-    const endpointsWithTrends = currentPeriod.map((item: any) => {
-      const currentCost = parseFloat(item.total_cost || '0');
-      const previous = previousMap.get(item.endpoint);
-      const previousCost = previous?.total_cost || 0;
-
-      let trend: 'up' | 'down' | 'stable' = 'stable';
-      let trendPercent = 0;
-
-      if (previousCost > 0) {
-        trendPercent = ((currentCost - previousCost) / previousCost) * 100;
-        if (Math.abs(trendPercent) < 5) {
-          trend = 'stable';
-        } else if (trendPercent > 0) {
-          trend = 'up';
-        } else {
-          trend = 'down';
-        }
-      } else if (currentCost > 0) {
-        trend = 'up';
-        trendPercent = 100;
-      }
-
-      return {
-        endpoint: item.endpoint,
-        request_count: parseInt(String(item.request_count || '0')),
-        total_cost: currentCost,
-        avg_cost: parseFloat(item.avg_cost || '0'),
-        trend,
-        trend_percent: trendPercent,
-        previous_cost: previousCost,
-      };
-    });
+    // Convert to snake_case format for dashboard compatibility
+    const formattedTrends = trends.map((item) => ({
+      endpoint: item.endpoint,
+      service_name: item.serviceName,
+      model: item.model,
+      total_requests: item.totalRequests,
+      total_cost: item.totalCost,
+      avg_cost: item.avgCost,
+      avg_latency: item.avgLatency,
+      error_rate: item.errorRate,
+    }));
 
     return c.json({
-      data: endpointsWithTrends,
-      timeRange: {
-        current: {
-          startTime: start.toISOString(),
-          endTime: end.toISOString(),
-        },
-        previous: {
-          startTime: previousStart.toISOString(),
-          endTime: previousEnd.toISOString(),
-        },
+      data: formattedTrends,
+      filters: {
+        serviceName,
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
       },
     });
   } catch (error) {
@@ -487,6 +212,191 @@ app.get('/endpoint-trends', requireAuth, async (c) => {
     return c.json(
       {
         error: 'Failed to fetch endpoint trends',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * GET /analytics/summary
+ * Get overall analytics summary
+ */
+app.get('/summary', requireAuth, async (c) => {
+  try {
+    const db = getDatabase();
+    const customerId = c.get('customerId') as string;
+
+    // Parse query parameters
+    const { startTime, endTime, environment } = c.req.query();
+
+    // Validate time range
+    const end = endTime ? new Date(endTime) : new Date();
+    const start = startTime
+      ? new Date(startTime)
+      : new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    // Get summary statistics
+    const summaryData = await getAnalyticsSummary(db, {
+      customerId,
+      startTime: start,
+      endTime: end,
+      environment: environment as 'live' | 'test' | undefined,
+    });
+
+    // Get alert statistics
+    const alertConditions = [
+      eq(alertsTable.customerId, customerId),
+      gte(alertsTable.timestamp, start),
+      lte(alertsTable.timestamp, end),
+    ];
+
+    const alertStats = await db
+      .select({
+        total: sql<number>`COUNT(*)::int`,
+        high: sql<number>`COUNT(*) FILTER (WHERE severity = 'HIGH')::int`,
+        medium: sql<number>`COUNT(*) FILTER (WHERE severity = 'MEDIUM')::int`,
+        low: sql<number>`COUNT(*) FILTER (WHERE severity = 'LOW')::int`,
+        acknowledged: sql<number>`COUNT(*) FILTER (WHERE status = 'acknowledged' OR status = 'resolved')::int`,
+      })
+      .from(alertsTable)
+      .where(and(...alertConditions));
+
+    const alerts = alertStats[0] || { total: 0, high: 0, medium: 0, low: 0, acknowledged: 0 };
+
+    // Return in dashboard-expected format with snake_case
+    return c.json({
+      summary: {
+        total_requests: summaryData.totalRequests,
+        total_cost: summaryData.totalCost,
+        avg_cost: summaryData.avgCost,
+        min_cost: 0, // TODO: Add to getAnalyticsSummary
+        max_cost: 0, // TODO: Add to getAnalyticsSummary
+        p50_cost: 0, // TODO: Add percentile calculations
+        p95_cost: 0,
+        p99_cost: 0,
+        total_prompt_tokens: 0, // TODO: Add to getAnalyticsSummary
+        total_completion_tokens: 0,
+        avg_latency_ms: summaryData.avgLatency,
+      },
+      alerts: {
+        total_alerts: alerts.total,
+        high_severity: alerts.high,
+        medium_severity: alerts.medium,
+        low_severity: alerts.low,
+        acknowledged: alerts.acknowledged,
+      },
+      timeRange: {
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching analytics summary:', error);
+    return c.json(
+      {
+        error: 'Failed to fetch analytics summary',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * GET /analytics/anomalies
+ * Get cost anomalies (traces that exceed baselines)
+ */
+app.get('/anomalies', requireAuth, async (c) => {
+  try {
+    const db = getDatabase();
+    const customerId = c.get('customerId') as string;
+
+    // Parse query parameters
+    const { startTime, endTime, service, endpoint, limit = '50' } = c.req.query();
+
+    // Validate time range
+    const end = endTime ? new Date(endTime) : new Date();
+    const start = startTime ? new Date(startTime) : new Date(end.getTime() - 24 * 60 * 60 * 1000);
+
+    // Query for anomalies - traces with cost > 2x baseline p95
+    const conditions = [
+      eq(traces.customerId, customerId),
+      gte(traces.timestamp, start),
+      lte(traces.timestamp, end),
+    ];
+
+    if (service) {
+      conditions.push(eq(traces.serviceName, service));
+    }
+
+    if (endpoint) {
+      conditions.push(eq(traces.endpoint, endpoint));
+    }
+
+    const anomalies = await db
+      .select({
+        traceId: traces.traceId,
+        spanId: traces.spanId,
+        serviceName: traces.serviceName,
+        endpoint: traces.endpoint,
+        model: traces.model,
+        costUsd: traces.costUsd,
+        latencyMs: traces.latencyMs,
+        timestamp: traces.timestamp,
+        baselineP95: costBaselines.p95Cost,
+        anomalyFactor: sql<number>`${traces.costUsd} / NULLIF(${costBaselines.p95Cost}, 0)`,
+      })
+      .from(traces)
+      .leftJoin(
+        costBaselines,
+        and(
+          eq(traces.serviceName, costBaselines.serviceName),
+          eq(traces.endpoint, costBaselines.endpoint),
+          eq(costBaselines.windowSize, '24h')
+        )
+      )
+      .where(and(...conditions, sql`${traces.costUsd} > 2 * COALESCE(${costBaselines.p95Cost}, 0)`))
+      .orderBy(desc(sql`${traces.costUsd} / NULLIF(${costBaselines.p95Cost}, 1)`))
+      .limit(parseInt(limit));
+
+    // Convert to snake_case and calculate cost_increase_percent
+    const formattedAnomalies = anomalies.map((anomaly) => {
+      const baselineCost = anomaly.baselineP95 || 0;
+      const currentCost = anomaly.costUsd || 0;
+      const costIncreasePercent =
+        baselineCost > 0 ? ((currentCost - baselineCost) / baselineCost) * 100 : 0;
+
+      return {
+        trace_id: anomaly.traceId,
+        span_id: anomaly.spanId,
+        service_name: anomaly.serviceName,
+        endpoint: anomaly.endpoint,
+        model: anomaly.model,
+        cost_usd: currentCost,
+        latency_ms: anomaly.latencyMs,
+        timestamp: anomaly.timestamp,
+        baseline_cost: baselineCost,
+        cost_increase_percent: Math.round(costIncreasePercent),
+        anomaly_factor: anomaly.anomalyFactor,
+      };
+    });
+
+    return c.json({
+      data: formattedAnomalies,
+      filters: {
+        service,
+        endpoint,
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching anomalies:', error);
+    return c.json(
+      {
+        error: 'Failed to fetch anomalies',
         message: error instanceof Error ? error.message : 'Unknown error',
       },
       500

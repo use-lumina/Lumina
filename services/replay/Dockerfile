@@ -10,6 +10,7 @@ WORKDIR /app
 COPY package.json bun.lock ./
 COPY packages/config/package.json ./packages/config/
 COPY packages/core/package.json ./packages/core/
+COPY packages/database/package.json ./packages/database/
 COPY packages/schema/package.json ./packages/schema/
 COPY packages/sdk/package.json ./packages/sdk/
 COPY services/replay/package.json ./services/replay/

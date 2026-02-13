@@ -3,7 +3,6 @@ import { logger } from 'hono/logger';
 import { cors } from 'hono/cors';
 import { authMiddleware } from './middleware/auth';
 import traces from './routes/traces';
-import { getDB } from './database/postgres';
 import { initializeNATS } from './queue/nats-client';
 import { startConsumer } from './queue/consumer';
 import { initializeCache } from '@lumina/core';
@@ -55,10 +54,8 @@ app.onError((err, c) => {
 // Initialize services on startup
 async function initializeServices() {
   try {
-    // Initialize database (required)
-    const db = getDB();
-    await db.initialize();
-    console.log('✅ Database initialized successfully');
+    // Note: Database client is ready to use immediately with Drizzle
+    console.log('✅ Database client ready');
 
     // Initialize NATS (required for alert processing)
     try {

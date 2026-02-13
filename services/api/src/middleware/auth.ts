@@ -21,8 +21,9 @@ export async function requireAuth(c: Context, next: Next) {
   // Check if authentication is required (managed cloud vs self-hosted)
   const authRequired = process.env.AUTH_REQUIRED === 'true';
 
-  // Self-hosted mode: no authentication required
+  // Self-hosted mode: no authentication required, use default customer
   if (!authRequired) {
+    c.set('customerId', 'default-customer');
     return await next();
   }
 

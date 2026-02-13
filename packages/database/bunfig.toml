@@ -1,0 +1,14 @@
+[test]
+# Bun test configuration for @lumina/database
+
+# Set test timeout to 10 seconds
+timeout = 10000
+
+# Run tests in parallel
+parallel = true
+
+# Show test output
+verbose = true
+
+# Preload environment variables
+# preload = [".env.test"]

@@ -6,7 +6,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
-import { getDB } from './database/postgres';
 import replayRoutes from './routes/replay';
 
 const app = new Hono();
@@ -32,7 +31,7 @@ app.get('/health', (c) => {
   });
 });
 
-// Mount routes
+// Mount routes (dashboard expects /replay path)
 app.route('/replay', replayRoutes);
 
 // 404 handler
@@ -57,10 +56,8 @@ const PORT = Number(Bun.env.REPLAY_PORT) || 8082;
 
 async function start() {
   try {
-    // Initialize database connection and create tables
-    const db = getDB();
-    await db.initialize();
-    console.log('✅ Database connection established and tables created');
+    // Note: Database client is ready to use immediately with Drizzle
+    console.log('✅ Database client ready');
 
     // Start server
     console.log(`🚀 Lumina Replay Engine starting on port ${PORT}...`);

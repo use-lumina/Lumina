@@ -13,6 +13,7 @@
     "@lumina/schema": "workspace:*",
     "@lumina/config": "workspace:*",
     "@lumina/core": "workspace:*",
+    "@lumina/database": "workspace:*",
     "@anthropic-ai/sdk": "^0.32.1",
     "openai": "^4.73.0",
     "hono": "^3.12.0",

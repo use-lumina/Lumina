@@ -1,5 +1,12 @@
 import { Hono } from 'hono';
-import { getDB } from '../database/postgres';
+import { eq, and, gte, lte, desc, sql } from 'drizzle-orm';
+import {
+  getDatabase,
+  alerts,
+  getAlertsWithFilters,
+  getAlertWithTrace,
+  updateAlertStatus,
+} from '../database/client';
 import { requireAuth, type AuthContext } from '../middleware/auth';
 
 const app = new Hono();
@@ -10,8 +17,8 @@ const app = new Hono();
  */
 app.get('/stats', requireAuth, async (c) => {
   try {
-    const db = getDB();
-    const sql = db.getClient();
+    const db = getDatabase();
+    const customerId = c.get('customerId') as string;
 
     // Parse query parameters
     const { startTime, endTime } = c.req.query();
@@ -23,37 +30,53 @@ app.get('/stats', requireAuth, async (c) => {
       : new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
 
     // Get alert statistics
-    const stats = await sql`
-      SELECT
-        COUNT(*) as total_alerts,
-        COUNT(*) FILTER (WHERE severity = 'HIGH') as high_severity,
-        COUNT(*) FILTER (WHERE severity = 'MEDIUM') as medium_severity,
-        COUNT(*) FILTER (WHERE severity = 'LOW') as low_severity,
-        COUNT(*) FILTER (WHERE status = 'acknowledged') as acknowledged,
-        COUNT(*) FILTER (WHERE status = 'pending') as unacknowledged,
-        COUNT(*) FILTER (WHERE alert_type = 'cost_spike') as cost_spikes,
-        COUNT(*) FILTER (WHERE alert_type = 'quality_drop') as quality_drops,
-        COUNT(*) FILTER (WHERE alert_type = 'cost_and_quality') as combined_alerts
-      FROM alerts
-      WHERE timestamp >= ${start} AND timestamp <= ${end}
-    `;
+    const conditions = [
+      eq(alerts.customerId, customerId),
+      gte(alerts.timestamp, start),
+      lte(alerts.timestamp, end),
+    ];
+
+    const stats = await db
+      .select({
+        totalAlerts: sql<number>`COUNT(*)::int`,
+        highSeverity: sql<number>`COUNT(*) FILTER (WHERE ${alerts.severity} = 'HIGH')::int`,
+        mediumSeverity: sql<number>`COUNT(*) FILTER (WHERE ${alerts.severity} = 'MEDIUM')::int`,
+        lowSeverity: sql<number>`COUNT(*) FILTER (WHERE ${alerts.severity} = 'LOW')::int`,
+        acknowledged: sql<number>`COUNT(*) FILTER (WHERE ${alerts.status} = 'acknowledged')::int`,
+        unacknowledged: sql<number>`COUNT(*) FILTER (WHERE ${alerts.status} = 'pending')::int`,
+        costSpikes: sql<number>`COUNT(*) FILTER (WHERE ${alerts.alertType} = 'cost_spike')::int`,
+        qualityDrops: sql<number>`COUNT(*) FILTER (WHERE ${alerts.alertType} = 'quality_drop')::int`,
+        combinedAlerts: sql<number>`COUNT(*) FILTER (WHERE ${alerts.alertType} = 'cost_and_quality')::int`,
+      })
+      .from(alerts)
+      .where(and(...conditions));
 
     // Get alerts by service
-    const byService = await sql`
-      SELECT
-        service_name,
-        COUNT(*) as alert_count,
-        COUNT(*) FILTER (WHERE severity = 'HIGH') as high_severity,
-        COUNT(*) FILTER (WHERE status = 'pending') as unacknowledged
-      FROM alerts
-      WHERE timestamp >= ${start} AND timestamp <= ${end}
-      GROUP BY service_name
-      ORDER BY alert_count DESC
-      LIMIT 10
-    `;
+    const byService = await db
+      .select({
+        serviceName: alerts.serviceName,
+        alertCount: sql<number>`COUNT(*)::int`,
+        highSeverity: sql<number>`COUNT(*) FILTER (WHERE ${alerts.severity} = 'HIGH')::int`,
+        unacknowledged: sql<number>`COUNT(*) FILTER (WHERE ${alerts.status} = 'pending')::int`,
+      })
+      .from(alerts)
+      .where(and(...conditions))
+      .groupBy(alerts.serviceName)
+      .orderBy(desc(sql`COUNT(*)`))
+      .limit(10);
 
     return c.json({
-      stats: stats[0],
+      stats: stats[0] || {
+        totalAlerts: 0,
+        highSeverity: 0,
+        mediumSeverity: 0,
+        lowSeverity: 0,
+        acknowledged: 0,
+        unacknowledged: 0,
+        costSpikes: 0,
+        qualityDrops: 0,
+        combinedAlerts: 0,
+      },
       byService,
       timeRange: {
         startTime: start.toISOString(),
@@ -78,8 +101,8 @@ app.get('/stats', requireAuth, async (c) => {
  */
 app.get('/', requireAuth, async (c) => {
   try {
-    const db = getDB();
-    const sql = db.getClient();
+    const db = getDatabase();
+    const customerId = c.get('customerId') as string;
 
     // Parse query parameters
     const {
@@ -93,95 +116,42 @@ app.get('/', requireAuth, async (c) => {
       offset = '0',
     } = c.req.query();
 
-    // Build dynamic query
-    const conditions: string[] = [];
-    const params: any[] = [];
-    let paramCount = 0;
-
-    if (service) {
-      conditions.push(`a.service_name = $${++paramCount}`);
-      params.push(service);
-    }
-
-    if (alertType) {
-      conditions.push(`a.alert_type = $${++paramCount}`);
-      params.push(alertType);
-    }
-
-    if (severity) {
-      conditions.push(`a.severity = $${++paramCount}`);
-      params.push(severity);
-    }
-
-    if (status) {
-      conditions.push(`a.status = $${++paramCount}`);
-      params.push(status);
-    }
-
-    if (startTime) {
-      conditions.push(`a.timestamp >= $${++paramCount}`);
-      params.push(new Date(startTime));
-    }
-
-    if (endTime) {
-      conditions.push(`a.timestamp <= $${++paramCount}`);
-      params.push(new Date(endTime));
-    }
-
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-
-    // Execute query
-    const alerts = await sql.unsafe(
-      `
-      SELECT
-        a.alert_id,
-        a.trace_id,
-        a.span_id,
-        a.customer_id,
-        a.alert_type,
-        a.severity,
-        a.current_cost,
-        a.baseline_cost,
-        a.cost_increase_percent,
-        a.hash_similarity,
-        a.semantic_score,
-        a.scoring_method,
-        a.semantic_cached,
-        a.service_name,
-        a.endpoint,
-        a.model,
-        a.reasoning,
-        a.timestamp,
-        a.status,
-        a.acknowledged_at,
-        a.resolved_at
-      FROM alerts a
-      ${whereClause}
-      ORDER BY a.timestamp DESC
-      LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
-    `,
-      [...params, parseInt(limit), parseInt(offset)]
-    );
+    // Use the query builder from @lumina/database
+    const alertsList = await getAlertsWithFilters(db, {
+      customerId,
+      alertType: alertType as any,
+      severity: severity as any,
+      status: status as any,
+      startTime: startTime ? new Date(startTime) : undefined,
+      endTime: endTime ? new Date(endTime) : undefined,
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+    });
 
     // Get total count
-    const countResult = await sql.unsafe(
-      `
-      SELECT COUNT(*) as total
-      FROM alerts a
-      ${whereClause}
-    `,
-      params
-    );
+    const conditions = [eq(alerts.customerId, customerId)];
 
-    const total = parseInt(countResult[0]?.total || '0');
+    if (service) conditions.push(eq(alerts.serviceName, service));
+    if (alertType) conditions.push(eq(alerts.alertType, alertType as any));
+    if (severity) conditions.push(eq(alerts.severity, severity as any));
+    if (status) conditions.push(eq(alerts.status, status as any));
+    if (startTime) conditions.push(gte(alerts.timestamp, new Date(startTime)));
+    if (endTime) conditions.push(lte(alerts.timestamp, new Date(endTime)));
+
+    const countResult = await db
+      .select({ total: sql<number>`COUNT(*)::int` })
+      .from(alerts)
+      .where(and(...conditions));
+
+    const total = countResult[0]?.total || 0;
 
     return c.json({
-      data: alerts,
+      data: alertsList,
       pagination: {
         total,
         limit: parseInt(limit),
         offset: parseInt(offset),
-        hasMore: parseInt(offset) + alerts.length < total,
+        hasMore: parseInt(offset) + alertsList.length < total,
       },
     });
   } catch (error) {
@@ -198,58 +168,27 @@ app.get('/', requireAuth, async (c) => {
 
 /**
  * GET /alerts/:id
- * Get alert details
+ * Get alert details with trace information
  */
 app.get('/:id', requireAuth, async (c) => {
   try {
     const alertId = c.req.param('id');
     const auth = c.get('auth') as AuthContext;
-    const db = getDB();
-    const sql = db.getClient();
+    const db = getDatabase();
 
-    // Fetch alert with trace details
-    const alerts = await sql`
-      SELECT
-        a.alert_id,
-        a.trace_id,
-        a.span_id,
-        a.customer_id,
-        a.alert_type,
-        a.severity,
-        a.current_cost,
-        a.baseline_cost,
-        a.cost_increase_percent,
-        a.hash_similarity,
-        a.semantic_score,
-        a.scoring_method,
-        a.semantic_cached,
-        a.service_name,
-        a.endpoint,
-        a.model,
-        a.reasoning,
-        a.timestamp,
-        a.status,
-        a.acknowledged_at,
-        a.resolved_at,
-        t.prompt,
-        t.response,
-        t.cost_usd,
-        t.latency_ms,
-        t.prompt_tokens,
-        t.completion_tokens,
-        t.timestamp as trace_timestamp
-      FROM alerts a
-      LEFT JOIN traces t ON a.trace_id = t.trace_id AND a.span_id = t.span_id
-      WHERE a.alert_id = ${alertId}
-        AND a.customer_id = ${auth.customerId}
-      LIMIT 1
-    `;
+    // Use the query builder that includes trace data
+    const alert = await getAlertWithTrace(db, alertId);
 
-    if (alerts.length === 0) {
+    if (!alert) {
       return c.json({ error: 'Alert not found' }, 404);
     }
 
-    return c.json(alerts[0]);
+    // Verify the alert belongs to this customer
+    if (alert.customerId !== auth.customerId) {
+      return c.json({ error: 'Alert not found' }, 404);
+    }
+
+    return c.json(alert);
   } catch (error) {
     console.error('Error fetching alert:', error);
     return c.json(
@@ -269,18 +208,21 @@ app.get('/:id', requireAuth, async (c) => {
 app.post('/:id/acknowledge', requireAuth, async (c) => {
   try {
     const alertId = c.req.param('id');
-    const db = getDB();
-    const sql = db.getClient();
+    const db = getDatabase();
 
-    // Update alert acknowledgment
-    const result = await sql`
-      UPDATE alerts
-      SET
-        status = 'acknowledged',
-        acknowledged_at = NOW()
-      WHERE alert_id = ${alertId}
-      RETURNING alert_id, status, acknowledged_at
-    `;
+    // Update alert status
+    await updateAlertStatus(db, alertId, 'acknowledged');
+
+    // Fetch updated alert
+    const result = await db
+      .select({
+        alertId: alerts.alertId,
+        status: alerts.status,
+        acknowledgedAt: alerts.acknowledgedAt,
+      })
+      .from(alerts)
+      .where(eq(alerts.alertId, alertId))
+      .limit(1);
 
     if (result.length === 0) {
       return c.json({ error: 'Alert not found' }, 404);
@@ -309,19 +251,22 @@ app.post('/:id/acknowledge', requireAuth, async (c) => {
 app.post('/:id/resolve', requireAuth, async (c) => {
   try {
     const alertId = c.req.param('id');
-    const db = getDB();
-    const sql = db.getClient();
+    const db = getDatabase();
 
-    // Update alert resolution
-    const result = await sql`
-      UPDATE alerts
-      SET
-        status = 'resolved',
-        resolved_at = NOW(),
-        acknowledged_at = COALESCE(acknowledged_at, NOW())
-      WHERE alert_id = ${alertId}
-      RETURNING alert_id, status, acknowledged_at, resolved_at
-    `;
+    // Update alert status
+    await updateAlertStatus(db, alertId, 'resolved');
+
+    // Fetch updated alert
+    const result = await db
+      .select({
+        alertId: alerts.alertId,
+        status: alerts.status,
+        acknowledgedAt: alerts.acknowledgedAt,
+        resolvedAt: alerts.resolvedAt,
+      })
+      .from(alerts)
+      .where(eq(alerts.alertId, alertId))
+      .limit(1);
 
     if (result.length === 0) {
       return c.json({ error: 'Alert not found' }, 404);

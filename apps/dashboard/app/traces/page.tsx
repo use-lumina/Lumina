@@ -349,6 +349,14 @@ function TracesContent() {
 
   // Handle trace click - open drawer
   const handleTraceClick = async (trace: Trace) => {
+    // Guard: Don't fetch if trace_id is missing
+    if (!trace.trace_id) {
+      console.error('Cannot fetch trace: trace_id is undefined');
+      setSelectedTrace(mapApiTraceToUI(trace));
+      setDrawerOpen(true);
+      return;
+    }
+
     // Fetch full trace details with prompt and response
     try {
       const fullTrace = await getTraceById(trace.trace_id);
@@ -883,9 +891,13 @@ function TracesContent() {
                   </TableCell>
                 </TableRow>
               ) : (
-                traces.map((trace) => (
+                traces.map((trace, index) => (
                   <TableRow
-                    key={trace.trace_id}
+                    key={
+                      trace.trace_id && trace.span_id
+                        ? `${trace.trace_id}-${trace.span_id}`
+                        : `trace-${index}`
+                    }
                     data-variant={getRowVariant(trace.status)}
                     className="cursor-pointer hover:bg-muted/50 border-(--border)"
                     onClick={() => handleTraceClick(trace)}

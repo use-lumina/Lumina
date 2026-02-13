@@ -42,7 +42,7 @@ export function SpanTree({ span, level = 0, selectedSpanId, onSpanSelect }: Span
       >
         {hasChildren ? (
           <button
-            className="flex items-center justify-center w-5 h-5 flex-shrink-0 hover:bg-muted rounded"
+            className="flex items-center justify-center w-5 h-5 shrink-0 hover:bg-muted rounded"
             onClick={handleExpandClick}
           >
             {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
@@ -56,7 +56,7 @@ export function SpanTree({ span, level = 0, selectedSpanId, onSpanSelect }: Span
             <span className={`font-medium text-sm truncate ${isSelected ? 'text-primary' : ''}`}>
               {span.service_name}
             </span>
-            <Badge variant="secondary" className="text-xs flex-shrink-0">
+            <Badge variant="secondary" className="text-xs shrink-0">
               {span.span_id}
             </Badge>
           </div>
@@ -67,7 +67,7 @@ export function SpanTree({ span, level = 0, selectedSpanId, onSpanSelect }: Span
           </div>
         </div>
 
-        <div className="flex-shrink-0">
+        <div className="shrink-0">
           <Badge
             variant={span.status === 'success' ? 'default' : 'destructive'}
             className="text-xs"

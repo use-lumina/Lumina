@@ -6,7 +6,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
-import { getDB } from './database/postgres';
 import tracesRoutes from './routes/traces';
 import analyticsRoutes from './routes/analytics';
 import alertsRoutes from './routes/alerts';
@@ -34,7 +33,7 @@ app.get('/health', (c) => {
   });
 });
 
-// Mount routes
+// Mount routes (dashboard expects these paths)
 app.route('/auth', authRoutes);
 app.route('/traces', tracesRoutes);
 app.route('/cost', analyticsRoutes);
@@ -62,10 +61,8 @@ const PORT = Number(Bun.env.API_PORT) || 8081;
 
 async function start() {
   try {
-    // Initialize database connection
-    const db = getDB();
-    await db.initialize();
-    console.log('✅ Database connection established');
+    // Note: Database client is ready to use immediately with Drizzle
+    console.log('✅ Database client ready');
 
     // Start server
     console.log(`🚀 Lumina Query API starting on port ${PORT}...`);

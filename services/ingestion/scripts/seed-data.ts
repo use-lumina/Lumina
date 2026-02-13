@@ -3,24 +3,30 @@
  * Creates test traces and baselines for development/testing
  */
 
-import { getDB } from '../src/database/postgres';
-import { calculateBaseline, type CostSample } from '@lumina/core';
-import type { Trace } from '@lumina/schema';
+import {
+  createDatabase,
+  insertTracesBatch,
+  upsertBaseline,
+  calculatePercentiles,
+} from '@lumina/database';
+import type { NewTrace } from '@lumina/database';
 
 async function main() {
-  const db = getDB();
+  const { db, client } = createDatabase({
+    connectionString: process.env.DATABASE_URL || 'postgresql://localhost:5432/lumina',
+  });
 
   try {
-    await db.initialize();
+    console.log('Seeding database with sample data...');
 
     // Sample trace data
-    const sampleTraces: Trace[] = [
+    const sampleTraces: NewTrace[] = [
       {
-        trace_id: 'test-trace-001',
-        span_id: 'span-001',
-        customer_id: 'customer-test-001',
+        traceId: 'test-trace-001',
+        spanId: 'span-001',
+        customerId: 'customer-test-001',
         timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
-        service_name: 'rag-service',
+        serviceName: 'rag-service',
         endpoint: '/api/chat',
         environment: 'test',
         model: 'gpt-4o',
@@ -28,19 +34,19 @@ async function main() {
         prompt: 'What is the capital of France?',
         response: 'The capital of France is Paris.',
         tokens: 50,
-        prompt_tokens: 10,
-        completion_tokens: 40,
-        latency_ms: 1200,
-        cost_usd: 0.00025,
+        promptTokens: 10,
+        completionTokens: 40,
+        latencyMs: 1200,
+        costUsd: 0.00025,
         status: 'success',
         tags: ['test', 'rag'],
       },
       {
-        trace_id: 'test-trace-002',
-        span_id: 'span-002',
-        customer_id: 'customer-test-001',
+        traceId: 'test-trace-002',
+        spanId: 'span-002',
+        customerId: 'customer-test-001',
         timestamp: new Date(Date.now() - 1000 * 60 * 60), // 1 hour ago
-        service_name: 'rag-service',
+        serviceName: 'rag-service',
         endpoint: '/api/chat',
         environment: 'test',
         model: 'claude-3-5-sonnet-20241022',
@@ -48,19 +54,19 @@ async function main() {
         prompt: 'Explain quantum computing',
         response: 'Quantum computing uses quantum mechanics principles...',
         tokens: 120,
-        prompt_tokens: 20,
-        completion_tokens: 100,
-        latency_ms: 2500,
-        cost_usd: 0.00066,
+        promptTokens: 20,
+        completionTokens: 100,
+        latencyMs: 2500,
+        costUsd: 0.00066,
         status: 'success',
         tags: ['test', 'rag'],
       },
       {
-        trace_id: 'test-trace-003',
-        span_id: 'span-003',
-        customer_id: 'customer-test-001',
+        traceId: 'test-trace-003',
+        spanId: 'span-003',
+        customerId: 'customer-test-001',
         timestamp: new Date(Date.now() - 1000 * 60 * 30), // 30 minutes ago
-        service_name: 'rag-service',
+        serviceName: 'rag-service',
         endpoint: '/api/search',
         environment: 'test',
         model: 'gpt-4o-mini',
@@ -68,76 +74,86 @@ async function main() {
         prompt: 'Search for documents about ML',
         response: 'Found 5 documents about machine learning...',
         tokens: 75,
-        prompt_tokens: 15,
-        completion_tokens: 60,
-        latency_ms: 800,
-        cost_usd: 0.000015,
+        promptTokens: 15,
+        completionTokens: 60,
+        latencyMs: 800,
+        costUsd: 0.000015,
         status: 'success',
         tags: ['test', 'search'],
       },
       {
-        trace_id: 'test-trace-004',
-        span_id: 'span-004',
-        customer_id: 'customer-test-001',
-        timestamp: new Date(),
-        service_name: 'rag-service',
+        traceId: 'test-trace-004',
+        spanId: 'span-004',
+        customerId: 'customer-test-001',
+        timestamp: new Date(Date.now() - 1000 * 60 * 15), // 15 minutes ago
+        serviceName: 'analytics-service',
+        endpoint: '/api/analyze',
+        environment: 'test',
+        model: 'gpt-4o',
+        provider: 'openai',
+        prompt: 'Analyze this data: [...]',
+        response: 'Based on the data analysis...',
+        tokens: 200,
+        promptTokens: 80,
+        completionTokens: 120,
+        latencyMs: 3200,
+        costUsd: 0.00045,
+        status: 'success',
+        tags: ['test', 'analytics'],
+      },
+      {
+        traceId: 'test-trace-005',
+        spanId: 'span-005',
+        customerId: 'customer-test-001',
+        timestamp: new Date(Date.now() - 1000 * 60 * 5), // 5 minutes ago
+        serviceName: 'rag-service',
         endpoint: '/api/chat',
         environment: 'test',
         model: 'gpt-4o',
         provider: 'openai',
-        prompt: 'Generate code for a simple API',
-        response: 'Error: Token limit exceeded',
-        tokens: 200,
-        prompt_tokens: 50,
-        completion_tokens: 150,
-        latency_ms: 500,
-        cost_usd: 0.00155,
-        status: 'error',
-        error_message: 'Token limit exceeded',
-        tags: ['test', 'error'],
+        prompt: 'Tell me about AI ethics',
+        response: 'AI ethics involves...',
+        tokens: 150,
+        promptTokens: 25,
+        completionTokens: 125,
+        latencyMs: 1800,
+        costUsd: 0.00034,
+        status: 'success',
+        tags: ['test', 'rag', 'ethics'],
       },
     ];
 
-    // Insert sample traces
-    await db.traces.insertBatch(sampleTraces);
-    // eslint-disable-next-line no-console
+    // Insert traces
+    await insertTracesBatch(db, sampleTraces);
     console.log(`✓ Inserted ${sampleTraces.length} sample traces`);
 
-    // Calculate and insert baseline for /api/chat endpoint
-    const chatSamples: CostSample[] = [
-      { costUsd: 0.00025, timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2) },
-      { costUsd: 0.00066, timestamp: new Date(Date.now() - 1000 * 60 * 60) },
-      { costUsd: 0.00155, timestamp: new Date() },
-    ];
+    // Calculate and insert baseline for rag-service /api/chat
+    const chatCosts = sampleTraces
+      .filter((t) => t.serviceName === 'rag-service' && t.endpoint === '/api/chat')
+      .map((t) => t.costUsd || 0);
 
-    const chatBaseline = calculateBaseline('rag-service', '/api/chat', chatSamples, '24h');
-    await db.baselines.upsertBaseline(chatBaseline);
-    // eslint-disable-next-line no-console
-    console.log('✓ Created baseline for /api/chat');
-    // eslint-disable-next-line no-console
-    console.log(
-      `  - P50: $${chatBaseline.p50Cost.toFixed(6)}, P95: $${chatBaseline.p95Cost.toFixed(6)}, P99: $${chatBaseline.p99Cost.toFixed(6)}`
-    );
+    const chatPercentiles = calculatePercentiles(chatCosts);
 
-    // Calculate and insert baseline for /api/search endpoint
-    const searchSamples: CostSample[] = [
-      { costUsd: 0.000015, timestamp: new Date(Date.now() - 1000 * 60 * 30) },
-    ];
+    await upsertBaseline(db, {
+      serviceName: 'rag-service',
+      endpoint: '/api/chat',
+      windowSize: '24h',
+      p50Cost: chatPercentiles.p50,
+      p95Cost: chatPercentiles.p95,
+      p99Cost: chatPercentiles.p99,
+      sampleCount: chatCosts.length,
+    });
 
-    const searchBaseline = calculateBaseline('rag-service', '/api/search', searchSamples, '24h');
-    await db.baselines.upsertBaseline(searchBaseline);
-    // eslint-disable-next-line no-console
-    console.log('✓ Created baseline for /api/search');
-    // eslint-disable-next-line no-console
-    console.log(
-      `  - P50: $${searchBaseline.p50Cost.toFixed(6)}, P95: $${searchBaseline.p95Cost.toFixed(6)}, P99: $${searchBaseline.p99Cost.toFixed(6)}`
-    );
+    console.log('✓ Created baseline for rag-service /api/chat');
+    console.log(`  P50: $${chatPercentiles.p50.toFixed(6)}`);
+    console.log(`  P95: $${chatPercentiles.p95.toFixed(6)}`);
+    console.log(`  P99: $${chatPercentiles.p99.toFixed(6)}`);
 
-    await db.close();
-    // eslint-disable-next-line no-console
+    await client.end();
     console.log('\n✓ Database seeding complete');
   } catch (error) {
     console.error('✗ Database seeding failed:', error);
+    await client.end();
     process.exit(1);
   }
 }

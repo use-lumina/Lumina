@@ -91,7 +91,7 @@ export function TraceDetailDrawer({ trace, open, onOpenChange }: TraceDetailDraw
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 !cursor-pointer"
+                    className="h-8 w-8 cursor-pointer!"
                     onClick={() => window.open(`/traces/${trace.id}`, '_blank')}
                     title="Open in new tab"
                   >

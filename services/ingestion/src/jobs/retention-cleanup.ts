@@ -5,7 +5,7 @@
  * for self-hosted deployments.
  */
 
-import { getDB } from '../database/postgres';
+import { getDatabase, deleteOldTraces, getTraceRetentionStats } from '../database/client';
 
 const RETENTION_DAYS = 7;
 
@@ -20,18 +20,11 @@ export async function cleanupOldTraces(): Promise<{
   try {
     console.log(`🗑️  Starting retention cleanup (${RETENTION_DAYS} days)...`);
 
-    const db = getDB();
+    const db = getDatabase();
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - RETENTION_DAYS);
 
-    const sql = db.getClient();
-    const result = await sql`
-      DELETE FROM traces
-      WHERE timestamp < ${cutoffDate.toISOString()}
-      RETURNING trace_id
-    `;
-
-    const deletedCount = result.length;
+    const deletedCount = await deleteOldTraces(db, cutoffDate);
 
     console.log(
       `✅ Retention cleanup completed: Deleted ${deletedCount} traces older than ${RETENTION_DAYS} days`
@@ -99,43 +92,17 @@ export async function getRetentionStats(): Promise<{
   oldestTraceDate: Date | null;
 }> {
   try {
-    const db = getDB();
-    const sql = db.getClient();
+    const db = getDatabase();
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - RETENTION_DAYS);
 
-    // Get total traces
-    const totalResult = await sql`SELECT COUNT(*) as count FROM traces`;
-    const totalTraces = parseInt(totalResult[0].count, 10);
-
-    // Get traces within retention period
-    const recentResult = await sql`
-      SELECT COUNT(*) as count
-      FROM traces
-      WHERE timestamp >= ${cutoffDate.toISOString()}
-    `;
-    const tracesWithin7Days = parseInt(recentResult[0].count, 10);
-
-    // Get traces older than retention period
-    const oldResult = await sql`
-      SELECT COUNT(*) as count
-      FROM traces
-      WHERE timestamp < ${cutoffDate.toISOString()}
-    `;
-    const tracesOlderThan7Days = parseInt(oldResult[0].count, 10);
-
-    // Get oldest trace date
-    const oldestResult = await sql`
-      SELECT MIN(timestamp) as oldest
-      FROM traces
-    `;
-    const oldestTraceDate = oldestResult[0].oldest ? new Date(oldestResult[0].oldest) : null;
+    const stats = await getTraceRetentionStats(db, cutoffDate);
 
     return {
-      totalTraces,
-      tracesWithin7Days,
-      tracesOlderThan7Days,
-      oldestTraceDate,
+      totalTraces: stats.totalTraces,
+      tracesWithin7Days: stats.recentTraces,
+      tracesOlderThan7Days: stats.oldTraces,
+      oldestTraceDate: stats.oldestTimestamp,
     };
   } catch (error) {
     console.error('Failed to get retention stats:', error);
