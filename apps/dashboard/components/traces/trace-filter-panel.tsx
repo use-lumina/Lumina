@@ -106,16 +106,16 @@ export function TraceFilterPanel({
     if (!options || options.length === 0) return null;
 
     return (
-      <div className="border-b border-slate-200 dark:border-slate-800 pb-2 mb-2">
+      <div className="border-b border-border pb-2 mb-2">
         <button
           onClick={() => toggleSection(id)}
-          className="flex items-center justify-between w-full py-1.5 px-2 hover:bg-slate-100 dark:hover:bg-slate-900 rounded text-left"
+          className="flex items-center justify-between w-full py-1.5 px-2 hover:bg-accent rounded text-left"
         >
-          <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{title}</span>
+          <span className="text-xs font-medium text-foreground/90">{title}</span>
           {expandedSections.has(id) ? (
-            <ChevronDown className="h-3 w-3 text-slate-500" />
+            <ChevronDown className="h-3 w-3 text-muted-foreground/60" />
           ) : (
-            <ChevronRight className="h-3 w-3 text-slate-500" />
+            <ChevronRight className="h-3 w-3 text-muted-foreground/60" />
           )}
         </button>
 
@@ -133,12 +133,12 @@ export function TraceFilterPanel({
                 />
                 <Label
                   htmlFor={`${id}-${option.value}`}
-                  className="text-xs text-slate-600 dark:text-slate-400 cursor-pointer flex-1 truncate flex justify-between items-center"
+                  className="text-xs text-muted-foreground cursor-pointer flex-1 truncate flex justify-between items-center"
                 >
                   <span className="truncate" title={option.value}>
                     {option.value || '(empty)'}
                   </span>
-                  <span className="text-[10px] text-slate-400 dark:text-slate-500 tabular-nums ml-2">
+                  <span className="text-[10px] text-muted-foreground/60 tabular-nums ml-2">
                     {option.count}
                   </span>
                 </Label>
@@ -151,10 +151,10 @@ export function TraceFilterPanel({
   };
 
   return (
-    <div className="w-[250px] h-full border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex flex-col">
+    <div className="w-[250px] h-full border-r border-border bg-card flex flex-col">
       {/* Header */}
-      <div className="h-12 flex items-center justify-between px-4 border-b border-slate-200 dark:border-slate-800">
-        <span className="text-sm font-medium text-slate-900 dark:text-slate-100">Filters</span>
+      <div className="h-12 flex items-center justify-between px-4 border-b border-border">
+        <span className="text-sm font-medium text-foreground">Filters</span>
         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onClose}>
           <X className="h-4 w-4" />
         </Button>
@@ -179,7 +179,7 @@ export function TraceFilterPanel({
       </ScrollArea>
 
       {/* Footer */}
-      <div className="h-12 flex items-center justify-between px-4 border-t border-slate-200 dark:border-slate-800">
+      <div className="h-12 flex items-center justify-between px-4 border-t border-border">
         <Button
           variant="ghost"
           size="sm"

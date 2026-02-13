@@ -83,38 +83,34 @@ export function TraceTable({
     <div className="flex-1 flex flex-col overflow-hidden">
       <div className="flex-1 overflow-auto">
         <table className="w-full text-xs border-collapse">
-          <thead className="sticky top-0 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 z-10">
+          <thead className="sticky top-0 bg-muted/90 backdrop-blur-sm border-b border-border z-10 transition-colors">
             <tr>
               <th className="text-left py-2 px-3 font-medium text-slate-600 dark:text-slate-400 w-[40px]">
                 <Checkbox
                   checked={allRowsSelected}
                   onCheckedChange={toggleAllRows}
                   aria-label="Select all"
-                  className={cn(someRowsSelected && 'data-[state=checked]:bg-slate-400')}
+                  className={cn(someRowsSelected && 'data-[state=checked]:bg-muted-foreground/60')}
                 />
               </th>
-              <th className="text-left py-2 px-3 font-medium text-slate-600 dark:text-slate-400 w-[90px]">
+              <th className="text-left py-2 px-3 font-medium text-muted-foreground w-[90px]">
                 Timestamp
               </th>
-              <th className="text-left py-2 px-3 font-medium text-slate-600 dark:text-slate-400 w-[200px]">
+              <th className="text-left py-2 px-3 font-medium text-muted-foreground w-[200px]">
                 Name
               </th>
-              <th className="text-left py-2 px-3 font-medium text-slate-600 dark:text-slate-400">
-                Input
-              </th>
-              <th className="text-left py-2 px-3 font-medium text-slate-600 dark:text-slate-400">
-                Output
-              </th>
-              <th className="text-left py-2 px-3 font-medium text-slate-600 dark:text-slate-400 w-[80px]">
+              <th className="text-left py-2 px-3 font-medium text-muted-foreground">Input</th>
+              <th className="text-left py-2 px-3 font-medium text-muted-foreground">Output</th>
+              <th className="text-left py-2 px-3 font-medium text-muted-foreground w-[80px]">
                 Levels
               </th>
-              <th className="text-right py-2 px-3 font-medium text-slate-600 dark:text-slate-400 w-[80px]">
+              <th className="text-right py-2 px-3 font-medium text-muted-foreground w-[80px]">
                 Latency
               </th>
-              <th className="text-right py-2 px-3 font-medium text-slate-600 dark:text-slate-400 w-[80px]">
+              <th className="text-right py-2 px-3 font-medium text-muted-foreground w-[80px]">
                 Cost
               </th>
-              <th className="text-right py-2 px-3 font-medium text-slate-600 dark:text-slate-400 w-[80px]">
+              <th className="text-right py-2 px-3 font-medium text-muted-foreground w-[80px]">
                 Tokens
               </th>
             </tr>
@@ -134,10 +130,10 @@ export function TraceTable({
                   onMouseEnter={() => setHoveredRow(trace.id)}
                   onMouseLeave={() => setHoveredRow(null)}
                   className={cn(
-                    'border-b border-slate-100 dark:border-slate-900 transition-colors h-8',
-                    isSelected && 'bg-blue-50 dark:bg-blue-950/20',
-                    !isSelected && isHovered && 'bg-slate-50 dark:bg-slate-900/50',
-                    isRowSelected && 'bg-slate-100 dark:bg-slate-800/50'
+                    'border-b border-border/40 transition-colors h-8',
+                    isSelected && 'bg-primary/10',
+                    !isSelected && isHovered && 'bg-accent/40',
+                    isRowSelected && 'bg-accent'
                   )}
                 >
                   <td className="py-1.5 px-3">
@@ -149,7 +145,7 @@ export function TraceTable({
                     />
                   </td>
                   <td
-                    className="py-1.5 px-3 font-mono text-slate-500 dark:text-slate-400 cursor-pointer"
+                    className="py-1.5 px-3 font-mono text-muted-foreground cursor-pointer"
                     onClick={() => onTraceSelect(trace)}
                   >
                     <div className="text-[10px]">{date}</div>
@@ -157,9 +153,7 @@ export function TraceTable({
                   </td>
                   <td className="py-1.5 px-3 cursor-pointer" onClick={() => onTraceSelect(trace)}>
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-slate-900 dark:text-slate-100 truncate">
-                        {trace.endpoint}
-                      </span>
+                      <span className="font-medium text-foreground truncate">{trace.endpoint}</span>
                       {isHovered && (
                         <Button
                           variant="ghost"
@@ -174,12 +168,12 @@ export function TraceTable({
                         </Button>
                       )}
                     </div>
-                    <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                    <div className="text-[10px] text-muted-foreground font-mono">
                       {trace.id.substring(0, 8)}...
                     </div>
                   </td>
                   <td
-                    className="py-1.5 px-3 text-slate-600 dark:text-slate-300 max-w-[200px] cursor-pointer"
+                    className="py-1.5 px-3 text-muted-foreground/90 max-w-[200px] cursor-pointer"
                     onClick={() => onTraceSelect(trace)}
                   >
                     <div className="truncate">
@@ -190,7 +184,7 @@ export function TraceTable({
                     </div>
                   </td>
                   <td
-                    className="py-1.5 px-3 text-slate-600 dark:text-slate-300 max-w-[200px] cursor-pointer"
+                    className="py-1.5 px-3 text-muted-foreground/90 max-w-[200px] cursor-pointer"
                     onClick={() => onTraceSelect(trace)}
                   >
                     <div className="truncate">
@@ -203,7 +197,7 @@ export function TraceTable({
                     </div>
                   </td>
                   <td className="py-1.5 px-3 cursor-pointer" onClick={() => onTraceSelect(trace)}>
-                    <Badge variant="outline" className="text-[10px] h-5 px-1.5">
+                    <Badge variant="muted" className="text-[10px] h-5 px-1.5">
                       {trace.spans?.length || 1}
                     </Badge>
                   </td>
@@ -215,20 +209,20 @@ export function TraceTable({
                       className={cn(
                         trace.latencyMs > 1000
                           ? 'text-amber-600 dark:text-amber-400'
-                          : 'text-slate-700 dark:text-slate-300'
+                          : 'text-foreground/80'
                       )}
                     >
                       {trace.latencyMs}ms
                     </span>
                   </td>
                   <td
-                    className="py-1.5 px-3 text-right font-mono text-slate-700 dark:text-slate-300 cursor-pointer"
+                    className="py-1.5 px-3 text-right font-mono text-foreground/80 cursor-pointer"
                     onClick={() => onTraceSelect(trace)}
                   >
                     ${trace.costUsd.toFixed(5)}
                   </td>
                   <td
-                    className="py-1.5 px-3 text-right font-mono text-slate-700 dark:text-slate-300 cursor-pointer"
+                    className="py-1.5 px-3 text-right font-mono text-foreground/80 cursor-pointer"
                     onClick={() => onTraceSelect(trace)}
                   >
                     {totalTokens > 0 ? totalTokens.toLocaleString() : '-'}
@@ -241,8 +235,8 @@ export function TraceTable({
       </div>
 
       {/* Pagination Footer */}
-      <div className="h-12 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 shrink-0 bg-white dark:bg-slate-950">
-        <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+      <div className="h-12 border-t border-border flex items-center justify-between px-4 shrink-0 bg-card">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span>Rows per page:</span>
           <select
             value={rowsPerPage}
@@ -250,7 +244,7 @@ export function TraceTable({
               setRowsPerPage(Number(e.target.value));
               setCurrentPage(1);
             }}
-            className="border border-slate-200 dark:border-slate-700 rounded px-2 py-1 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100"
+            className="border border-border rounded px-2 py-1 bg-background text-foreground"
           >
             <option value={25}>25</option>
             <option value={50}>50</option>
@@ -259,7 +253,7 @@ export function TraceTable({
         </div>
 
         <div className="flex items-center gap-4">
-          <span className="text-xs text-slate-600 dark:text-slate-400">
+          <span className="text-xs text-muted-foreground">
             Page {currentPage} of {totalPages}
           </span>
           <div className="flex items-center gap-1">

@@ -20,15 +20,15 @@ export function JsonViewer({ data, initialExpanded = true }: JsonViewerProps) {
   };
 
   return (
-    <div className="relative rounded-lg border border-border bg-slate-950 text-slate-50 font-mono text-xs overflow-hidden">
+    <div className="relative rounded-lg border border-border bg-muted/20 text-foreground font-mono text-xs overflow-hidden shadow-inner">
       <div className="absolute right-2 top-2 z-10">
         <Button
           variant="ghost"
           size="icon"
-          className="h-6 w-6 hover:bg-slate-800 text-slate-400"
+          className="h-6 w-6 hover:bg-accent text-muted-foreground"
           onClick={copyToClipboard}
         >
-          {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+          {copied ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
         </Button>
       </div>
       <div className="p-4 overflow-x-auto max-h-[500px] overflow-y-auto custom-scrollbar">
@@ -63,12 +63,12 @@ function JsonNode({
         <span
           className={cn(
             typeof value === 'string'
-              ? 'text-emerald-400'
+              ? 'text-emerald-500'
               : typeof value === 'number'
-                ? 'text-amber-400'
+                ? 'text-amber-500'
                 : typeof value === 'boolean'
-                  ? 'text-purple-400'
-                  : 'text-slate-400'
+                  ? 'text-purple-500'
+                  : 'text-muted-foreground'
           )}
         >
           {JSON.stringify(value)}
@@ -100,10 +100,10 @@ function JsonNode({
         <span className="text-slate-500 w-3 flex justify-center transform transition-transform duration-100">
           {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
         </span>
-        <span className="text-sky-400">{keyName && `"${keyName}": `}</span>
-        <span className="text-slate-400">{isArray ? '[' : '{'}</span>
+        <span className="text-indigo-400">{keyName && `"${keyName}": `}</span>
+        <span className="text-muted-foreground/80">{isArray ? '[' : '{'}</span>
         {!expanded && (
-          <span className="text-slate-600 text-[10px] ml-2">
+          <span className="text-muted-foreground/40 text-[10px] ml-2">
             {isArray ? `${value.length} items` : '...'}
           </span>
         )}
@@ -116,7 +116,7 @@ function JsonNode({
       </div>
 
       {expanded && (
-        <div className="border-l border-slate-800 ml-1.5 pl-2">
+        <div className="border-l border-border/60 ml-1.5 pl-2">
           {Object.entries(value).map(([k, v], i, arr) => (
             <JsonNode
               key={k}

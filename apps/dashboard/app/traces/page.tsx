@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { TraceTableToolbar } from '@/components/traces/trace-table-toolbar';
 import { TraceFilterPanel } from '@/components/traces/trace-filter-panel';
 import { TraceTable } from '@/components/traces/trace-table';
@@ -86,7 +87,10 @@ function mapApiTraceToUI(trace: APITrace): UITrace {
   };
 }
 
-export default function TracesPage() {
+function TracesPageContent() {
+  const searchParams = useSearchParams();
+  const traceIdParam = searchParams.get('id');
+
   const [traces, setTraces] = useState<UITrace[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -133,6 +137,35 @@ export default function TracesPage() {
     }
     fetchData();
   }, []);
+
+  // Handle deep linking and filter-based navigation from query params
+  useEffect(() => {
+    if (traces.length === 0) return;
+
+    // 1. Exact Trace ID Match
+    if (traceIdParam && !selectedTrace) {
+      const trace = traces.find((t) => t.id === traceIdParam);
+      if (trace) {
+        setSelectedTrace(trace);
+        return;
+      }
+    }
+
+    // 2. Filter-based Navigation (if no explicit trace ID or trace ID not found)
+    const endpointParam = searchParams.get('endpoint');
+    const modelParam = searchParams.get('model');
+    const serviceParam = searchParams.get('service');
+
+    if (endpointParam || modelParam || serviceParam) {
+      setFilters((prev) => ({
+        ...prev,
+        traceNames: endpointParam ? [endpointParam] : prev.traceNames,
+        model: modelParam ? [modelParam] : prev.model,
+        environments: serviceParam ? [serviceParam] : prev.environments,
+      }));
+      setFiltersVisible(true);
+    }
+  }, [traceIdParam, traces, selectedTrace, searchParams]);
 
   const handleTraceSelect = (trace: UITrace) => {
     setSelectedTrace(trace);
@@ -261,7 +294,7 @@ export default function TracesPage() {
   }, [traces, searchQuery, environment, filters]);
 
   return (
-    <div className="flex flex-col h-screen bg-white dark:bg-slate-950">
+    <div className="flex flex-col h-screen bg-background">
       {/* Toolbar */}
       <TraceTableToolbar
         searchQuery={searchQuery}
@@ -293,7 +326,7 @@ export default function TracesPage() {
         <div className="flex-1 flex overflow-hidden">
           {isLoading ? (
             <div className="flex items-center justify-center w-full">
-              <p className="text-sm text-slate-500">Loading traces...</p>
+              <p className="text-sm text-muted-foreground">Loading traces...</p>
             </div>
           ) : (
             <TraceTable
@@ -312,5 +345,15 @@ export default function TracesPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function TracesPage() {
+  return (
+    <Suspense
+      fallback={<div className="flex items-center justify-center h-screen">Loading...</div>}
+    >
+      <TracesPageContent />
+    </Suspense>
   );
 }

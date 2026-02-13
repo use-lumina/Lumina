@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { TableBody, TableCell, TableRow } from '@/components/ui/table';
 import { RealtimeIndicator } from '@/components/ui/realtime-indicator';
 import {
   KPICardSkeleton,
@@ -49,6 +49,7 @@ import {
   getCostSummary,
   getCostAnomalies,
   getEndpointTrends,
+  getTraces,
 } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -81,7 +82,7 @@ export default function CostPage() {
   const [modelFilter, setModelFilter] = useState<string[]>([]);
   const [minCostFilter, setMinCostFilter] = useState('');
   const [maxCostFilter, setMaxCostFilter] = useState('');
-  const [dateRange, setDateRange] = useState('all');
+  const [_dateRange, _setDateRange] = useState('all');
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -293,17 +294,44 @@ export default function CostPage() {
     setSelectedModel(selectedModel === modelName ? null : modelName);
   };
 
-  const handleEndpointClick = (endpoint: string) => {
-    // Navigate to traces page with filters
-    const params = new URLSearchParams();
-    params.set('endpoint', endpoint);
-    if (selectedModel) {
-      params.set('model', selectedModel);
-    }
-    // Also set the time range to match context
-    params.set('timeRange', timeView);
+  const handleEndpointClick = async (endpoint: string) => {
+    try {
+      // Find the most expensive trace for this endpoint
+      // We'll search for traces for this endpoint, sorted by cost descending
+      const response = await getTraces({
+        endpoint,
+        model: selectedModel || undefined,
+        limit: 1,
+        sortBy: 'cost_usd',
+        sortOrder: 'desc',
+      });
 
-    router.push(`/traces?${params.toString()}`);
+      const traces = response.data || [];
+
+      if (traces.length > 0) {
+        // Navigate directly to the most expensive trace
+        router.push(`/traces?id=${traces[0].trace_id}`);
+      } else {
+        // Fallback: Navigate to traces page with filters if no specific trace found
+        const params = new URLSearchParams();
+        params.set('endpoint', endpoint);
+        if (selectedModel) {
+          params.set('model', selectedModel);
+        }
+        params.set('timeRange', timeView);
+        router.push(`/traces?${params.toString()}`);
+      }
+    } catch (error) {
+      console.error('Failed to find top trace for endpoint:', error);
+      // Fallback on error
+      const params = new URLSearchParams();
+      params.set('endpoint', endpoint);
+      if (selectedModel) {
+        params.set('model', selectedModel);
+      }
+      params.set('timeRange', timeView);
+      router.push(`/traces?${params.toString()}`);
+    }
   };
 
   // Highlight search term in endpoint name
@@ -314,7 +342,7 @@ export default function CostPage() {
       part.toLowerCase() === query.toLowerCase() ? (
         <mark
           key={index}
-          className="bg-yellow-200 dark:bg-yellow-900/50 text-foreground px-0.5 rounded"
+          className="bg-primary/20 text-foreground px-0.5 rounded shadow-[0_0_8px_rgba(var(--primary),0.2)]"
         >
           {part}
         </mark>
@@ -348,7 +376,7 @@ export default function CostPage() {
           </div>
 
           {/* Table Loading */}
-          <Card className="p-6 border-(--accent)">
+          <Card className="p-6 border-border">
             <div className="space-y-4">
               <div>
                 <h3 className="text-lg font-semibold">Top 10 Most Expensive Endpoints</h3>
@@ -367,69 +395,90 @@ export default function CostPage() {
   return (
     <div className="h-full overflow-auto">
       <div className="p-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-start justify-between animate-fade-in">
-          <div>
-            <h1 className="text-3xl font-bold">Cost Dashboard</h1>
-            <p className="text-muted-foreground">Monitor and analyze your API costs</p>
-          </div>
-          <div className="flex items-center gap-3">
+        {/* Header & Integrated Toolbar */}
+        <div className="flex flex-col gap-4 animate-fade-in">
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-0.5">
+              <h1 className="text-xl font-bold tracking-tight text-foreground">Cost Analysis</h1>
+              <p className="text-[11px] text-muted-foreground font-medium">
+                Monitor and optimize your LLM spending across all services
+              </p>
+            </div>
             <RealtimeIndicator lastUpdated={lastUpdated} isLive={true} />
+          </div>
+
+          <div className="flex items-center gap-2 h-10 px-2 bg-card border border-border/60 rounded-md shadow-sm">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
+              <input
+                type="text"
+                placeholder="Search endpoints..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-transparent pl-8 pr-3 py-1.5 text-[11px] outline-none placeholder:text-muted-foreground/50"
+              />
+            </div>
+
+            <div className="h-4 w-px bg-border mx-1" />
+
+            <Select value={timeView} onValueChange={(v: any) => setTimeView(v)}>
+              <SelectTrigger className="h-7 w-32 border-none bg-transparent shadow-none text-[11px] font-medium hover:bg-accent focus:ring-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="24h">Last 24 hours</SelectItem>
+                <SelectItem value="7d">Last 7 days</SelectItem>
+                <SelectItem value="30d">Last 30 days</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <div className="h-4 w-px bg-border mx-1" />
+
             <Button
-              variant={showFilters ? 'default' : 'ghost'}
+              variant="ghost"
               size="sm"
               onClick={() => setShowFilters(!showFilters)}
-              className="gap-2"
+              className={cn(
+                'h-7 text-[11px] font-bold uppercase tracking-tight gap-2 hover:bg-accent',
+                showFilters && 'bg-accent'
+              )}
             >
-              <Filter className="h-4 w-4" />
-              Filters
+              <Filter className="h-3.5 w-3.5" />
+              Advanced Filters
               {hasActiveFilters && (
-                <Badge variant="secondary" className="ml-1 px-1.5 py-0.5 text-xs">
+                <div className="ml-0.5 h-4 w-4 rounded-full bg-primary text-[9px] text-primary-foreground flex items-center justify-center">
                   {[
                     serviceFilter.length,
                     modelFilter.length,
                     minCostFilter ? 1 : 0,
                     maxCostFilter ? 1 : 0,
-                    searchQuery ? 1 : 0,
-                  ]
-                    .filter((n) => n > 0)
-                    .reduce((a, b) => a + b, 0)}
-                </Badge>
+                  ].reduce((a, b) => a + b, 0)}
+                </div>
               )}
             </Button>
+
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearAllFilters}
+                className="h-7 text-[10px] uppercase font-bold text-muted-foreground hover:text-destructive"
+              >
+                Clear All
+              </Button>
+            )}
           </div>
         </div>
 
-        {/* Filter Panel */}
+        {/* Advanced Filters Panel */}
         {showFilters && (
-          <Card className="p-4 border-(--accent) animate-scale-in">
-            <div className="space-y-4">
-              {/* Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search endpoints..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {/* Date Range */}
-                <Select value={dateRange} onValueChange={setDateRange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Date Range" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Time</SelectItem>
-                    <SelectItem value="24h">Last 24 hours</SelectItem>
-                    <SelectItem value="7d">Last 7 days</SelectItem>
-                    <SelectItem value="30d">Last 30 days</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                {/* Service Filter */}
+          <div className="p-3 bg-accent/10 border border-border rounded-md animate-scale-in">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              {/* Service Filter */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter ml-1">
+                  Service
+                </label>
                 <Select
                   value={serviceFilter.length === 1 ? serviceFilter[0] : 'multiple'}
                   onValueChange={(value) => {
@@ -441,11 +490,11 @@ export default function CostPage() {
                     }
                   }}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-8 text-[11px] bg-background border-border/50">
                     <SelectValue
                       placeholder={
                         serviceFilter.length > 0
-                          ? `${serviceFilter.length} service${serviceFilter.length > 1 ? 's' : ''}`
+                          ? `${serviceFilter.length} Selected`
                           : 'All Services'
                       }
                     />
@@ -459,8 +508,13 @@ export default function CostPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
 
-                {/* Model Filter */}
+              {/* Model Filter */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter ml-1">
+                  Model
+                </label>
                 <Select
                   value={modelFilter.length === 1 ? modelFilter[0] : 'multiple'}
                   onValueChange={(value) => {
@@ -472,12 +526,10 @@ export default function CostPage() {
                     }
                   }}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-8 text-[11px] bg-background border-border/50">
                     <SelectValue
                       placeholder={
-                        modelFilter.length > 0
-                          ? `${modelFilter.length} model${modelFilter.length > 1 ? 's' : ''}`
-                          : 'All Models'
+                        modelFilter.length > 0 ? `${modelFilter.length} Selected` : 'All Models'
                       }
                     />
                   </SelectTrigger>
@@ -490,43 +542,37 @@ export default function CostPage() {
                     ))}
                   </SelectContent>
                 </Select>
-
-                {/* Clear Filters */}
-                {hasActiveFilters && (
-                  <Button variant="ghost" onClick={clearAllFilters} className="gap-2">
-                    <X className="h-4 w-4" />
-                    Clear All
-                  </Button>
-                )}
               </div>
 
               {/* Cost Range */}
-              <div className="flex items-center gap-4">
-                <label className="text-sm font-medium">Cost Range:</label>
-                <div className="flex items-center gap-2 flex-1">
+              <div className="md:col-span-2 space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter ml-1">
+                  Cost Range ($)
+                </label>
+                <div className="flex items-center gap-2">
                   <Input
                     type="number"
-                    placeholder="Min ($)"
+                    placeholder="Min"
                     value={minCostFilter}
                     onChange={(e) => setMinCostFilter(e.target.value)}
-                    className="w-full"
+                    className="h-8 text-[11px] bg-background border-border/50"
                     step="0.01"
                     min="0"
                   />
-                  <span className="text-muted-foreground">-</span>
+                  <span className="text-muted-foreground text-xs">to</span>
                   <Input
                     type="number"
-                    placeholder="Max ($)"
+                    placeholder="Max"
                     value={maxCostFilter}
                     onChange={(e) => setMaxCostFilter(e.target.value)}
-                    className="w-full"
+                    className="h-8 text-[11px] bg-background border-border/50"
                     step="0.01"
                     min="0"
                   />
                 </div>
               </div>
             </div>
-          </Card>
+          </div>
         )}
 
         {/* Active Filter Badges */}
@@ -583,164 +629,178 @@ export default function CostPage() {
 
         {/* Cost Spike Alerts */}
         {costAnomalies.length > 0 && (
-          <Card className="p-4 border-amber-500/50 bg-amber-50 dark:bg-amber-950/20 animate-fade-in">
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-md p-3 animate-fade-in">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5" />
+              <div className="mt-1 flex items-center justify-center h-5 w-5 rounded-full bg-amber-500/20">
+                <AlertTriangle className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+              </div>
               <div className="flex-1">
-                <h3 className="font-semibold text-amber-900 dark:text-amber-100 mb-2">
-                  Cost Anomalies Detected
-                </h3>
-                <div className="space-y-2">
-                  {costAnomalies.slice(0, 3).map((alert, i) => (
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-[11px] font-bold text-amber-700 dark:text-amber-300 uppercase tracking-tight">
+                    Cost Anomalies Detected
+                  </h3>
+                  <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                    {costAnomalies.length} active alerts
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {costAnomalies.slice(0, 4).map((alert, i) => (
                     <div
                       key={alert.alert_id || i}
-                      className="flex items-center justify-between text-sm bg-background/50 rounded-md p-2"
+                      className="flex items-center justify-between bg-card/50 border border-amber-500/20 rounded px-2 py-1.5 group cursor-pointer hover:border-amber-500/50 transition-colors"
+                      onClick={() => {
+                        if (alert.trace_id) {
+                          router.push(`/traces?id=${alert.trace_id}`);
+                        } else {
+                          router.push(`/alerts?id=${alert.alert_id}`);
+                        }
+                      }}
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
                         <Badge
-                          variant={alert.severity === 'HIGH' ? 'destructive' : 'warning'}
-                          className="font-mono"
+                          variant="outline"
+                          className="h-3.5 px-1 text-[8px] font-mono bg-amber-500/20 text-amber-700 dark:text-amber-400 border-none"
                         >
                           +{alert.cost_increase_percent?.toFixed(0)}%
                         </Badge>
-                        <span className="font-medium">{alert.endpoint}</span>
-                        <span className="text-muted-foreground">
-                          ${alert.current_cost?.toFixed(4)}
+                        <span className="text-[10px] font-medium text-foreground/80 truncate">
+                          {alert.endpoint}
                         </span>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => (window.location.href = `/alerts/${alert.alert_id}`)}
-                      >
-                        View
-                        <ArrowRight className="h-4 w-4 ml-1" />
-                      </Button>
+                      <ArrowRight className="h-3 w-3 text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
                   ))}
                 </div>
               </div>
             </div>
-          </Card>
+          </div>
         )}
 
         {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="p-6 border-(--accent)">
-            <div className="flex items-start justify-between">
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">
-                  Total Cost ({timeView === '24h' ? '24h' : timeView === '7d' ? '7d' : '30d'})
+          <Card className="p-3 border-border bg-card shadow-sm relative overflow-hidden group">
+            <div className="flex items-start justify-between relative z-10">
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">
+                  Total Cost
                 </p>
-                <p className="text-3xl font-bold">{formatCost(totalCost)}</p>
-                {totalCost > 0 && (
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <span>{totalRequests} requests</span>
-                  </div>
-                )}
+                <div className="flex items-baseline gap-1.5">
+                  <p className="text-xl font-bold text-foreground tabular-nums">
+                    {formatCost(totalCost)}
+                  </p>
+                </div>
+                <Badge
+                  variant="outline"
+                  className="h-4 px-1 text-[9px] font-mono bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                >
+                  {totalRequests.toLocaleString()} reqs
+                </Badge>
               </div>
-              <div className="rounded-lg bg-emerald-100 dark:bg-emerald-950 p-3">
-                <DollarSign className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+              <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <DollarSign className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
               </div>
             </div>
+            <div className="absolute -bottom-2 -right-2 h-16 w-16 bg-emerald-500/5 rounded-full blur-2xl group-hover:bg-emerald-500/10 transition-colors" />
           </Card>
 
-          <Card className="p-6  border-(--accent)">
-            <div className="flex items-start justify-between">
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">
-                  Total Requests ({timeView === '24h' ? '24h' : timeView === '7d' ? '7d' : '30d'})
+          <Card className="p-3 border-border bg-card shadow-sm relative overflow-hidden group">
+            <div className="flex items-start justify-between relative z-10">
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">
+                  Total Requests
                 </p>
-                <p className="text-3xl font-bold">{totalRequests.toLocaleString()}</p>
-                {totalCost > 0 && (
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <span>{formatCost(totalCost)} total</span>
-                  </div>
-                )}
+                <p className="text-xl font-bold text-foreground tabular-nums">
+                  {totalRequests.toLocaleString()}
+                </p>
+                <Badge
+                  variant="outline"
+                  className="h-4 px-1 text-[9px] font-mono bg-primary/10 text-primary border-primary/20"
+                >
+                  Across all services
+                </Badge>
               </div>
-              <div className="rounded-lg bg-blue-100 dark:bg-blue-950 p-3">
-                <TrendingUp className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <TrendingUp className="h-4 w-4 text-primary" />
               </div>
             </div>
+            <div className="absolute -bottom-2 -right-2 h-16 w-16 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-colors" />
           </Card>
 
-          <Card className="p-6  border-(--accent)">
-            <div className="flex items-start justify-between">
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">Avg Cost/Request</p>
-                <p className="text-3xl font-bold">${avgCostPerRequest.toFixed(4)}</p>
+          <Card className="p-3 border-border bg-card shadow-sm relative overflow-hidden group">
+            <div className="flex items-start justify-between relative z-10">
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">
+                  Avg Cost/Request
+                </p>
+                <div className="flex items-baseline gap-1.5">
+                  <p className="text-xl font-bold text-foreground tabular-nums">
+                    ${avgCostPerRequest.toFixed(4)}
+                  </p>
+                </div>
                 {costSummary?.summary?.p95_cost && (
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <span>
-                      P95: ${parseFloat(costSummary.summary.p95_cost.toString()).toFixed(4)}
-                    </span>
-                  </div>
+                  <Badge
+                    variant="outline"
+                    className="h-4 px-1 text-[9px] font-mono bg-purple-500/10 text-purple-600 border-purple-500/20"
+                  >
+                    P95: ${parseFloat(costSummary.summary.p95_cost.toString()).toFixed(4)}
+                  </Badge>
                 )}
               </div>
-              <div className="rounded-lg bg-purple-100 dark:bg-purple-950 p-3">
-                <DollarSign className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+              <div className="h-8 w-8 rounded-lg bg-purple-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <DollarSign className="h-4 w-4 text-purple-600 dark:text-purple-400" />
               </div>
             </div>
+            <div className="absolute -bottom-2 -right-2 h-16 w-16 bg-purple-500/5 rounded-full blur-2xl group-hover:bg-purple-500/10 transition-colors" />
           </Card>
         </div>
 
         {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Cost Over Time Chart */}
-          <Card className="p-6 lg:col-span-2 border-(--accent)">
+          <Card className="p-4 lg:col-span-2 border-border bg-card shadow-sm overflow-hidden">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg font-semibold">Cost Over Time</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Track spending patterns and trends
+                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-tight">
+                    Cost Over Time
+                  </h3>
+                  <p className="text-[10px] text-muted-foreground font-medium">
+                    Spending trends based on selected model and service filters
                   </p>
                 </div>
-                <Select value={timeView} onValueChange={(v: any) => setTimeView(v)}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="24h">Last 24h</SelectItem>
-                    <SelectItem value="7d">Last 7d</SelectItem>
-                    <SelectItem value="30d">Last 30d</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
-              <div className="h-75 w-full">
+              <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={costData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <AreaChart data={costData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <defs>
                       <linearGradient id="costGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
+                        <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.1} />
+                        <stop offset="95%" stopColor="#4f46e5" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid
                       strokeDasharray="3 3"
-                      stroke="var(--border)"
+                      stroke="currentColor"
                       vertical={false}
-                      opacity={0.5}
+                      className="text-border"
+                      opacity={0.3}
                     />
                     <XAxis
                       dataKey="time"
-                      stroke="var(--foreground)"
-                      fontSize={12}
+                      stroke="currentColor"
+                      className="text-muted-foreground"
+                      fontSize={10}
                       tickLine={false}
                       axisLine={false}
                       tickMargin={10}
-                      height={40}
-                      opacity={0.7}
                     />
                     <YAxis
-                      stroke="var(--foreground)"
-                      fontSize={12}
+                      stroke="currentColor"
+                      className="text-muted-foreground"
+                      fontSize={10}
                       tickLine={false}
                       axisLine={false}
                       tickMargin={10}
-                      width={60}
-                      tickFormatter={(value) => formatCost(value).replace('$', '$')}
-                      opacity={0.7}
+                      tickFormatter={(value) => `$${value}`}
                     />
                     <Tooltip
                       content={({ active, payload }: any) => {
@@ -748,187 +808,116 @@ export default function CostPage() {
                           const value = typeof payload[0].value === 'number' ? payload[0].value : 0;
                           const requests = payload[0].payload.requests || 0;
                           return (
-                            <div className="bg-popover/95 backdrop-blur-sm border border-border rounded-lg px-4 py-3 shadow-xl">
-                              <p className="text-xs text-muted-foreground mb-1">
-                                {payload[0].payload.time}
+                            <div className="bg-card border border-border rounded px-2 py-1.5 shadow-md">
+                              <p className="text-[10px] font-bold text-foreground">
+                                {formatCost(value)}
                               </p>
-                              <div className="flex items-baseline gap-2">
-                                <p className="text-lg font-bold text-primary">
-                                  {formatCost(value)}
-                                </p>
-                                <p className="text-xs text-muted-foreground">total cost</p>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-tighter">
+                                  {requests} requests
+                                </span>
                               </div>
-                              <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border">
-                                <div className="h-2 w-2 rounded-full bg-blue-500" />
-                                <p className="text-sm text-foreground">
-                                  {requests.toLocaleString()} requests
-                                </p>
-                              </div>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                ${requests > 0 ? (value / requests).toFixed(4) : '0.0000'} avg per
-                                request
-                              </p>
                             </div>
                           );
                         }
                         return null;
                       }}
                       cursor={{
-                        stroke: 'var(--primary)',
+                        stroke: '#6366f1',
                         strokeWidth: 1,
-                        strokeDasharray: '5 5',
+                        strokeDasharray: '3 3',
                       }}
                     />
                     <Area
                       type="monotone"
                       dataKey="cost"
-                      stroke="var(--primary)"
-                      strokeWidth={2.5}
+                      stroke="#6366f1"
+                      strokeWidth={1.5}
                       fill="url(#costGradient)"
-                      activeDot={{ r: 6, strokeWidth: 2, stroke: 'var(--background)' }}
-                      animationDuration={1000}
+                      activeDot={{ r: 3, strokeWidth: 0, fill: '#6366f1' }}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
-              {costData.length > 0 && (
-                <div className="flex items-center justify-between pt-2 border-t border-(--border)">
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <div className="h-3 w-3 rounded-full bg-primary" />
-                      <span className="text-xs text-muted-foreground">Total Cost</span>
-                    </div>
-                  </div>
-                  <div className="text-xs text-muted-foreground">{costData.length} data points</div>
-                </div>
-              )}
             </div>
           </Card>
 
           {/* Model Breakdown Pie Chart */}
-          <Card className="p-6 border-(--accent)">
+          <Card className="p-4 border-border bg-card shadow-sm">
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold">Cost by Model</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedModel ? 'Click badge to clear' : 'Interactive breakdown'}
-                  </p>
-                </div>
-                {selectedModel && (
-                  <Badge
-                    variant="secondary"
-                    className="gap-1 cursor-pointer hover:bg-secondary/80"
-                    onClick={() => setSelectedModel(null)}
+              <div>
+                <h3 className="text-sm font-semibold text-foreground uppercase tracking-tight">
+                  Cost by Model
+                </h3>
+                <p className="text-[10px] text-muted-foreground font-medium">
+                  Click to filter expense table
+                </p>
+              </div>
+
+              <div className="flex items-center justify-center h-48">
+                <PieChart width={180} height={180}>
+                  <Pie
+                    data={modelBreakdown}
+                    cx={90}
+                    cy={90}
+                    innerRadius={55}
+                    outerRadius={75}
+                    paddingAngle={2}
+                    dataKey="value"
+                    onClick={handlePieClick}
                   >
-                    {selectedModel}
-                    <X className="h-3 w-3" />
-                  </Badge>
-                )}
+                    {modelBreakdown.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={entry.color}
+                        opacity={selectedModel && selectedModel !== entry.name ? 0.3 : 1}
+                        className="cursor-pointer transition-opacity outline-none"
+                        stroke="var(--background)"
+                        strokeWidth={2}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    content={({ active, payload }: any) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        return (
+                          <div className="bg-card border border-border rounded px-2 py-1.5 shadow-md">
+                            <p className="text-[10px] font-bold text-foreground">{data.name}</p>
+                            <p className="text-[10px] text-primary font-mono">
+                              {formatCost(data.value)}
+                            </p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                </PieChart>
               </div>
-              <div className="relative">
-                <div className="flex items-center justify-center">
-                  <PieChart width={280} height={280}>
-                    <defs>
-                      {modelBreakdown.map((entry, index) => (
-                        <filter key={`shadow-${index}`} id={`shadow-${index}`} height="200%">
-                          <feDropShadow
-                            dx="0"
-                            dy="2"
-                            stdDeviation="3"
-                            floodColor={entry.color}
-                            floodOpacity="0.3"
-                          />
-                        </filter>
-                      ))}
-                    </defs>
-                    <Pie
-                      data={modelBreakdown}
-                      cx={140}
-                      cy={140}
-                      innerRadius={70}
-                      outerRadius={100}
-                      paddingAngle={3}
-                      dataKey="value"
-                      onClick={handlePieClick}
-                      animationDuration={800}
-                      animationBegin={0}
-                    >
-                      {modelBreakdown.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={entry.color}
-                          opacity={selectedModel && selectedModel !== entry.name ? 0.2 : 1}
-                          className="cursor-pointer transition-all duration-200 hover:opacity-90"
-                          stroke="var(--background)"
-                          strokeWidth={2}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      content={({ active, payload }: any) => {
-                        if (active && payload && payload.length) {
-                          const data = payload[0].payload;
-                          return (
-                            <div className="bg-popover/95 backdrop-blur-sm border border-(--border) rounded-lg px-4 py-3 shadow-xl">
-                              <p className="font-semibold text-sm mb-1">{data.name}</p>
-                              <div className="space-y-1">
-                                <div className="flex items-baseline gap-2">
-                                  <p className="text-lg font-bold text-primary">
-                                    {formatCost(data.value)}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {data.percentage.toFixed(1)}%
-                                  </p>
-                                </div>
-                              </div>
-                              <p className="text-xs text-muted-foreground mt-2 pt-2 border-t border-border">
-                                Click to filter table
-                              </p>
-                            </div>
-                          );
-                        }
-                        return null;
-                      }}
-                    />
-                  </PieChart>
-                </div>
-                {modelBreakdown.length > 0 && (
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="text-center">
-                      <p className="text-2xl font-bold">
-                        {formatCost(modelBreakdown.reduce((sum, m) => sum + m.value, 0))}
-                      </p>
-                      <p className="text-xs text-muted-foreground">Total</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="space-y-2.5 pt-2 border-t border-(--border)">
+
+              <div className="space-y-1.5 pt-2 border-t border-border">
                 {modelBreakdown.map((model, i) => (
                   <div
                     key={i}
                     className={cn(
-                      'flex items-center justify-between p-2 rounded-md transition-all cursor-pointer hover:bg-muted/50',
-                      selectedModel === model.name && 'bg-muted'
+                      'flex items-center justify-between p-1 rounded transition-colors cursor-pointer hover:bg-accent/40',
+                      selectedModel === model.name && 'bg-accent'
                     )}
                     onClick={() => handlePieClick({ name: model.name })}
                   >
-                    <div className="flex items-center gap-2.5 flex-1">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
                       <div
-                        className="h-3 w-3 rounded-full ring-2 ring-background shadow-sm"
+                        className="h-1.5 w-1.5 rounded-full"
                         style={{ backgroundColor: model.color }}
                       />
-                      <span className="text-sm font-medium truncate">{model.name}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-semibold tabular-nums">
-                        {formatCost(model.value)}
-                      </span>
-                      <span className="text-xs text-muted-foreground font-medium min-w-[3rem] text-right">
-                        {model.percentage.toFixed(1)}%
+                      <span className="text-[10px] font-medium text-foreground/80 truncate">
+                        {model.name}
                       </span>
                     </div>
+                    <span className="text-[10px] font-mono font-bold text-foreground">
+                      {model.percentage.toFixed(1)}%
+                    </span>
                   </div>
                 ))}
               </div>
@@ -937,12 +926,14 @@ export default function CostPage() {
         </div>
 
         {/* Top 10 Most Expensive Endpoints */}
-        <Card className="p-6  border-(--border)">
+        <Card className="p-4 border-border bg-card shadow-sm">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-semibold">Expensive Endpoints</h3>
-                <p className="text-sm text-muted-foreground">
+                <h3 className="text-sm font-semibold text-foreground uppercase tracking-tight">
+                  Expensive Endpoints
+                </h3>
+                <p className="text-[10px] text-muted-foreground font-medium">
                   {hasActiveFilters || selectedModel ? (
                     <>
                       Showing {filteredEndpoints.length} of {endpoints.length} endpoints
@@ -954,91 +945,122 @@ export default function CostPage() {
                 </p>
               </div>
               {(hasActiveFilters || selectedModel) && (
-                <Button variant="secondary" size="sm" onClick={clearAllFilters} className="gap-2">
-                  <X className="h-4 w-4" />
-                  Clear All Filters
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearAllFilters}
+                  className="h-7 text-[10px] uppercase font-bold gap-2"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Clear Filters
                 </Button>
               )}
             </div>
 
-            <div className="relative w-full overflow-x-auto rounded-lg border border-(--border)">
-              <table className="w-full caption-bottom text-sm">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-10">#</TableHead>
-                    <TableHead>Endpoint</TableHead>
-                    <TableHead>Model</TableHead>
-                    <TableHead className="text-right">Requests</TableHead>
-                    <TableHead className="text-right">Total Cost</TableHead>
-                    <TableHead className="text-right">Avg Cost</TableHead>
-                    <TableHead className="text-center">Trend</TableHead>
-                    <TableHead className="w-25"></TableHead>
-                  </TableRow>
-                </TableHeader>
+            <div className="relative w-full overflow-x-auto">
+              <table className="w-full caption-bottom text-[11px]">
+                <thead>
+                  <tr className="hover:bg-transparent border-b border-border h-8 bg-accent/30">
+                    <th className="w-10 h-8 px-3 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground text-left">
+                      #
+                    </th>
+                    <th className="h-8 px-2 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground text-left">
+                      Endpoint
+                    </th>
+                    <th className="h-8 px-2 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground text-left">
+                      Model
+                    </th>
+                    <th className="h-8 px-2 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground text-right">
+                      Requests
+                    </th>
+                    <th className="h-8 px-2 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground text-right">
+                      Total Cost
+                    </th>
+                    <th className="h-8 px-2 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground text-right">
+                      Avg Cost
+                    </th>
+                    <th className="h-8 px-2 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground text-center">
+                      Trend
+                    </th>
+                    <th className="w-10 h-8 px-2"></th>
+                  </tr>
+                </thead>
                 <TableBody>
                   {filteredEndpoints.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                        No endpoints found for {selectedModel}
+                      <TableCell colSpan={8} className="text-center py-12 text-muted-foreground/60">
+                        No endpoints found
                       </TableCell>
                     </TableRow>
                   ) : (
                     filteredEndpoints.map((endpoint, index) => (
                       <TableRow
                         key={index}
-                        className="cursor-pointer hover:bg-muted/50 transition-colors border-(--border)"
+                        className="cursor-pointer hover:bg-accent/40 transition-colors border-b border-border/50 h-8 group"
                         onClick={() => handleEndpointClick(endpoint.endpoint)}
                       >
-                        <TableCell className="font-medium text-muted-foreground">
+                        <TableCell className="px-2 py-1.5 font-medium text-muted-foreground font-mono">
                           {index + 1}
                         </TableCell>
-                        <TableCell className="font-mono text-sm">
+                        <TableCell className="px-2 py-1.5 font-mono text-[11px] text-foreground/80 max-w-xs truncate">
                           {highlightSearch(endpoint.endpoint, searchQuery)}
                         </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary" className="text-xs">
+                        <TableCell className="px-2 py-1.5">
+                          <Badge
+                            variant="outline"
+                            className="h-4 px-1 text-[9px] font-mono text-muted-foreground border-border uppercase"
+                          >
                             {endpoint.model}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right font-mono tabular-nums">
+                        <TableCell className="px-2 py-1.5 text-right font-mono tabular-nums text-foreground/70">
                           {endpoint.requests.toLocaleString()}
                         </TableCell>
-                        <TableCell className="text-right font-mono tabular-nums font-semibold">
+                        <TableCell className="px-2 py-1.5 text-right font-mono tabular-nums font-semibold text-foreground">
                           {formatCost(endpoint.totalCost)}
                         </TableCell>
-                        <TableCell className="text-right font-mono tabular-nums text-sm text-muted-foreground">
+                        <TableCell className="px-2 py-1.5 text-right font-mono tabular-nums text-[10px] text-muted-foreground">
                           {formatCost(endpoint.avgCost)}
                         </TableCell>
-                        <TableCell className="text-center">
+                        <TableCell className="px-2 py-1.5 text-center">
                           {endpoint.trend === 'up' && (
-                            <Badge variant="destructive" className="gap-1">
-                              <TrendingUp className="h-3 w-3" />
-                              Up
+                            <Badge
+                              variant="outline"
+                              className="h-4 px-1 text-[9px] gap-1 bg-destructive/10 text-destructive border-destructive/20"
+                            >
+                              <TrendingUp className="h-2.5 w-2.5" />
+                              UP
                             </Badge>
                           )}
                           {endpoint.trend === 'down' && (
-                            <Badge variant="success" className="gap-1">
-                              <TrendingDown className="h-3 w-3" />
-                              Down
+                            <Badge
+                              variant="outline"
+                              className="h-4 px-1 text-[9px] gap-1 bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                            >
+                              <TrendingDown className="h-2.5 w-2.5" />
+                              DOWN
                             </Badge>
                           )}
                           {endpoint.trend === 'stable' && (
-                            <Badge variant="secondary" className="gap-1">
-                              Stable
+                            <Badge
+                              variant="outline"
+                              className="h-4 px-1 text-[9px] text-muted-foreground border-border"
+                            >
+                              STABLE
                             </Badge>
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="px-2 py-1.5">
                           <Button
                             variant="ghost"
                             size="sm"
+                            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleEndpointClick(endpoint.endpoint);
                             }}
                           >
-                            View Traces
-                            <ArrowRight className="h-4 w-4 ml-1" />
+                            <ArrowRight className="h-3 w-3" />
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -1049,11 +1071,10 @@ export default function CostPage() {
 
               {/* Pagination */}
               {filteredEndpoints.length > 0 && totalEndpoints > ITEMS_PER_PAGE && (
-                <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-background">
-                  <div className="text-sm text-muted-foreground">
-                    Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1} to{' '}
-                    {Math.min(currentPage * ITEMS_PER_PAGE, totalEndpoints)} of {totalEndpoints}{' '}
-                    endpoints
+                <div className="flex items-center justify-between px-3 py-2 border-t border-border bg-accent/10">
+                  <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-tight">
+                    Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1} -{' '}
+                    {Math.min(currentPage * ITEMS_PER_PAGE, totalEndpoints)} of {totalEndpoints}
                   </div>
                   <TablePagination
                     currentPage={currentPage}

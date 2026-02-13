@@ -42,6 +42,7 @@ import {
   type Alert,
 } from '@/lib/api';
 import { formatDistanceToNow } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 export default function Home() {
   const router = useRouter();
@@ -250,11 +251,11 @@ export default function Home() {
     <div className="h-full overflow-auto bg-background">
       <div className="p-6 space-y-6 max-w-400 mx-auto">
         {/* Header */}
-        <div className="animate-fade-in">
-          <h1 className="text-3xl font-bold tracking-tight">
+        <div className="animate-fade-in flex flex-col gap-1.5">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             Observe and optimize AI in production
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-sm text-muted-foreground">
             Real-time performance monitoring, cost analysis, and quality insights for your AI
             applications
           </p>
@@ -266,9 +267,9 @@ export default function Home() {
           <Card className="p-6 border-(--accent) animate-scale-in stagger-1">
             <div className="space-y-6">
               <div>
-                <h2 className="text-xl font-semibold mb-2">Quick Actions</h2>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                <h2 className="text-lg font-semibold text-foreground mb-2">Quick Actions</h2>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                   <span>SDK installed. You're ready to go.</span>
                 </div>
               </div>
@@ -276,22 +277,28 @@ export default function Home() {
               {/* Checklist */}
               <div className="space-y-3">
                 {/* Install SDK - Completed */}
-                <div className="flex items-start gap-3 opacity-50">
-                  <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
+                <div className="flex items-start gap-3 opacity-60">
+                  <div className="h-5 w-5 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                  </div>
                   <div>
-                    <p className="font-medium text-sm">Install SDK</p>
+                    <p className="font-medium text-xs text-foreground">Install SDK</p>
                   </div>
                 </div>
 
                 {/* View Live Traces - Active */}
                 <button
                   onClick={() => router.push('/traces')}
-                  className="w-full flex items-start gap-3 text-left hover:bg-muted/50 p-2 -ml-2 rounded-lg transition-colors cursor-pointer"
+                  className="w-full flex items-start gap-3 text-left hover:bg-accent/50 p-2 -ml-2 rounded-lg transition-colors cursor-pointer group"
                 >
-                  <PlayCircle className="h-5 w-5 text-amber-500 mt-0.5 shrink-0" />
+                  <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <PlayCircle className="h-3.5 w-3.5 text-primary" />
+                  </div>
                   <div className="flex-1">
-                    <p className="font-medium text-sm">View Live Traces</p>
-                    <p className="text-xs text-muted-foreground">Start streaming traces</p>
+                    <p className="font-medium text-xs text-foreground group-hover:text-primary transition-colors">
+                      View Live Traces
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">Start streaming traces</p>
                   </div>
                 </button>
 
@@ -325,14 +332,14 @@ export default function Home() {
                 </div>
                 <div className="h-2 bg-muted rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-blue-600 rounded-full transition-all duration-500"
+                    className="h-full bg-primary rounded-full transition-all duration-500"
                     style={{ width: `${getOnboardingProgress()}%` }}
                   />
                 </div>
               </div>
 
               {/* Actions */}
-              <div className="space-y-3 pt-4 border-t border-(--border)">
+              <div className="space-y-3 pt-4 border-t border-border">
                 <Button className="w-full" size="lg">
                   <BookOpen className="h-4 w-4 mr-2" />
                   Read the Docs
@@ -348,7 +355,7 @@ export default function Home() {
           </Card>
 
           {/* Live Traces Card - Spans 2 columns */}
-          <Card className="lg:col-span-2 p-6 border-(--accent) animate-scale-in stagger-2">
+          <Card className="lg:col-span-2 p-6 border-border animate-scale-in stagger-2">
             <div className="space-y-4">
               {/* Header */}
               <div className="flex items-start justify-between">
@@ -388,60 +395,75 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Live Traces List */}
-              <div className="space-y-2">
-                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
-                  Live Traces
-                </div>
+              {/* Live Traces Table */}
+              <div className="relative w-full overflow-x-auto rounded border border-border/50">
                 {recentTraces.length > 0 ? (
-                  recentTraces.map((trace, index) => (
-                    <div
-                      key={
-                        trace.trace_id && trace.span_id
-                          ? `${trace.trace_id}-${trace.span_id}`
-                          : `trace-${index}`
-                      }
-                      className="w-full flex items-center gap-4 p-3 rounded-lg bg-muted/30 border border-(--border)"
-                    >
-                      <div
-                        className={`h-2 w-2 rounded-full shrink-0 ${
-                          trace.status === 'healthy' ? 'bg-green-500' : 'bg-amber-500'
-                        }`}
-                      ></div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-sm">{trace.service_name}</span>
-                          <span className="text-muted-foreground text-sm font-mono">
+                  <table className="w-full caption-bottom text-[11px]">
+                    <thead>
+                      <tr className="hover:bg-transparent border-b border-border h-8">
+                        <th className="w-4 px-2"></th>
+                        <th className="h-8 px-2 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground text-left">
+                          Service
+                        </th>
+                        <th className="h-8 px-2 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground text-left">
+                          Endpoint
+                        </th>
+                        <th className="h-8 px-2 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground text-right">
+                          Latency
+                        </th>
+                        <th className="h-8 px-2 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground text-right">
+                          Cost
+                        </th>
+                        <th className="h-8 px-2 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground text-right">
+                          When
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recentTraces.map((trace) => (
+                        <tr
+                          key={trace.trace_id}
+                          className="cursor-pointer hover:bg-accent/40 transition-colors border-b border-border/50 h-8 group"
+                          onClick={() => router.push(`/traces?id=${trace.trace_id}`)}
+                        >
+                          <td className="px-2 py-1.5">
+                            <div
+                              className={`h-1.5 w-1.5 rounded-full ${
+                                trace.status === 'healthy' ? 'bg-emerald-500' : 'bg-amber-500'
+                              }`}
+                            ></div>
+                          </td>
+                          <td className="px-2 py-1.5 font-semibold text-foreground truncate max-w-[120px]">
+                            {trace.service_name}
+                          </td>
+                          <td className="px-2 py-1.5 font-mono text-[10px] text-muted-foreground truncate max-w-[150px]">
                             {trace.endpoint}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                          <span>{trace.latency_ms} ms</span>
-                          <span>·</span>
-                          <span>
-                            $
-                            {typeof trace.cost_usd === 'number'
-                              ? trace.cost_usd.toFixed(3)
-                              : '0.000'}
-                          </span>
-                          <span>·</span>
-                          <span>{trace.model}</span>
-                        </div>
-                      </div>
-                      <div className="text-sm text-muted-foreground shrink-0">
-                        {formatDistanceToNow(new Date(trace.timestamp), { addSuffix: true })}
-                      </div>
-                    </div>
-                  ))
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-mono text-muted-foreground/80">
+                            {trace.latency_ms}ms
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-mono font-semibold text-foreground">
+                            ${(trace.cost_usd || 0).toFixed(4)}
+                          </td>
+                          <td
+                            className="px-2 py-1.5 text-right text-muted-foreground tabular-nums"
+                            suppressHydrationWarning
+                          >
+                            {formatDistanceToNow(new Date(trace.timestamp), { addSuffix: false })}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 ) : (
-                  <div className="text-center py-8 text-muted-foreground text-sm space-y-3">
+                  <div className="text-center py-12 text-muted-foreground/60 text-[11px] space-y-3">
                     <div>
                       No traces in the last {humanizeTracesRange(tracesTimeRange, tracesFallback)}.
                     </div>
                     <div>
                       <button
                         onClick={() => setTracesTimeRange('24hours')}
-                        className="underline text-sm"
+                        className="underline text-[10px] font-bold uppercase tracking-tight hover:text-foreground"
                       >
                         Show last 24 hours
                       </button>
@@ -451,37 +473,31 @@ export default function Home() {
               </div>
 
               {/* Summary Stats */}
-              <div className="flex items-center justify-between pt-4 border-t border-(--border)">
+              <div className="flex items-center justify-between pt-4 border-t border-border">
                 <div className="text-center flex-1">
-                  <div className="text-2xl font-bold">{totalRequests}</div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Total
-                    <br />
-                    requests
+                  <div className="text-lg font-bold text-foreground">{totalRequests}</div>
+                  <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mt-1">
+                    Requests
                   </div>
                 </div>
-                <div className="h-12 w-px bg-border"></div>
+                <div className="h-8 w-px bg-border"></div>
                 <div className="text-center flex-1">
-                  <div className="text-2xl font-bold">
+                  <div className="text-lg font-bold text-foreground">
                     {costSummary
                       ? `${(costSummary.summary.avg_latency_ms || 0).toFixed(0)}ms`
                       : '-'}
                   </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Avg
-                    <br />
-                    latency
+                  <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mt-1">
+                    Avg Latency
                   </div>
                 </div>
-                <div className="h-12 w-px bg-border"></div>
+                <div className="h-8 w-px bg-border"></div>
                 <div className="text-center flex-1">
-                  <div className="text-2xl font-bold">
-                    {costSummary ? `$${(costSummary.summary.avg_cost || 0).toFixed(3)}` : '-'}
+                  <div className="text-lg font-bold text-foreground">
+                    {costSummary ? `$${(costSummary.summary.avg_cost || 0).toFixed(4)}` : '-'}
                   </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Avg cost
-                    <br />
-                    per request
+                  <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mt-1">
+                    Avg Cost
                   </div>
                 </div>
               </div>
@@ -600,12 +616,19 @@ export default function Home() {
                               typeof payload[0].value === 'number' ? payload[0].value : 0;
                             const requests = payload[0].payload.requests || 0;
                             return (
-                              <div className="bg-card border border-(--border) rounded-lg px-3 py-2 shadow-lg">
-                                <p className="text-sm font-semibold">${value.toFixed(2)}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {payload[0].payload.time}
+                              <div className="bg-card border border-border rounded-md px-2.5 py-1.5 shadow-xl ring-1 ring-border/50">
+                                <p className="text-xs font-semibold text-foreground">
+                                  ${value.toFixed(4)}
                                 </p>
-                                <p className="text-xs text-muted-foreground">{requests} requests</p>
+                                <div className="flex items-center gap-1.5 mt-1">
+                                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-tighter">
+                                    {payload[0].payload.time}
+                                  </span>
+                                  <span className="text-[10px] text-muted-foreground/30">•</span>
+                                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-tighter">
+                                    {requests} requests
+                                  </span>
+                                </div>
                               </div>
                             );
                           }
@@ -618,6 +641,7 @@ export default function Home() {
                         stroke="var(--primary)"
                         strokeWidth={2}
                         dot={false}
+                        activeDot={{ r: 4, strokeWidth: 0, fill: 'var(--primary)' }}
                       />
                     </LineChart>
                   </ResponsiveContainer>
@@ -631,7 +655,7 @@ export default function Home() {
           </Card>
 
           {/* Alerts Card */}
-          <Card className="p-6 border-(--accent) animate-scale-in stagger-4">
+          <Card className="p-6 border-border animate-scale-in stagger-4">
             <div className="space-y-4">
               {/* Header */}
               <div className="flex items-start justify-between">
@@ -650,22 +674,23 @@ export default function Home() {
                   alerts.map((alert) => (
                     <button
                       key={alert.alert_id}
-                      onClick={() => router.push(`/alerts/${alert.alert_id}`)}
-                      className="w-full flex items-start gap-3 p-3 rounded-lg border border-(--border) hover:bg-muted/50 transition-colors text-left"
+                      onClick={() => router.push(`/traces?id=${alert.trace_id}`)}
+                      className="w-full flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors text-left"
                     >
                       <div
-                        className={`rounded-full p-1.5 shrink-0 ${
+                        className={cn(
+                          'rounded-full p-2 shrink-0 shadow-sm',
                           alert.severity === 'HIGH'
-                            ? 'bg-red-100 dark:bg-red-950'
+                            ? 'bg-destructive/10 text-destructive'
                             : alert.severity === 'MEDIUM'
-                              ? 'bg-amber-100 dark:bg-amber-950'
-                              : 'bg-blue-100 dark:bg-blue-950'
-                        }`}
+                              ? 'bg-amber-500/10 text-amber-500'
+                              : 'bg-primary/10 text-primary'
+                        )}
                       >
                         {alert.severity === 'HIGH' ? (
-                          <DollarSign className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
+                          <DollarSign className="h-3.5 w-3.5" />
                         ) : (
-                          <Zap className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                          <Zap className="h-3.5 w-3.5" />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -676,7 +701,7 @@ export default function Home() {
                               ? 'Quality Degradation'
                               : 'Cost & Quality Issue'}
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-muted-foreground/60 font-mono tracking-tighter">
                           {formatDistanceToNow(new Date(alert.timestamp), { addSuffix: true })}
                         </p>
                         {alert.model && (

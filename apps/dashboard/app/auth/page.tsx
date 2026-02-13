@@ -120,7 +120,7 @@ function AuthForm() {
             <p className="text-muted-foreground">Observe and optimize AI in production</p>
           </div>
 
-          <Card className="p-8 border-(--border) shadow-lg">
+          <Card className="p-8 border-border shadow-lg">
             <div className="mb-6">
               <h2 className="text-2xl font-bold tracking-tight mb-2">Welcome back</h2>
               <p className="text-sm text-muted-foreground">
@@ -173,7 +173,7 @@ function AuthForm() {
               </div>
 
               {error && (
-                <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg text-sm animate-fade-in">
+                <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-sm animate-fade-in">
                   {error}
                 </div>
               )}
@@ -186,7 +186,7 @@ function AuthForm() {
               >
                 {loading ? (
                   <div className="flex items-center gap-2">
-                    <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <div className="h-4 w-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
                     Signing in...
                   </div>
                 ) : (
@@ -195,7 +195,7 @@ function AuthForm() {
               </Button>
             </form>
 
-            <div className="mt-6 pt-6 border-t border-(--border)">
+            <div className="mt-6 pt-6 border-t border-border">
               <p className="text-xs text-center text-muted-foreground">
                 Need help? Contact{' '}
                 <a

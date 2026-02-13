@@ -15,7 +15,7 @@ interface DataViewerProps {
 
 function FormattedContent({ data }: { data: any }) {
   if (data === null || data === undefined)
-    return <span className="text-slate-400 italic">null</span>;
+    return <span className="text-muted-foreground/60 italic">null</span>;
 
   if (Array.isArray(data)) {
     // If array of objects, verify if check message list
@@ -46,11 +46,10 @@ function FormattedContent({ data }: { data: any }) {
     return (
       <div className="space-y-2">
         {data.map((item, i) => (
-          <div
-            key={i}
-            className="border border-slate-200 dark:border-slate-800 rounded p-3 bg-white dark:bg-slate-950"
-          >
-            <span className="block text-[10px] uppercase text-slate-400 mb-1">Item {i + 1}</span>
+          <div key={i} className="border border-border rounded p-3 bg-card">
+            <span className="block text-[10px] uppercase text-muted-foreground/60 mb-1">
+              Item {i + 1}
+            </span>
             <FormattedContent data={item} />
           </div>
         ))}
@@ -62,7 +61,7 @@ function FormattedContent({ data }: { data: any }) {
     // Check for chat message format (single)
     if ('role' in data && 'content' in data) {
       return (
-        <div className="flex flex-col gap-1 border-l-2 border-primary/50 pl-3 py-1 bg-slate-50/50 dark:bg-slate-900/20 rounded-r">
+        <div className="flex flex-col gap-1 border-l-2 border-primary/50 pl-3 py-1 bg-accent/20 rounded-r">
           <span className="text-[10px] font-bold uppercase text-slate-500 tracking-wider">
             {data.role}
           </span>
@@ -75,10 +74,10 @@ function FormattedContent({ data }: { data: any }) {
 
     // Generic Object Table
     return (
-      <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm border-t border-slate-100 dark:border-slate-800/50 pt-2">
+      <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm border-t border-border/40 pt-2">
         {Object.entries(data).map(([k, v]) => (
           <div key={k} className="contents">
-            <span className="font-semibold text-slate-500 text-xs uppercase pt-1 text-right">
+            <span className="font-semibold text-muted-foreground/60 text-xs uppercase pt-1 text-right">
               {k}
             </span>
             <div className="min-w-0 pb-1 border-b border-transparent">
@@ -95,7 +94,7 @@ function FormattedContent({ data }: { data: any }) {
   // Check if string is multi-line
   if (stringValue.includes('\n') || stringValue.length > 50) {
     return (
-      <div className="whitespace-pre-wrap text-sm text-slate-800 dark:text-slate-200 font-sans bg-slate-50 dark:bg-slate-900/50 p-3 rounded border border-slate-100 dark:border-slate-800">
+      <div className="whitespace-pre-wrap text-sm text-foreground/90 font-sans bg-muted/40 p-3 rounded border border-border">
         {stringValue}
       </div>
     );
@@ -144,12 +143,10 @@ export function DataViewer({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <h4 className="text-xs font-semibold text-slate-900 dark:text-slate-100 uppercase tracking-wide">
-          {label}
-        </h4>
+        <h4 className="text-xs font-semibold text-foreground uppercase tracking-wide">{label}</h4>
 
         {!controlledViewMode && (
-          <div className="flex bg-slate-100 dark:bg-slate-800 rounded p-0.5">
+          <div className="flex bg-muted rounded p-0.5">
             <button
               onClick={() => setView('formatted')}
               className={cn(
@@ -180,7 +177,7 @@ export function DataViewer({
 
       <div className="rounded-md overflow-hidden transition-all duration-200">
         {view === 'json' ? (
-          <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md p-4">
+          <div className="bg-muted/20 border border-border rounded-md p-4">
             <JsonViewer data={data} />
           </div>
         ) : (

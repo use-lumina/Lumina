@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import useSWR from 'swr';
 import { fetcher } from '@/lib/fetcher';
-import logo from '@/assets/images/logo.png';
+import logoFull from '@/assets/images/logo-full.png';
 import { NotificationData, Alert } from '@/types/notification';
 import {
   Activity,
@@ -136,15 +136,20 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="w-[220px] border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex flex-col h-full shrink-0">
+    <aside className="w-55 border-r border-border bg-sidebar/80 backdrop-blur-md flex flex-col h-full shrink-0 z-50 transition-all duration-400">
       {/* Logo */}
-      <div className="h-14 flex items-center px-4 border-b border-slate-200 dark:border-slate-800">
-        <div className="relative w-8 h-8">
-          <Image src={logo} alt="Lumina AI" fill sizes="32px" priority className="object-contain" />
+      <div className="h-18 border-b border-border/60 flex items-center justify-start">
+        <div className="relative h-12 w-auto">
+          <Image
+            src={logoFull}
+            alt="Lumina Analytics"
+            priority
+            unoptimized
+            height={48}
+            width={120}
+            className="object-contain object-left"
+          />
         </div>
-        <span className="ml-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
-          Lumina
-        </span>
       </div>
 
       {/* Navigation */}
@@ -161,18 +166,28 @@ export function Sidebar() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'flex items-center h-8 px-2 gap-2 rounded-md text-xs font-medium transition-colors',
+                  'relative flex items-center h-8 px-2.5 gap-2.5 rounded transition-all group overflow-hidden',
                   isActive
-                    ? 'bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-slate-100'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-900/50'
+                    ? 'bg-primary/10 text-foreground'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
                 )}
               >
-                <Icon className="h-4 w-4 shrink-0" />
-                <span className="flex-1">{item.label}</span>
+                {isActive && (
+                  <div className="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-primary rounded-full shadow-[0_0_8px_rgba(var(--primary),0.5)]" />
+                )}
+                <Icon
+                  className={cn(
+                    'h-3.5 w-3.5 shrink-0 transition-colors duration-400',
+                    isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'
+                  )}
+                />
+                <span className="flex-1 text-[10px] font-bold uppercase tracking-tighter">
+                  {item.label}
+                </span>
                 {badgeCount !== null && badgeCount > 0 && (
                   <Badge
-                    variant="secondary"
-                    className="h-5 min-w-5 px-1.5 text-[10px] font-semibold"
+                    variant="outline"
+                    className="h-4 min-w-4 px-1 text-[8px] font-bold bg-primary text-primary-foreground border-none shadow-sm"
                   >
                     {badgeCount}
                   </Badge>
@@ -184,23 +199,25 @@ export function Sidebar() {
       </ScrollArea>
 
       {/* Bottom section */}
-      <div className="border-t border-slate-200 dark:border-slate-800 p-2 space-y-0.5">
+      <div className="border-t border-border p-2 space-y-0.5">
         {/* Notifications */}
         {user && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center h-8 w-full px-2 gap-2 rounded-md text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
+              <button className="flex items-center h-8 w-full px-2.5 gap-2.5 rounded transition-all duration-400 text-muted-foreground hover:text-foreground hover:bg-accent/50 group">
                 <div className="relative shrink-0">
-                  <Bell className="h-4 w-4" />
+                  <Bell className="h-3.5 w-3.5 transition-colors duration-400" />
                   {notificationCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-red-500" />
+                    <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-destructive ring-2 ring-background" />
                   )}
                 </div>
-                <span className="flex-1 text-left">Notifications</span>
+                <span className="flex-1 text-[10px] font-bold uppercase tracking-tighter text-left">
+                  Notifications
+                </span>
                 {notificationCount > 0 && (
                   <Badge
-                    variant="secondary"
-                    className="h-5 min-w-5 px-1.5 text-[10px] font-semibold"
+                    variant="outline"
+                    className="h-4 min-w-4 px-1 text-[8px] font-bold bg-muted text-muted-foreground border-none"
                   >
                     {notificationCount}
                   </Badge>
@@ -260,9 +277,11 @@ export function Sidebar() {
         {/* Settings */}
         {user && (
           <Link href="/settings">
-            <button className="flex items-center h-8 w-full px-2 gap-2 rounded-md text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
-              <Settings className="h-4 w-4 shrink-0" />
-              <span className="flex-1 text-left">Settings</span>
+            <button className="flex items-center h-8 w-full px-2.5 gap-2.5 rounded transition-all duration-400 text-muted-foreground hover:text-foreground hover:bg-accent/50 group">
+              <Settings className="h-3.5 w-3.5 transition-colors duration-400" />
+              <span className="flex-1 text-[10px] font-bold uppercase tracking-tighter text-left">
+                Settings
+              </span>
             </button>
           </Link>
         )}
@@ -270,19 +289,19 @@ export function Sidebar() {
         {/* Theme toggle */}
         <button
           onClick={() => mounted && setTheme(theme === 'dark' ? 'light' : 'dark')}
-          className="flex items-center h-8 w-full px-2 gap-2 rounded-md text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors"
+          className="flex items-center h-8 w-full px-2.5 gap-2.5 rounded transition-all duration-400 text-muted-foreground hover:text-foreground hover:bg-accent/50 group"
         >
           {mounted && theme === 'dark' ? (
-            <Sun className="h-4 w-4 shrink-0" />
+            <Sun className="h-3.5 w-3.5 transition-colors duration-400" />
           ) : (
-            <Moon className="h-4 w-4 shrink-0" />
+            <Moon className="h-3.5 w-3.5 transition-colors duration-400" />
           )}
-          <span className="flex-1 text-left">
+          <span className="flex-1 text-[10px] font-bold uppercase tracking-tighter text-left">
             {mounted && theme === 'dark' ? 'Light mode' : 'Dark mode'}
           </span>
         </button>
 
-        <div className="h-px bg-slate-200 dark:bg-slate-800 my-1" />
+        <div className="h-px bg-border my-1" />
 
         {/* User */}
         {!loading && (
@@ -290,15 +309,15 @@ export function Sidebar() {
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex items-center h-9 w-full px-2 gap-2 rounded-md text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
-                    <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 shrink-0">
-                      <User className="h-3 w-3 text-white" />
+                  <button className="flex items-center h-10 w-full px-2 gap-2.5 rounded-md transition-all duration-400 hover:bg-accent/50">
+                    <div className="flex items-center justify-center h-7 w-7 rounded border border-border bg-background shadow-sm shrink-0">
+                      <User className="h-3.5 w-3.5 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0 text-left">
-                      <div className="text-xs font-medium leading-none truncate text-slate-900 dark:text-slate-100">
+                      <div className="text-[11px] font-bold leading-none truncate text-foreground uppercase tracking-tighter">
                         {user.name}
                       </div>
-                      <div className="text-[10px] leading-none mt-0.5 truncate text-slate-500 dark:text-slate-400">
+                      <div className="text-[9px] font-mono leading-none mt-1 truncate text-muted-foreground">
                         {user.email}
                       </div>
                     </div>
@@ -332,9 +351,11 @@ export function Sidebar() {
               </DropdownMenu>
             ) : (
               <Link href="/auth">
-                <button className="flex items-center h-8 w-full px-2 gap-2 rounded-md text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
-                  <LogIn className="h-4 w-4 shrink-0" />
-                  <span className="flex-1 text-left">Sign In</span>
+                <button className="flex items-center h-8 w-full px-2.5 gap-2.5 rounded transition-all duration-400 text-muted-foreground hover:text-foreground hover:bg-accent/50 group">
+                  <LogIn className="h-3.5 w-3.5 transition-colors duration-400" />
+                  <span className="flex-1 text-[10px] font-bold uppercase tracking-tighter text-left">
+                    Sign In
+                  </span>
                 </button>
               </Link>
             )}

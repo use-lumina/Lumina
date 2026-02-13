@@ -57,7 +57,7 @@ export function TraceTableToolbar({
   onAddToQueue,
 }: TraceTableToolbarProps) {
   return (
-    <div className="h-12 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex items-center gap-2 px-4">
+    <div className="h-12 border-b border-border bg-card flex items-center gap-2 px-4 shadow-sm">
       {/* Actions Dropdown - Shows when rows are selected */}
       {selectedCount > 0 && (
         <DropdownMenu>
@@ -82,12 +82,12 @@ export function TraceTableToolbar({
 
       {/* Search */}
       <div className="relative flex-1 max-w-md">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground/60" />
         <Input
           placeholder="Search IDs / Names..."
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="pl-9 h-9 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800"
+          className="pl-9 h-9 bg-accent/30 border-border"
         />
       </div>
 
@@ -105,7 +105,7 @@ export function TraceTableToolbar({
       {/* Time Range */}
       <Select value={timeRange} onValueChange={onTimeRangeChange}>
         <SelectTrigger className="w-[140px] h-9">
-          <Clock className="h-4 w-4 mr-2 text-slate-500" />
+          <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -144,7 +144,7 @@ export function TraceTableToolbar({
         </PopoverTrigger>
         <PopoverContent className="w-48" align="end">
           <div className="text-xs font-medium mb-2">Toggle columns</div>
-          <div className="text-xs text-slate-500">Column customization coming soon</div>
+          <div className="text-xs text-muted-foreground">Column customization coming soon</div>
         </PopoverContent>
       </Popover>
 
