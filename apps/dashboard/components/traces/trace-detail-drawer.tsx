@@ -1,31 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerHeader,
-  DrawerTitle,
-} from '@/components/ui/drawer';
-import { SpanTimeline } from './trace-timeline';
-import { SpanTree } from './span-tree';
-import {
-  Clock,
-  DollarSign,
-  User,
-  Hash,
-  Copy,
-  Check,
-  WrapText,
-  Code2,
-  X,
-  ExternalLink,
-} from 'lucide-react';
-import type { UITrace, HierarchicalSpan } from '@/types/trace';
+import { Drawer, DrawerContent } from '@/components/ui/drawer';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { X, Clock, User, Tag, CheckCircle2, AlertTriangle, XCircle, Activity } from 'lucide-react';
+import type { UITrace } from '@/types/trace';
+import { cn } from '@/lib/utils';
+import { TraceWaterfall } from './trace-waterfall';
+import { JsonViewer } from './json-viewer';
 
 interface TraceDetailDrawerProps {
   trace: UITrace | null;
@@ -34,450 +19,291 @@ interface TraceDetailDrawerProps {
 }
 
 export function TraceDetailDrawer({ trace, open, onOpenChange }: TraceDetailDrawerProps) {
-  const [copiedPrompt, setCopiedPrompt] = useState(false);
-  const [copiedResponse, setCopiedResponse] = useState(false);
-  const [wrapPrompt, setWrapPrompt] = useState(true);
-  const [wrapResponse, setWrapResponse] = useState(true);
-  const [selectedSpan, setSelectedSpan] = useState<HierarchicalSpan | null>(null);
+  if (!trace) return null;
 
-  // Reset selected span when trace changes
-  useEffect(() => {
-    setSelectedSpan(trace?.hierarchicalSpan || null);
-  }, [trace]);
-
-  const copyToClipboard = async (text: string, type: 'prompt' | 'response') => {
-    await navigator.clipboard.writeText(text);
-    if (type === 'prompt') {
-      setCopiedPrompt(true);
-      setTimeout(() => setCopiedPrompt(false), 2000);
-    } else {
-      setCopiedResponse(true);
-      setTimeout(() => setCopiedResponse(false), 2000);
+  const getStatusIcon = (status: UITrace['status']) => {
+    switch (status) {
+      case 'healthy':
+        return <CheckCircle2 className="h-5 w-5 text-emerald-500" />;
+      case 'degraded':
+        return <AlertTriangle className="h-5 w-5 text-amber-500" />;
+      case 'error':
+        return <XCircle className="h-5 w-5 text-red-500" />;
     }
   };
 
-  if (!trace) return null;
-
-  // Use selected span data or fallback to trace data
-  const displayData = selectedSpan
-    ? {
-        prompt: selectedSpan.prompt,
-        response: selectedSpan.response,
-        promptTokens: selectedSpan.prompt_tokens,
-        completionTokens: selectedSpan.completion_tokens,
-      }
-    : {
-        prompt: trace.prompt,
-        response: trace.response,
-        promptTokens: trace.metadata?.tokensIn,
-        completionTokens: trace.metadata?.tokensOut,
-      };
+  const getScoreColor = (score: number) => {
+    if (score >= 0.8) return 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
+    if (score < 0.5) return 'text-red-500 bg-red-500/10 border-red-500/20';
+    return 'text-amber-500 bg-amber-500/10 border-amber-500/20';
+  };
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="focus:outline-none border-(--border)">
-        <div className="mx-auto w-full h-full overflow-y-auto">
-          <div className="space-y-6 p-6 pb-12">
-            {/* Header */}
-            <DrawerHeader className="p-0">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <DrawerTitle>Trace Details</DrawerTitle>
-                  <Badge variant="secondary" className="font-mono text-xs">
-                    {trace.id}
+    <Drawer open={open} onOpenChange={onOpenChange} direction="right">
+      <DrawerContent className="h-full w-[85vw] max-w-[1200px] ml-auto rounded-l-xl border-l border-border focus:outline-none flex flex-col">
+        {/* Header */}
+        <div className="flex flex-col border-b border-border bg-muted/20">
+          <div className="flex items-center justify-between px-6 py-4">
+            <div className="flex items-center gap-3">
+              {getStatusIcon(trace.status)}
+              <div>
+                <h2 className="text-lg font-semibold tracking-tight font-mono">{trace.endpoint}</h2>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                  <span className="font-mono">{trace.id}</span>
+                  <span>•</span>
+                  <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-normal">
+                    {trace.service}
+                  </Badge>
+                  <span>•</span>
+                  <Badge variant="secondary" className="text-[10px] h-5 px-1.5 font-normal">
+                    {trace.model}
                   </Badge>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 cursor-pointer!"
-                    onClick={() => window.open(`/traces/${trace.id}`, '_blank')}
-                    title="Open in new tab"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => onOpenChange(false)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              <DrawerDescription className="text-left">
-                {trace.service} • {trace.endpoint}
-              </DrawerDescription>
-            </DrawerHeader>
-
-            {/* Metadata cards */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="rounded-lg border border-(--accent) border-border bg-card p-4">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                  <Clock className="h-4 w-4" />
-                  <span>Latency</span>
-                </div>
-                <p className="text-2xl font-semibold">{trace.latencyMs}ms</p>
-              </div>
-
-              <div className="rounded-lg border border-(--accent) border-border bg-card p-4">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                  <DollarSign className="h-4 w-4" />
-                  <span>Cost</span>
-                </div>
-                <p className="text-2xl font-semibold">
-                  ${typeof trace.costUsd === 'number' ? trace.costUsd.toFixed(4) : '0.0000'}
-                </p>
-              </div>
-
-              <div className="rounded-lg border border-(--accent) border-border bg-card p-4">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                  <Hash className="h-4 w-4" />
-                  <span>Model</span>
-                </div>
-                <p className="text-xl font-semibold">{trace.model}</p>
-              </div>
-
-              <div className="rounded-lg border  border-(--accent) border-border bg-card p-4">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                  <User className="h-4 w-4" />
-                  <span>Status</span>
-                </div>
-                <Badge
-                  variant={
-                    trace.status === 'healthy'
-                      ? 'success'
-                      : trace.status === 'degraded'
-                        ? 'warning'
-                        : 'destructive'
-                  }
-                >
-                  {trace.status}
-                </Badge>
               </div>
             </div>
 
-            {/* Span Timeline or Hierarchical Tree */}
-            {trace.hierarchicalSpan ? (
-              <div className="space-y-3">
-                <h3 className="text-lg font-semibold">Span Hierarchy</h3>
-                <div className="rounded-lg border border-(--accent) border-border bg-card p-6">
-                  <SpanTree
-                    span={trace.hierarchicalSpan}
-                    selectedSpanId={selectedSpan?.span_id}
-                    onSpanSelect={setSelectedSpan}
-                  />
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-6 text-sm">
+                <div className="text-right">
+                  <p className="text-xs text-muted-foreground">Latency</p>
+                  <p className="font-mono font-medium">{trace.latencyMs}ms</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-muted-foreground">Cost</p>
+                  <p className="font-mono font-medium">
+                    ${typeof trace.costUsd === 'number' ? trace.costUsd.toFixed(5) : '0.00000'}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-muted-foreground">Tokens</p>
+                  <p className="font-mono font-medium">
+                    {trace.metadata?.tokensIn !== undefined
+                      ? (trace.metadata.tokensIn + (trace.metadata.tokensOut || 0)).toLocaleString()
+                      : '-'}
+                  </p>
                 </div>
               </div>
-            ) : trace.spans && trace.spans.length > 0 ? (
-              <div className="space-y-3">
-                <h3 className="text-lg font-semibold">Execution Timeline</h3>
-                <div className="rounded-lg border border-(--accent) border-border bg-card p-6">
-                  <SpanTimeline spans={trace.spans} totalDuration={trace.latencyMs} />
-                </div>
-              </div>
-            ) : null}
+              <Separator orientation="vertical" className="h-8" />
+              <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+          </div>
+        </div>
 
-            {/* Enhanced Tabs for prompt/response/metadata */}
-            <Tabs defaultValue="prompt" className="w-full">
-              <TabsList className="grid w-full grid-cols-3 h-auto p-1">
+        {/* Content */}
+        <div className="flex-1 overflow-hidden">
+          <Tabs defaultValue="overview" className="h-full flex flex-col">
+            <div className="px-6 pt-2 border-b border-border bg-background z-10">
+              <TabsList className="h-10 bg-transparent p-0 w-full justify-start gap-6">
                 <TabsTrigger
-                  value="prompt"
-                  className="flex-col  items-start gap-1 py-3 data-[state=active]:bg-background"
+                  value="overview"
+                  className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-2 pb-2"
                 >
-                  <span className="font-medium">Prompt</span>
-                  {displayData.promptTokens !== undefined && (
-                    <span className="text-xs text-muted-foreground font-normal">
-                      {typeof displayData.promptTokens === 'number'
-                        ? displayData.promptTokens.toLocaleString()
-                        : ''}{' '}
-                      tokens
-                    </span>
-                  )}
+                  Overview
                 </TabsTrigger>
                 <TabsTrigger
-                  value="response"
-                  className="flex-col items-start gap-1 py-3 data-[state=active]:bg-background"
+                  value="scores"
+                  className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-2 pb-2"
                 >
-                  <span className="font-medium">Response</span>
-                  {displayData.completionTokens !== undefined && (
-                    <span className="text-xs text-muted-foreground font-normal">
-                      {typeof displayData.completionTokens === 'number'
-                        ? displayData.completionTokens.toLocaleString()
-                        : ''}{' '}
-                      tokens
-                    </span>
-                  )}
+                  Scores
                 </TabsTrigger>
                 <TabsTrigger
                   value="metadata"
-                  className="flex-col items-start gap-1 py-3 data-[state=active]:bg-background"
+                  className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-2 pb-2"
                 >
-                  <span className="font-medium">Metadata</span>
-                  <span className="text-xs text-muted-foreground font-normal">{trace.model}</span>
+                  Metadata
+                </TabsTrigger>
+                <TabsTrigger
+                  value="json"
+                  className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-2 pb-2"
+                >
+                  JSON Trace
                 </TabsTrigger>
               </TabsList>
+            </div>
 
-              <TabsContent value="prompt" className="mt-6 animate-fade-in">
-                <div className="rounded-lg border border-(--accent) bg-card overflow-hidden">
-                  {/* Header with actions */}
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
-                    <div className="flex items-center gap-2">
-                      <Code2 className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">Input Prompt</span>
-                      {displayData.promptTokens !== undefined && (
-                        <Badge variant="secondary" className="text-xs">
-                          {typeof displayData.promptTokens === 'number'
-                            ? displayData.promptTokens.toLocaleString()
-                            : ''}{' '}
-                          tokens
-                        </Badge>
+            <ScrollArea className="flex-1">
+              <div className="p-6 max-w-5xl mx-auto space-y-8">
+                {/* Overview Tab */}
+                <TabsContent
+                  value="overview"
+                  className="mt-0 space-y-8 animate-in fade-in-50 duration-300"
+                >
+                  {/* Waterfall */}
+                  {trace.hierarchicalSpan && (
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-semibold flex items-center gap-2">
+                        <Activity className="h-4 w-4" />
+                        Execution Timeline
+                      </h3>
+                      <TraceWaterfall
+                        span={trace.hierarchicalSpan}
+                        totalDuration={trace.latencyMs}
+                      />
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Prompt/Input */}
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-semibold flex items-center gap-2 text-muted-foreground">
+                        Input / Prompt
+                      </h3>
+                      <div className="rounded-lg border border-border bg-muted/30 p-4 font-mono text-sm whitespace-pre-wrap max-h-[400px] overflow-y-auto custom-scrollbar">
+                        {trace.prompt || 'No input data'}
+                      </div>
+                    </div>
+
+                    {/* Response/Output */}
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-semibold flex items-center gap-2 text-muted-foreground">
+                        Output / Response
+                      </h3>
+                      <div className="rounded-lg border border-border bg-muted/30 p-4 font-mono text-sm whitespace-pre-wrap max-h-[400px] overflow-y-auto custom-scrollbar">
+                        {trace.response || 'No output data'}
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                {/* Scores Tab */}
+                <TabsContent value="scores" className="mt-0 animate-in fade-in-50 duration-300">
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold">Evaluations</h3>
+                      {(!trace.evaluations || trace.evaluations.length === 0) && (
+                        <div className="text-sm text-muted-foreground italic">
+                          No evaluations recorded for this trace
+                        </div>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 gap-2"
-                        onClick={() => setWrapPrompt(!wrapPrompt)}
-                      >
-                        <WrapText className="h-3.5 w-3.5" />
-                        <span className="text-xs">{wrapPrompt ? 'Nowrap' : 'Wrap'}</span>
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 gap-2"
-                        onClick={() => copyToClipboard(displayData.prompt || '', 'prompt')}
-                      >
-                        {copiedPrompt ? (
-                          <>
-                            <Check className="h-3.5 w-3.5 text-green-500" />
-                            <span className="text-xs text-green-500">Copied</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="h-3.5 w-3.5" />
-                            <span className="text-xs">Copy</span>
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                  {/* Content */}
-                  <div className="max-h-100 overflow-auto bg-muted/50">
-                    <pre
-                      className={`p-6 text-sm font-mono leading-relaxed ${
-                        wrapPrompt ? 'whitespace-pre-wrap wrap-break-word' : 'whitespace-pre'
-                      }`}
-                    >
-                      {displayData.prompt || 'No prompt data available'}
-                    </pre>
-                  </div>
-                </div>
-              </TabsContent>
 
-              <TabsContent value="response" className="mt-6 animate-fade-in">
-                <div className="rounded-lg border border-(--accent) bg-card overflow-hidden">
-                  {/* Header with actions */}
-                  <div className="flex items-center border-(--border) justify-between px-4 py-3 border-b border-border bg-muted/30">
-                    <div className="flex items-center gap-2">
-                      <Code2 className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">AI Response</span>
-                      {displayData.completionTokens !== undefined && (
-                        <Badge variant="secondary" className="text-xs">
-                          {typeof displayData.completionTokens === 'number'
-                            ? displayData.completionTokens.toLocaleString()
-                            : ''}{' '}
-                          tokens
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 gap-2"
-                        onClick={() => setWrapResponse(!wrapResponse)}
-                      >
-                        <WrapText className="h-3.5 w-3.5" />
-                        <span className="text-xs">{wrapResponse ? 'Nowrap' : 'Wrap'}</span>
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 gap-2"
-                        onClick={() => copyToClipboard(displayData.response || '', 'response')}
-                      >
-                        {copiedResponse ? (
-                          <>
-                            <Check className="h-3.5 w-3.5 text-green-500" />
-                            <span className="text-xs text-green-500">Copied</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="h-3.5 w-3.5" />
-                            <span className="text-xs">Copy</span>
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                  {/* Content */}
-                  <div className="max-h-100 overflow-auto bg-muted/50">
-                    <pre
-                      className={`p-6 text-sm font-mono leading-relaxed ${
-                        wrapResponse ? 'whitespace-pre-wrap wrap-break-word' : 'whitespace-pre'
-                      }`}
-                    >
-                      {displayData.response || 'No response data available'}
-                    </pre>
-                  </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="metadata" className="mt-6 animate-fade-in">
-                <div className="rounded-lg border border-(--accent) bg-card overflow-hidden">
-                  {/* Header */}
-                  <div className="px-6 py-4 border-b border-(--border) border-border bg-muted/30">
-                    <h3 className="text-sm font-medium">Trace Metadata</h3>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Complete details about this trace execution
-                    </p>
-                  </div>
-
-                  {/* Content */}
-                  <div className="p-6 space-y-6">
-                    {/* Token & Cost Information */}
-                    {(trace.metadata?.tokensIn !== undefined ||
-                      trace.metadata?.tokensOut !== undefined) && (
-                      <div>
-                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                          Token Usage & Cost
-                        </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {trace.metadata?.tokensIn !== undefined && (
-                            <div className="rounded-lg border-(--border) border border-border bg-muted/30 p-4">
-                              <p className="text-xs text-muted-foreground mb-1">Input Tokens</p>
-                              <p className="text-2xl font-semibold font-mono">
-                                {typeof trace.metadata.tokensIn === 'number'
-                                  ? trace.metadata.tokensIn.toLocaleString()
-                                  : ''}
-                              </p>
-                            </div>
-                          )}
-                          {trace.metadata?.tokensOut !== undefined && (
-                            <div className="rounded-lg border border-(--border) border-border bg-muted/30 p-4">
-                              <p className="text-xs text-muted-foreground mb-1">Output Tokens</p>
-                              <p className="text-2xl font-semibold font-mono">
-                                {typeof trace.metadata.tokensOut === 'number'
-                                  ? trace.metadata.tokensOut.toLocaleString()
-                                  : ''}
-                              </p>
-                            </div>
-                          )}
-                          {trace.metadata?.tokensIn !== undefined &&
-                            trace.metadata?.tokensOut !== undefined && (
-                              <div
-                                className="rounded-lg  border-(--border)
-                              border border-border bg-muted/30 p-4 md:col-span-2"
-                              >
-                                <p className="text-xs text-muted-foreground mb-1">Total Tokens</p>
-                                <p className="text-2xl font-semibold font-mono">
-                                  {typeof trace.metadata.tokensIn === 'number' &&
-                                  typeof trace.metadata.tokensOut === 'number'
-                                    ? (
-                                        trace.metadata.tokensIn + trace.metadata.tokensOut
-                                      ).toLocaleString()
-                                    : ''}
-                                </p>
-                              </div>
+                    <div className="grid gap-4">
+                      {trace.evaluations?.map((evalItem) => (
+                        <div
+                          key={evalItem.id}
+                          className="flex items-start gap-4 p-4 rounded-lg border border-border bg-card"
+                        >
+                          <div
+                            className={cn(
+                              'flex items-center justify-center w-12 h-12 rounded-full border text-lg font-bold',
+                              getScoreColor(evalItem.score)
                             )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Model Configuration */}
-                    <div>
-                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                        Model Configuration
-                      </h4>
-                      <dl className="grid grid-cols-1 gap-x-6 gap-y-3">
-                        <div className="flex items-center justify-between py-2 border-b border-(--border) border-border">
-                          <dt className="text-sm text-muted-foreground">Model</dt>
-                          <dd className="text-sm font-mono font-medium">{trace.model}</dd>
-                        </div>
-                        {trace.metadata?.temperature !== undefined && (
-                          <div className="flex items-center justify-between py-2 border-b border-(--border) border-border">
-                            <dt className="text-sm text-muted-foreground">Temperature</dt>
-                            <dd className="text-sm font-mono font-medium">
-                              {trace.metadata.temperature}
-                            </dd>
+                          >
+                            {evalItem.score.toFixed(2)}
                           </div>
-                        )}
-                        <div className="flex items-center justify-between py-2 border-b border-(--border) border-border">
-                          <dt className="text-sm text-muted-foreground">Service</dt>
-                          <dd className="text-sm font-mono font-medium">{trace.service}</dd>
-                        </div>
-                        <div className="flex items-center justify-between py-2 border-b  border-(--border) border-border">
-                          <dt className="text-sm text-muted-foreground">Endpoint</dt>
-                          <dd className="text-sm font-mono font-medium">{trace.endpoint}</dd>
-                        </div>
-                      </dl>
-                    </div>
-
-                    {/* Session Information */}
-                    {(trace.metadata?.userId || trace.metadata?.sessionId) && (
-                      <div>
-                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                          Session Information
-                        </h4>
-                        <dl className="grid grid-cols-1 gap-x-6 gap-y-3">
-                          {trace.metadata?.userId && (
-                            <div className="flex items-center justify-between py-2 border-b border-(--border) border-border">
-                              <dt className="text-sm text-muted-foreground">User ID</dt>
-                              <dd className="text-sm font-mono font-medium">
-                                {trace.metadata.userId}
-                              </dd>
+                          <div className="flex-1 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <h4 className="font-semibold">{evalItem.evaluator}</h4>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(evalItem.createdAt).toLocaleString()}
+                              </span>
                             </div>
-                          )}
-                          {trace.metadata?.sessionId && (
-                            <div className="flex items-center justify-between py-2 border-b border-(--border) border-border">
-                              <dt className="text-sm text-muted-foreground">Session ID</dt>
-                              <dd className="text-sm font-mono font-medium">
-                                {trace.metadata.sessionId}
-                              </dd>
-                            </div>
-                          )}
-                        </dl>
-                      </div>
-                    )}
-
-                    {/* Timing Information */}
-                    <div>
-                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                        Timing Information
-                      </h4>
-                      <dl className="grid grid-cols-1 gap-x-6 gap-y-3">
-                        <div className="flex items-center justify-between py-2 border-b border-(--border) border-border">
-                          <dt className="text-sm text-muted-foreground">Created At</dt>
-                          <dd className="text-sm font-mono font-medium">
-                            {trace.createdAt ? new Date(trace.createdAt).toLocaleString() : ''}
-                          </dd>
+                            <p className="text-sm text-muted-foreground leading-relaxed">
+                              {evalItem.reasoning || 'No reasoning provided.'}
+                            </p>
+                          </div>
                         </div>
-                        <div className="flex items-center justify-between py-2 border-b border-(--border) border-border">
-                          <dt className="text-sm text-muted-foreground">Trace ID</dt>
-                          <dd className="text-sm font-mono font-medium">{trace.id}</dd>
-                        </div>
-                      </dl>
+                      ))}
                     </div>
                   </div>
-                </div>
-              </TabsContent>
-            </Tabs>
-          </div>
+                </TabsContent>
+
+                {/* Metadata Tab */}
+                <TabsContent value="metadata" className="mt-0 animate-in fade-in-50 duration-300">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-4">
+                      <h3 className="font-semibold text-sm border-b pb-2">Context</h3>
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-[120px_1fr] items-center text-sm">
+                          <span className="text-muted-foreground flex items-center gap-1">
+                            <User className="h-3 w-3" /> User ID
+                          </span>
+                          <span className="font-mono">{trace.userId || '-'}</span>
+                        </div>
+                        <div className="grid grid-cols-[120px_1fr] items-center text-sm">
+                          <span className="text-muted-foreground flex items-center gap-1">
+                            <Clock className="h-3 w-3" /> Session ID
+                          </span>
+                          <span className="font-mono">{trace.sessionId || '-'}</span>
+                        </div>
+                        <div className="grid grid-cols-[120px_1fr] items-center text-sm">
+                          <span className="text-muted-foreground flex items-center gap-1">
+                            <Tag className="h-3 w-3" /> Release
+                          </span>
+                          <span className="font-mono">{trace.release || '-'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <h3 className="font-semibold text-sm border-b pb-2">Tags</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {trace.tags && trace.tags.length > 0 ? (
+                          trace.tags.map((tag) => (
+                            <Badge key={tag} variant="secondary" className="font-mono">
+                              {tag}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-sm text-muted-foreground italic">No tags</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="col-span-1 md:col-span-2 space-y-4">
+                      <h3 className="font-semibold text-sm border-b pb-2">Custom Metadata</h3>
+                      <div className="rounded-lg border border-border overflow-hidden">
+                        <table className="w-full text-sm">
+                          <thead className="bg-muted/50 text-muted-foreground text-left">
+                            <tr>
+                              <th className="px-4 py-2 font-medium w-1/3">Key</th>
+                              <th className="px-4 py-2 font-medium">Value</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border/50">
+                            {Object.entries(trace.metadata || {})
+                              .filter(
+                                ([key]) => !['tokensIn', 'tokensOut', 'temperature'].includes(key)
+                              )
+                              .map(([key, value]) => (
+                                <tr key={key} className="hover:bg-muted/20">
+                                  <td className="px-4 py-2 font-mono text-muted-foreground">
+                                    {key}
+                                  </td>
+                                  <td className="px-4 py-2 font-mono">{String(value)}</td>
+                                </tr>
+                              ))}
+                            {Object.keys(trace.metadata || {}).length === 0 && (
+                              <tr>
+                                <td
+                                  colSpan={2}
+                                  className="px-4 py-8 text-center text-muted-foreground"
+                                >
+                                  No custom metadata
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                {/* JSON Tab */}
+                <TabsContent
+                  value="json"
+                  className="mt-0 animate-in fade-in-50 duration-300 h-full"
+                >
+                  <div className="h-[600px]">
+                    <JsonViewer data={trace} />
+                  </div>
+                </TabsContent>
+              </div>
+            </ScrollArea>
+          </Tabs>
         </div>
       </DrawerContent>
     </Drawer>

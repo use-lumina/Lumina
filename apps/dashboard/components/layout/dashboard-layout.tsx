@@ -1,7 +1,6 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { Header } from './header';
 import { Sidebar } from './sidebar';
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -9,17 +8,11 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const hideSidebar = pathname.startsWith('/auth');
 
   return (
-    <div className="flex flex-col h-screen">
-      {/* Header */}
-      <Header />
-
-      {/* Main content area with optional sidebar */}
-      <div className="flex flex-1 overflow-hidden">
-        {!hideSidebar && <Sidebar />}
-
-        {/* Main content */}
-        <main className="flex-1 overflow-auto bg-background">{children}</main>
-      </div>
+    <div className="flex h-screen overflow-hidden">
+      {!hideSidebar && <Sidebar />}
+      <main className="flex-1 overflow-auto bg-background transition-colors duration-400">
+        {children}
+      </main>
     </div>
   );
 }

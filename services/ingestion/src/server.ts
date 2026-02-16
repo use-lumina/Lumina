@@ -8,6 +8,7 @@ import { startConsumer } from './queue/consumer';
 import { initializeCache } from '@lumina/core';
 import { initializeSemanticScorer } from '@lumina/core';
 import { scheduleRetentionCleanup } from './jobs/retention-cleanup';
+import { scheduleBaselineUpdates } from './jobs/update-baselines';
 import type { AppVariables } from './types/hono';
 
 const app = new Hono<{ Variables: AppVariables }>();
@@ -97,6 +98,15 @@ async function initializeServices() {
     } catch (error) {
       console.error('⚠️  Failed to schedule retention cleanup:', error);
       // Don't exit - system works without cleanup (just won't delete old traces)
+    }
+
+    // Start baseline update job (calculates P50/P95/P99 for analytics)
+    try {
+      scheduleBaselineUpdates();
+      console.log('✅ Baseline update job scheduled (1h/24h/7d windows)');
+    } catch (error) {
+      console.error('⚠️  Failed to schedule baseline updates:', error);
+      // Don't exit - system works without baseline updates (alerts still work with on-the-fly calculation)
     }
   } catch (error) {
     console.error('❌ Failed to initialize critical services:', error);

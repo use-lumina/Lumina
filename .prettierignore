@@ -29,6 +29,9 @@ logs
 .vscode
 .idea
 
+# Examples
+examples/
+
 # Misc
 .DS_Store
 *.pem

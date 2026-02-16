@@ -28,6 +28,10 @@ COPY tsconfig.json ./
 # Build the dashboard
 WORKDIR /app/apps/dashboard
 ENV NEXT_TELEMETRY_DISABLED=1
+
+# Create .env file from example if it doesn't exist (required for build)
+RUN if [ ! -f .env ]; then cp .env.example .env; fi
+
 RUN npm run build
 
 # Ensure public directory exists (even if empty)

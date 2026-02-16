@@ -1,972 +1,387 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useMemo, Suspense, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { TraceTableToolbar } from '@/components/traces/trace-table-toolbar';
+import { TraceFilterPanel } from '@/components/traces/trace-filter-panel';
+import { TraceTable } from '@/components/traces/trace-table';
+import { TraceInspector } from '@/components/traces/trace-inspector';
+import { getTraces, getTraceById, type Trace as APITrace } from '@/lib/api';
+import type { UITrace, TraceSpan, HierarchicalSpan } from '@/types/trace';
 
-// Force dynamic rendering (don't pre-render at build time)
+// Force dynamic rendering
 export const dynamic = 'force-dynamic';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  StatusDot,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { RealtimeIndicator } from '@/components/ui/realtime-indicator';
-import {
-  TableSkeleton,
-  KPICardSkeleton,
-  ChartCardSkeleton,
-} from '@/components/ui/loading-skeletons';
-import { EmptyState } from '@/components/ui/empty-state';
-import { TraceDetailDrawer } from '@/components/traces/trace-detail-drawer';
-import { TablePagination } from '@/components/ui/table-pagination';
-import { cn } from '@/lib/utils';
-import {
-  Filter,
-  Download,
-  TrendingUp,
-  TrendingDown,
-  Activity,
-  DollarSign,
-  AlertTriangle,
-  Clock,
-  X,
-  Inbox,
-} from 'lucide-react';
-import {
-  LineChart,
-  Line,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
-import {
-  getTraces,
-  getTraceById,
-  getCostTimeline,
-  getTraceTrends,
-  type Trace as APITrace,
-  type TraceTrendsResponse,
-} from '@/lib/api';
-import type { UITrace } from '@/types/trace';
 
-// API Trace type for this page (keeping snake_case from API)
-export type Trace = APITrace;
+// Map API trace to UI trace
+function mapApiTraceToUI(trace: APITrace): UITrace {
+  // Convert API Trace to HierarchicalSpan format
+  const convertToHierarchicalSpan = (apiTrace: APITrace): HierarchicalSpan => {
+    return {
+      trace_id: apiTrace.trace_id,
+      span_id: apiTrace.span_id,
+      parent_span_id: apiTrace.parent_span_id,
+      service_name: apiTrace.service_name,
+      endpoint: apiTrace.endpoint,
+      model: apiTrace.model,
+      status: apiTrace.status,
+      latency_ms: apiTrace.latency_ms,
+      cost_usd: apiTrace.cost_usd,
+      prompt_tokens: apiTrace.prompt_tokens,
+      completion_tokens: apiTrace.completion_tokens,
+      prompt: apiTrace.prompt,
+      response: apiTrace.response,
+      timestamp: apiTrace.timestamp,
+      environment: apiTrace.environment,
+      children: apiTrace.children ? apiTrace.children.map(convertToHierarchicalSpan) : [],
+    };
+  };
 
-// Map API trace to UI trace for drawer
-function mapApiTraceToUI(trace: Trace): UITrace {
+  const flattenSpans = (span: APITrace): TraceSpan[] => {
+    const spans: TraceSpan[] = [
+      {
+        name: span.service_name,
+        startMs: 0,
+        durationMs: span.latency_ms,
+        type: 'processing',
+      },
+    ];
+
+    if (span.children && span.children.length > 0) {
+      span.children.forEach((child) => {
+        spans.push(...flattenSpans(child));
+      });
+    }
+
+    return spans;
+  };
+
+  const spans = flattenSpans(trace);
+  const hierarchicalSpan = convertToHierarchicalSpan(trace);
+
   return {
     id: trace.trace_id,
+    createdAt: trace.timestamp,
     service: trace.service_name,
     endpoint: trace.endpoint,
-    model: trace.model,
+    model: trace.model || 'unknown',
     status:
       trace.status === 'ok' || trace.status === 'healthy'
         ? 'healthy'
-        : (trace.status as 'healthy' | 'degraded' | 'error'),
+        : trace.status === 'degraded'
+          ? 'degraded'
+          : 'error',
     latencyMs: trace.latency_ms,
     costUsd: trace.cost_usd || 0,
-    createdAt: trace.timestamp,
     prompt: trace.prompt,
     response: trace.response,
-    hierarchicalSpan: trace,
+    release: trace.environment || 'production',
+    userId: undefined,
+    sessionId: undefined,
+    tags: [],
     metadata: {
       tokensIn: trace.prompt_tokens,
       tokensOut: trace.completion_tokens,
-      temperature: trace.metadata?.temperature,
-      userId: trace.metadata?.userId || trace.customer_id,
-      sessionId: trace.metadata?.sessionId,
-      ...trace.metadata,
     },
+    spans,
+    hierarchicalSpan,
   };
 }
 
-function normalizeStatus(status: string): 'healthy' | 'degraded' | 'error' {
-  if (status === 'ok' || status === 'healthy') {
-    return 'healthy';
-  }
-  if (status === 'degraded') {
-    return 'degraded';
-  }
-  return 'error';
-}
-
-function formatLatency(ms: number) {
-  return `${ms} ms`;
-}
-
-function formatCost(usd: number | undefined) {
-  if (typeof usd !== 'number') return '$0.000';
-  return `$${usd.toFixed(3)}`;
-}
-
-function getRowVariant(status: Trace['status']) {
-  switch (status) {
-    case 'degraded':
-      return 'warning';
-    case 'error':
-      return 'error';
-    default:
-      return undefined;
-  }
-}
-
-function TracesContent() {
-  // State management
+function TracesPageContent() {
   const searchParams = useSearchParams();
-  const [showFilters, setShowFilters] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [lastRefresh, setLastRefresh] = useState(new Date());
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const traceIdParam = searchParams.get('id');
+  const isClosingRef = useRef(false);
 
-  // Data state
-  const [traces, setTraces] = useState<Trace[]>([]);
-  const [latencyChartData, setLatencyChartData] = useState<any[]>([]);
-  const [costChartData, setCostChartData] = useState<any[]>([]);
-  const [trends, setTrends] = useState<TraceTrendsResponse['trends'] | null>(null);
+  const [traces, setTraces] = useState<UITrace[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [timeRange, setTimeRange] = useState('24h');
+  const [environment, setEnvironment] = useState('all');
+  /* Filters state matching TraceFilterPanel expectations */
+  /* Filters state matching TraceFilterPanel expectations */
+  const [filters, setFilters] = useState({
+    environments: [] as string[],
+    traceNames: [] as string[],
+    userIds: [] as string[],
+    sessionIds: [] as string[],
+    tags: [] as string[],
+    releases: [] as string[],
+    statuses: [] as string[],
+    // Keep internal status/model if needed, but 'statuses' array above now controls the panel
+    status: [] as string[],
+    model: [] as string[],
+  });
 
-  // Filter state
-  const [serviceFilter, setServiceFilter] = useState<string>('all');
-  const [modelFilter, setModelFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [endpointFilter, setEndpointFilter] = useState<string>('');
-  const [timeRange, setTimeRange] = useState<string>('24h');
-
-  // Drawer state
   const [selectedTrace, setSelectedTrace] = useState<UITrace | null>(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [filtersVisible, setFiltersVisible] = useState(false);
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
 
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalTraces, setTotalTraces] = useState(0);
-  const ITEMS_PER_PAGE = 10;
-
-  // Fetch traces data
-  const fetchTracesData = async () => {
-    try {
-      const now = new Date();
-      let startTime = new Date(now.getTime() - 60 * 60 * 1000); // Default 1 hour
-
-      // Calculate time range
-      const ranges: Record<string, number> = {
-        '5m': 5 * 60 * 1000,
-        '1h': 60 * 60 * 1000,
-        '24h': 24 * 60 * 60 * 1000,
-        '7d': 7 * 24 * 60 * 60 * 1000,
-      };
-
-      if (ranges[timeRange]) {
-        startTime = new Date(now.getTime() - ranges[timeRange]);
-      }
-
-      // Calculate offset for pagination
-      const offset = (currentPage - 1) * ITEMS_PER_PAGE;
-
-      // Fetch traces with filters and pagination
-      const tracesResponse = await getTraces({
-        service: serviceFilter !== 'all' ? serviceFilter : undefined,
-        model: modelFilter !== 'all' ? modelFilter : undefined,
-        status: statusFilter !== 'all' ? statusFilter : undefined,
-        endpoint: endpointFilter || undefined,
-        startTime: timeRange !== 'all' ? startTime.toISOString() : undefined,
-        limit: ITEMS_PER_PAGE,
-        offset: offset,
-      });
-
-      // Debug: log traces response
-      console.debug('getTraces response:', tracesResponse);
-      setTraces(tracesResponse.data);
-      setTotalTraces(tracesResponse.pagination.total);
-
-      // Fetch chart data
-      // Determine granularity to request from backend
-      const granularity = timeRange === '7d' ? 'day' : 'hour';
-
-      const timelineResponse = await getCostTimeline({
-        startTime: startTime.toISOString(),
-        endTime: now.toISOString(),
-        granularity,
-      });
-
-      // Transform data for charts - now includes latency from API
-      // Debug: log timeline response
-      console.debug('getCostTimeline response:', timelineResponse);
-
-      const chartData = timelineResponse.data.map((item: any) => {
-        const date = new Date(item.time_bucket);
-
-        // Choose label format depending on range
-        const timeLabel =
-          timeRange === '7d'
-            ? `${date.getMonth() + 1}/${date.getDate()}`
-            : `${date.getHours().toString().padStart(2, '0')}:${date
-                .getMinutes()
-                .toString()
-                .padStart(2, '0')}`;
-
-        // Backend returns numeric fields sometimes as strings (e.g. request_count)
-        const requests = item.request_count ? parseInt(String(item.request_count), 10) : 0;
-
-        // Prefer avg_cost if provided by backend, otherwise derive from total_cost/request_count
-        const avgCost = item.avg_cost
-          ? parseFloat(String(item.avg_cost))
-          : item.total_cost && requests > 0
-            ? parseFloat(String(item.total_cost)) / requests
-            : 0;
-
-        const avgLatency = item.avg_latency_ms ? parseFloat(String(item.avg_latency_ms)) : 0;
-
-        return {
-          time: timeLabel,
-          cost: avgCost,
-          latency: Math.round(avgLatency),
-          requests,
-        };
-      });
-
-      const latencyData = chartData.map((d) => ({ time: d.time, latency: d.latency }));
-      const costData = chartData.map((d) => ({ time: d.time, cost: d.cost }));
-
-      // Debug: log derived chart data
-      console.debug('derived chartData length:', chartData.length, {
-        latencyDataSample: latencyData.slice(0, 5),
-        costDataSample: costData.slice(0, 5),
-      });
-
-      setLatencyChartData(latencyData);
-      setCostChartData(costData);
-
-      // Fetch trends data
-      const trendsResponse = await getTraceTrends({
-        startTime: startTime.toISOString(),
-        endTime: now.toISOString(),
-        service: serviceFilter !== 'all' ? serviceFilter : undefined,
-        model: modelFilter !== 'all' ? modelFilter : undefined,
-        status: statusFilter !== 'all' ? statusFilter : undefined,
-        endpoint: endpointFilter || undefined,
-      });
-
-      console.debug('getTraceTrends response:', trendsResponse);
-      setTrends(trendsResponse.trends);
-    } catch (error) {
-      console.error('Failed to fetch traces data:', error);
-    }
-  };
-
-  // Initial load and filter changes
+  // Fetch traces
   useEffect(() => {
-    async function loadData() {
-      setIsInitialLoading(true);
-      await fetchTracesData();
-      setIsInitialLoading(false);
-    }
-
-    loadData();
-  }, [serviceFilter, modelFilter, statusFilter, endpointFilter, timeRange, currentPage]);
-
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [serviceFilter, modelFilter, statusFilter, endpointFilter, timeRange]);
-
-  // Auto-refresh every 5 seconds
-  useEffect(() => {
-    if (isInitialLoading) return;
-
-    const interval = setInterval(async () => {
-      setIsRefreshing(true);
-      await fetchTracesData();
-      setLastRefresh(new Date());
-      setIsRefreshing(false);
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [
-    isInitialLoading,
-    serviceFilter,
-    modelFilter,
-    statusFilter,
-    endpointFilter,
-    timeRange,
-    currentPage,
-  ]);
-
-  // Handle edge case: if current page becomes invalid, go to last valid page
-  useEffect(() => {
-    const totalPages = Math.ceil(totalTraces / ITEMS_PER_PAGE);
-    if (currentPage > totalPages && totalPages > 0) {
-      setCurrentPage(totalPages);
-    }
-  }, [totalTraces, currentPage, ITEMS_PER_PAGE]);
-
-  // Handle deep linking - auto-open drawer if traceId is in URL
-  useEffect(() => {
-    if (isInitialLoading) return;
-
-    const traceId = searchParams.get('traceId');
-    if (traceId) {
-      const trace = traces.find((t) => t.trace_id === traceId);
-      if (trace) {
-        handleTraceClick(trace);
+    async function fetchData() {
+      setIsLoading(true);
+      try {
+        const response = await getTraces({
+          limit: 1000,
+        });
+        // Handle different API response formats
+        const tracesData =
+          (response as any).data || (response as any).traces || response.data || [];
+        const uiTraces = Array.isArray(tracesData) ? tracesData.map(mapApiTraceToUI) : [];
+        setTraces(uiTraces);
+      } catch (error) {
+        console.error('Failed to fetch traces:', error);
+        setTraces([]); // Set empty array on error
+      } finally {
+        setIsLoading(false);
       }
     }
-  }, [isInitialLoading, searchParams, traces]);
+    fetchData();
+  }, []);
 
-  // Calculate metrics from traces (all filters are server-side now)
-  const displayedTracesCount = traces.length;
-  const avgLatency =
-    traces.length > 0
-      ? Math.round(traces.reduce((sum, t) => sum + t.latency_ms, 0) / traces.length)
-      : 0;
-  const totalCost = traces.reduce((sum, t) => sum + (t.cost_usd ?? 0), 0);
-  const errorCount = traces.filter((t) => t.status === 'error').length;
-  const errorRate =
-    displayedTracesCount > 0 ? ((errorCount / displayedTracesCount) * 100).toFixed(1) : '0.0';
+  // Handle deep linking and filter-based navigation from query params
+  useEffect(() => {
+    if (traces.length === 0) return;
 
-  // Cost per request (average)
-  const avgCostPerRequest = displayedTracesCount > 0 ? totalCost / displayedTracesCount : 0;
-
-  // Get unique values for filters
-  const services = Array.from(new Set(traces.map((t) => t.service_name)));
-  const models = Array.from(new Set(traces.map((t) => t.model)));
-
-  // Handle trace click - open drawer
-  const handleTraceClick = async (trace: Trace) => {
-    // Guard: Don't fetch if trace_id is missing
-    if (!trace.trace_id) {
-      console.error('Cannot fetch trace: trace_id is undefined');
-      setSelectedTrace(mapApiTraceToUI(trace));
-      setDrawerOpen(true);
+    // Skip if we're manually closing the inspector
+    if (isClosingRef.current) {
+      isClosingRef.current = false;
       return;
     }
 
-    // Fetch full trace details with prompt and response
+    // 1. Exact Trace ID Match
+    if (traceIdParam && !selectedTrace) {
+      const trace = traces.find((t) => t.id === traceIdParam);
+      if (trace) {
+        setSelectedTrace(trace);
+        return;
+      }
+    }
+
+    // 2. Filter-based Navigation (if no explicit trace ID or trace ID not found)
+    const endpointParam = searchParams.get('endpoint');
+    const modelParam = searchParams.get('model');
+    const serviceParam = searchParams.get('service');
+
+    if (endpointParam || modelParam || serviceParam) {
+      setFilters((prev) => ({
+        ...prev,
+        traceNames: endpointParam ? [endpointParam] : prev.traceNames,
+        model: modelParam ? [modelParam] : prev.model,
+        environments: serviceParam ? [serviceParam] : prev.environments,
+      }));
+      setFiltersVisible(true);
+    }
+  }, [traceIdParam, traces, selectedTrace, searchParams]);
+
+  const handleTraceSelect = async (trace: UITrace) => {
+    // Fetch full trace details with prompt/response/children
     try {
-      const fullTrace = await getTraceById(trace.trace_id);
-      setSelectedTrace(mapApiTraceToUI(fullTrace.trace));
-      setDrawerOpen(true);
+      const { trace: fullTrace } = await getTraceById(trace.id);
+      const uiTrace = mapApiTraceToUI(fullTrace);
+      setSelectedTrace(uiTrace);
     } catch (error) {
-      console.error('Failed to fetch trace details:', error);
-      // Fallback to list data if fetch fails
-      setSelectedTrace(mapApiTraceToUI(trace));
-      setDrawerOpen(true);
+      console.error('Failed to fetch full trace details:', error);
+      // Fallback to cached data if fetch fails
+      setSelectedTrace(trace);
     }
   };
 
-  // Clear all filters
-  const clearFilters = () => {
-    setServiceFilter('all');
-    setModelFilter('all');
-    setStatusFilter('all');
-    setEndpointFilter('');
-    setTimeRange('all');
+  // Bulk action handlers
+  const handleDeleteSelected = () => {
+    alert(`Delete ${selectedRows.size} trace(s)?`);
   };
 
-  const hasActiveFilters =
-    serviceFilter !== 'all' ||
-    modelFilter !== 'all' ||
-    statusFilter !== 'all' ||
-    endpointFilter.length > 0 ||
-    timeRange !== 'all';
+  const handleAddToQueue = () => {
+    alert(`Add ${selectedRows.size} trace(s) to annotation queue?`);
+  };
 
-  if (isInitialLoading) {
-    return (
-      <div className="flex flex-col gap-6 p-6">
-        {/* Page header */}
-        <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <h1 className="text-2xl font-semibold tracking-tight">Live Traces</h1>
-            <p className="text-sm text-muted-foreground">
-              Real-time monitoring of AI model requests and responses
-            </p>
-          </div>
-        </div>
+  // Get unique values for filter options
+  // Get unique values with counts for filter options
+  const filterOptions = useMemo(() => {
+    const counts = {
+      environments: new Map<string, number>(),
+      traceNames: new Map<string, number>(),
+      userIds: new Map<string, number>(),
+      sessionIds: new Map<string, number>(),
+      tags: new Map<string, number>(),
+      releases: new Map<string, number>(),
+      statuses: new Map<string, number>(),
+    };
 
-        {/* KPI Cards Loading */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <KPICardSkeleton />
-          <KPICardSkeleton />
-          <KPICardSkeleton />
-          <KPICardSkeleton />
-        </div>
+    traces.forEach((trace) => {
+      // Helper to increment map count
+      const inc = (map: Map<string, number>, key?: string | null) => {
+        if (!key) return;
+        map.set(key, (map.get(key) || 0) + 1);
+      };
 
-        {/* Charts Loading */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <ChartCardSkeleton />
-          <ChartCardSkeleton />
-        </div>
+      inc(counts.environments, trace.hierarchicalSpan?.environment);
+      inc(counts.traceNames, trace.endpoint);
+      inc(counts.userIds, trace.userId);
+      inc(counts.sessionIds, trace.sessionId);
+      inc(counts.releases, trace.release);
+      inc(counts.statuses, trace.status);
 
-        {/* Table Loading */}
-        <Card className="p-6 border-(--border)">
-          <TableSkeleton rows={10} columns={7} />
-        </Card>
-      </div>
-    );
-  }
+      trace.tags?.forEach((tag) => inc(counts.tags, tag));
+    });
+
+    // Helper to convert map to sorted options array
+    const toOptions = (map: Map<string, number>) => {
+      return Array.from(map.entries())
+        .map(([value, count]) => ({ value, count }))
+        .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value));
+    };
+
+    return {
+      environments: toOptions(counts.environments),
+      traceNames: toOptions(counts.traceNames),
+      userIds: toOptions(counts.userIds),
+      sessionIds: toOptions(counts.sessionIds),
+      tags: toOptions(counts.tags),
+      releases: toOptions(counts.releases),
+      statuses: toOptions(counts.statuses),
+    };
+  }, [traces]);
+
+  // Filter traces based on search and filters
+  const filteredTraces = useMemo(() => {
+    return traces.filter((trace) => {
+      // Search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesId = trace.id.toLowerCase().includes(query);
+        const matchesEndpoint = trace.endpoint.toLowerCase().includes(query);
+        const matchesService = trace.service.toLowerCase().includes(query);
+        if (!matchesId && !matchesEndpoint && !matchesService) {
+          return false;
+        }
+      }
+
+      // Toolbar Environment filter (primary)
+      if (environment !== 'all' && trace.hierarchicalSpan?.environment !== environment) {
+        return false;
+      }
+
+      // Panel Filters (Arrays)
+      if (
+        filters.environments.length > 0 &&
+        trace.hierarchicalSpan?.environment &&
+        !filters.environments.includes(trace.hierarchicalSpan.environment)
+      )
+        return false;
+      if (
+        filters.traceNames.length > 0 &&
+        trace.endpoint &&
+        !filters.traceNames.includes(trace.endpoint)
+      )
+        return false;
+      if (filters.userIds.length > 0 && trace.userId && !filters.userIds.includes(trace.userId))
+        return false;
+      if (
+        filters.sessionIds.length > 0 &&
+        trace.sessionId &&
+        !filters.sessionIds.includes(trace.sessionId)
+      )
+        return false;
+      if (filters.releases.length > 0 && trace.release && !filters.releases.includes(trace.release))
+        return false;
+      if (filters.statuses.length > 0 && trace.status && !filters.statuses.includes(trace.status))
+        return false;
+
+      // Tags filter (match any)
+      if (filters.tags.length > 0) {
+        const hasTag = trace.tags?.some((tag) => filters.tags.includes(tag));
+        if (!hasTag) return false;
+      }
+
+      // Status filter
+      if (filters.status.length > 0 && !filters.status.includes(trace.status)) {
+        return false;
+      }
+
+      // Model filter
+      if (filters.model.length > 0 && !filters.model.includes(trace.model)) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [traces, searchQuery, environment, filters]);
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      {/* Page header with actions */}
-      <div className="flex items-start justify-between animate-fade-in">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Live Traces</h1>
-          <p className="text-sm text-muted-foreground">
-            Real-time monitoring of AI model requests and responses
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <RealtimeIndicator lastUpdated={lastRefresh} isLive={!isRefreshing} />
-          <Button variant="ghost" size="sm">
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
-        </div>
-      </div>
+    <div className="flex flex-col h-screen bg-background">
+      {/* Toolbar */}
+      <TraceTableToolbar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        timeRange={timeRange}
+        onTimeRangeChange={setTimeRange}
+        environment={environment}
+        onEnvironmentChange={setEnvironment}
+        onToggleFilters={() => setFiltersVisible(!filtersVisible)}
+        filtersVisible={filtersVisible}
+        availableEnvironments={filterOptions.environments.map((e) => e.value)}
+        selectedCount={selectedRows.size}
+        onDeleteSelected={handleDeleteSelected}
+        onAddToQueue={handleAddToQueue}
+      />
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {/* Total Requests */}
-        <Card className="p-4 border-(--accent) animate-scale-in stagger-1">
-          <div className="flex items-start justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Total Requests</p>
-              <p className="text-2xl font-semibold">{displayedTracesCount.toLocaleString()}</p>
-              {trends && (
-                <div
-                  className={cn(
-                    'flex items-center gap-1 text-xs',
-                    trends.requestsTrend > 0
-                      ? 'text-green-600 dark:text-green-500'
-                      : trends.requestsTrend < 0
-                        ? 'text-red-600 dark:text-red-500'
-                        : 'text-muted-foreground'
-                  )}
-                >
-                  {trends.requestsTrend > 0 ? (
-                    <TrendingUp className="h-3 w-3" />
-                  ) : trends.requestsTrend < 0 ? (
-                    <TrendingDown className="h-3 w-3" />
-                  ) : null}
-                  <span>
-                    {trends.requestsTrend > 0 ? '+' : ''}
-                    {trends.requestsTrend.toFixed(1)}% vs prev period
-                  </span>
-                </div>
-              )}
-            </div>
-            <div className="rounded-lg bg-purple-100 p-2 dark:bg-purple-950">
-              <Activity className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-            </div>
-          </div>
-        </Card>
+      {/* Content: Filter Panel + Table + Inspector */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Filter Panel */}
+        <TraceFilterPanel
+          visible={filtersVisible}
+          onClose={() => setFiltersVisible(false)}
+          filters={filters}
+          onFiltersChange={setFilters}
+          availableOptions={filterOptions}
+        />
 
-        {/* Avg Latency */}
-        <Card className="p-4 border-(--accent) animate-scale-in stagger-2">
-          <div className="flex items-start justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Avg Latency</p>
-              <p className="text-2xl font-semibold">{avgLatency}ms</p>
-              {trends && (
-                <div
-                  className={cn(
-                    'flex items-center gap-1 text-xs',
-                    trends.latencyTrend > 0
-                      ? 'text-red-600 dark:text-red-500'
-                      : trends.latencyTrend < 0
-                        ? 'text-green-600 dark:text-green-500'
-                        : 'text-muted-foreground'
-                  )}
-                >
-                  {trends.latencyTrend > 0 ? (
-                    <TrendingUp className="h-3 w-3" />
-                  ) : trends.latencyTrend < 0 ? (
-                    <TrendingDown className="h-3 w-3" />
-                  ) : null}
-                  <span>
-                    {trends.latencyTrend > 0 ? '+' : ''}
-                    {trends.latencyTrend.toFixed(1)}% vs prev period
-                  </span>
-                </div>
-              )}
+        {/* Trace Table */}
+        <div className="flex-1 flex overflow-hidden">
+          {isLoading ? (
+            <div className="flex items-center justify-center w-full">
+              <p className="text-sm text-muted-foreground">Loading traces...</p>
             </div>
-            <div className="rounded-lg bg-blue-100 p-2 dark:bg-blue-950">
-              <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            </div>
-          </div>
-        </Card>
+          ) : (
+            <TraceTable
+              traces={filteredTraces}
+              selectedTraceId={selectedTrace?.id || null}
+              onTraceSelect={handleTraceSelect}
+              selectedRows={selectedRows}
+              onSelectedRowsChange={setSelectedRows}
+            />
+          )}
 
-        {/* Total Cost */}
-        <Card className="p-4 border-(--accent) animate-scale-in stagger-3">
-          <div className="flex items-start justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Total Cost</p>
-              <p className="text-2xl font-semibold">${totalCost.toFixed(3)}</p>
-              <p className="text-xs text-muted-foreground">
-                Cost / Request: <span className="font-medium">${avgCostPerRequest.toFixed(4)}</span>
-              </p>
-              {trends && (
-                <div
-                  className={cn(
-                    'flex items-center gap-1 text-xs',
-                    trends.costTrend > 0
-                      ? 'text-red-600 dark:text-red-500'
-                      : trends.costTrend < 0
-                        ? 'text-green-600 dark:text-green-500'
-                        : 'text-muted-foreground'
-                  )}
-                >
-                  {trends.costTrend > 0 ? (
-                    <TrendingUp className="h-3 w-3" />
-                  ) : trends.costTrend < 0 ? (
-                    <TrendingDown className="h-3 w-3" />
-                  ) : null}
-                  <span>
-                    {trends.costTrend > 0 ? '+' : ''}
-                    {trends.costTrend.toFixed(1)}% vs prev period
-                  </span>
-                </div>
-              )}
-            </div>
-            <div className="rounded-lg bg-emerald-100 p-2 dark:bg-emerald-950">
-              <DollarSign className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-            </div>
-          </div>
-        </Card>
-
-        {/* Error Rate */}
-        <Card className="p-4 border-(--accent) animate-scale-in stagger-4">
-          <div className="flex items-start justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Error Rate</p>
-              <p className="text-2xl font-semibold">{errorRate}%</p>
-              {trends && (
-                <div
-                  className={cn(
-                    'flex items-center gap-1 text-xs',
-                    trends.errorRateTrend > 0
-                      ? 'text-red-600 dark:text-red-500'
-                      : trends.errorRateTrend < 0
-                        ? 'text-green-600 dark:text-green-500'
-                        : 'text-muted-foreground'
-                  )}
-                >
-                  {trends.errorRateTrend > 0 ? (
-                    <TrendingUp className="h-3 w-3" />
-                  ) : trends.errorRateTrend < 0 ? (
-                    <TrendingDown className="h-3 w-3" />
-                  ) : null}
-                  <span>
-                    {trends.errorRateTrend > 0 ? '+' : ''}
-                    {trends.errorRateTrend.toFixed(1)}% vs prev period
-                  </span>
-                </div>
-              )}
-            </div>
-            <div className="rounded-lg bg-red-100 p-2 dark:bg-red-950">
-              <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* Charts */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {/* Latency Chart */}
-        <Card className="p-6 border-(--accent)">
-          <div className="space-y-4">
-            <div className="space-y-1">
-              <h3 className="text-sm font-medium">Average Latency</h3>
-              <p className="text-xs text-muted-foreground">Last 60 minutes</p>
-            </div>
-            <div className="h-56 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={latencyChartData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    vertical={false}
-                    stroke="hsl(var(--border))"
-                    opacity={0.5}
-                  />
-                  <XAxis
-                    dataKey="time"
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={8}
-                    fontSize={11}
-                    stroke="hsl(var(--foreground))"
-                    opacity={0.7}
-                  />
-                  <YAxis
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={8}
-                    fontSize={11}
-                    stroke="hsl(var(--foreground))"
-                    opacity={0.7}
-                  />
-                  <Tooltip
-                    content={({ active, payload }: any) => {
-                      if (active && payload && payload.length) {
-                        return (
-                          <div className="bg-card border border-border rounded-lg px-3 py-2 shadow-lg">
-                            <p className="text-sm font-semibold">{payload[0].value} ms</p>
-                            <p className="text-xs text-muted-foreground">
-                              {payload[0].payload.time}
-                            </p>
-                          </div>
-                        );
-                      }
-                      return null;
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="latency"
-                    stroke="hsl(var(--primary))"
-                    fill="hsl(var(--primary))"
-                    fillOpacity={0.2}
-                    strokeWidth={2}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </Card>
-
-        {/* Cost Chart */}
-        <Card className="p-6 border-(--accent)">
-          <div className="space-y-4">
-            <div className="space-y-1">
-              <h3 className="text-sm font-medium">Cost per Request</h3>
-              <p className="text-xs text-muted-foreground">Last 60 minutes</p>
-            </div>
-            <div className="h-56 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={costChartData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    vertical={false}
-                    stroke="hsl(var(--border))"
-                    opacity={0.5}
-                  />
-                  <XAxis
-                    dataKey="time"
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={8}
-                    fontSize={11}
-                    stroke="hsl(var(--foreground))"
-                    opacity={0.7}
-                  />
-                  <YAxis
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={8}
-                    fontSize={11}
-                    stroke="hsl(var(--foreground))"
-                    opacity={0.7}
-                    tickFormatter={(value) => `$${value.toFixed(3)}`}
-                  />
-                  <Tooltip
-                    content={({ active, payload }: any) => {
-                      if (active && payload && payload.length) {
-                        return (
-                          <div className="bg-card border border-border rounded-lg px-3 py-2 shadow-lg">
-                            <p className="text-sm font-semibold">${payload[0].value.toFixed(3)}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {payload[0].payload.time}
-                            </p>
-                          </div>
-                        );
-                      }
-                      return null;
-                    }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="cost"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* Filters and Table */}
-      <Card className="p-6 border-(--border)">
-        <div className="border-b border-border border-(--border) p-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Button variant="soft" size="sm" onClick={() => setShowFilters(!showFilters)}>
-                <Filter className="h-4 w-4" />
-                Filters
-              </Button>
-              {hasActiveFilters && (
-                <>
-                  {serviceFilter !== 'all' && (
-                    <Badge variant="secondary">
-                      Service: {serviceFilter}
-                      <X
-                        className="h-3 w-3 ml-1 cursor-pointer"
-                        onClick={() => setServiceFilter('all')}
-                      />
-                    </Badge>
-                  )}
-                  {modelFilter !== 'all' && (
-                    <Badge variant="secondary">
-                      Model: {modelFilter}
-                      <X
-                        className="h-3 w-3 ml-1 cursor-pointer"
-                        onClick={() => setModelFilter('all')}
-                      />
-                    </Badge>
-                  )}
-                  {statusFilter !== 'all' && (
-                    <Badge variant="secondary">
-                      Status: {statusFilter}
-                      <X
-                        className="h-3 w-3 ml-1 cursor-pointer"
-                        onClick={() => setStatusFilter('all')}
-                      />
-                    </Badge>
-                  )}
-                  {endpointFilter && (
-                    <Badge variant="secondary">
-                      Endpoint: "{endpointFilter}"
-                      <X
-                        className="h-3 w-3 ml-1 cursor-pointer"
-                        onClick={() => setEndpointFilter('')}
-                      />
-                    </Badge>
-                  )}
-                  {timeRange !== 'all' && (
-                    <Badge variant="secondary">
-                      Time:{' '}
-                      {
-                        {
-                          '5m': 'Last 5 min',
-                          '1h': 'Last hour',
-                          '24h': 'Last 24h',
-                          '7d': 'Last 7 days',
-                        }[timeRange]
-                      }
-                      <X
-                        className="h-3 w-3 ml-1 cursor-pointer"
-                        onClick={() => setTimeRange('all')}
-                      />
-                    </Badge>
-                  )}
-                  <Button variant="ghost" size="sm" onClick={clearFilters}>
-                    Clear all
-                  </Button>
-                </>
-              )}
-            </div>
-            <div className="text-sm text-muted-foreground">{totalTraces} total traces</div>
-          </div>
-
-          {showFilters && (
-            <div className="space-y-3 pt-2">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                <Input
-                  placeholder="Filter by endpoint..."
-                  value={endpointFilter}
-                  onChange={(e) => setEndpointFilter(e.target.value)}
-                  className="w-full"
-                />
-
-                <Select value={serviceFilter} onValueChange={setServiceFilter}>
-                  <SelectTrigger size="sm">
-                    <SelectValue placeholder="Service" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Services</SelectItem>
-                    {services.map((service) => (
-                      <SelectItem key={service} value={service}>
-                        {service}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={modelFilter} onValueChange={setModelFilter}>
-                  <SelectTrigger size="sm">
-                    <SelectValue placeholder="Model" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Models</SelectItem>
-                    {models.map((model) => (
-                      <SelectItem key={model} value={model}>
-                        {model}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger size="sm">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="healthy">Healthy</SelectItem>
-                    <SelectItem value="degraded">Degraded</SelectItem>
-                    <SelectItem value="error">Error</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={timeRange} onValueChange={setTimeRange}>
-                  <SelectTrigger size="sm">
-                    <SelectValue placeholder="Time Range" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Time</SelectItem>
-                    <SelectItem value="5m">Last 5 minutes</SelectItem>
-                    <SelectItem value="1h">Last hour</SelectItem>
-                    <SelectItem value="24h">Last 24 hours</SelectItem>
-                    <SelectItem value="7d">Last 7 days</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+          {/* Trace Inspector */}
+          {selectedTrace && (
+            <TraceInspector
+              trace={selectedTrace}
+              onClose={() => {
+                isClosingRef.current = true;
+                setSelectedTrace(null);
+                // Clear the URL parameter
+                if (traceIdParam) {
+                  const url = new URL(window.location.href);
+                  url.searchParams.delete('id');
+                  window.history.replaceState({}, '', url.toString());
+                }
+              }}
+            />
           )}
         </div>
-
-        <div className="relative w-full overflow-x-auto rounded-lg border border-(--border)">
-          <table className="w-full caption-bottom text-sm">
-            <TableHeader>
-              <TableRow>
-                <TableHead>Status</TableHead>
-                <TableHead>Service</TableHead>
-                <TableHead>Endpoint</TableHead>
-                <TableHead>Model</TableHead>
-                <TableHead className="text-right">Cost</TableHead>
-                <TableHead className="text-right">Latency</TableHead>
-                <TableHead>Time</TableHead>
-              </TableRow>
-            </TableHeader>
-
-            <TableBody>
-              {traces.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="p-0">
-                    <EmptyState
-                      icon={Inbox}
-                      title="No traces found"
-                      description={
-                        hasActiveFilters
-                          ? 'No traces match your current filters. Try adjusting or clearing your filters.'
-                          : 'No trace data available. Traces will appear here once your AI requests are logged.'
-                      }
-                      action={
-                        hasActiveFilters
-                          ? {
-                              label: 'Clear Filters',
-                              onClick: clearFilters,
-                            }
-                          : undefined
-                      }
-                    />
-                  </TableCell>
-                </TableRow>
-              ) : (
-                traces.map((trace, index) => (
-                  <TableRow
-                    key={
-                      trace.trace_id && trace.span_id
-                        ? `${trace.trace_id}-${trace.span_id}`
-                        : `trace-${index}`
-                    }
-                    data-variant={getRowVariant(trace.status)}
-                    className="cursor-pointer hover:bg-muted/50 border-(--border)"
-                    onClick={() => handleTraceClick(trace)}
-                  >
-                    <TableCell>
-                      <StatusDot status={normalizeStatus(trace.status)} />
-                    </TableCell>
-                    <TableCell className="font-medium">{trace.service_name}</TableCell>
-                    <TableCell className="font-mono text-sm text-muted-foreground">
-                      {trace.endpoint}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className="rounded-md px-2 py-0.5">
-                        {trace.model}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">
-                      {formatCost(trace.cost_usd)}
-                    </TableCell>
-                    <TableCell
-                      className={cn(
-                        'text-right font-mono tabular-nums',
-                        trace.latency_ms > 3000 && 'text-red-600 dark:text-red-400',
-                        trace.latency_ms > 1500 &&
-                          trace.latency_ms <= 3000 &&
-                          'text-amber-600 dark:text-amber-400'
-                      )}
-                    >
-                      {formatLatency(trace.latency_ms)}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {new Date(trace.timestamp).toLocaleTimeString()}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </table>
-
-          {/* Pagination */}
-          {totalTraces > ITEMS_PER_PAGE && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-(--border) bg-background">
-              <div className="text-sm text-muted-foreground">
-                Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1} to{' '}
-                {Math.min(currentPage * ITEMS_PER_PAGE, totalTraces)} of {totalTraces} traces
-              </div>
-              <TablePagination
-                currentPage={currentPage}
-                totalItems={totalTraces}
-                itemsPerPage={ITEMS_PER_PAGE}
-                onPageChange={setCurrentPage}
-              />
-            </div>
-          )}
-        </div>
-      </Card>
-
-      {/* Trace Detail Drawer */}
-      <TraceDetailDrawer trace={selectedTrace} open={drawerOpen} onOpenChange={setDrawerOpen} />
+      </div>
     </div>
   );
 }
 
-export default function Home() {
+export default function TracesPage() {
   return (
     <Suspense
-      fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}
+      fallback={<div className="flex items-center justify-center h-screen">Loading...</div>}
     >
-      <TracesContent />
+      <TracesPageContent />
     </Suspense>
   );
 }

@@ -456,20 +456,20 @@ export interface AlertFilters extends PaginationParams, TimeRangeParams {
 }
 
 export interface Alert {
-  alert_id: string;
-  trace_id: string;
-  span_id: string;
-  customer_id: string;
-  alert_type: string;
+  alertId: string;
+  traceId: string;
+  spanId: string;
+  customerId: string;
+  alertType: string;
   severity: string;
-  current_cost: number;
-  baseline_cost: number;
-  cost_increase_percent: number;
-  hash_similarity: number;
-  semantic_score: number;
-  scoring_method: string;
-  semantic_cached: boolean;
-  service_name: string;
+  currentCost: number;
+  baselineCost: number;
+  costIncreasePercent: number;
+  hashSimilarity: number;
+  semanticScore: number;
+  scoringMethod: string;
+  semanticCached: boolean;
+  serviceName: string;
   endpoint: string;
   model: string;
   reasoning: string;

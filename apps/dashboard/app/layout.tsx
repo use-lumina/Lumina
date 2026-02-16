@@ -34,7 +34,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
       </head>
-      <body className="bg-background text-foreground antialiased font-sans">
+      <body
+        className="bg-background text-foreground antialiased font-sans"
+        suppressHydrationWarning
+      >
         <ThemeProvider defaultTheme="light" storageKey="lumina-ui-theme">
           <SkeletonThemeProvider>
             <DashboardLayout>{children}</DashboardLayout>

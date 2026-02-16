@@ -13,7 +13,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Drawer,
   DrawerContent,
@@ -32,11 +31,12 @@ import {
   TrendingDown,
   X,
   Sparkles,
-  ArrowRight,
   FileText,
   Check,
   Trash2,
+  Database,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import {
   getReplaySets,
   createReplaySet,
@@ -281,7 +281,7 @@ export default function ReplayPage() {
             <KPICardSkeleton />
             <KPICardSkeleton />
           </div>
-          <Card className="p-6 border-(--accent)">
+          <Card className="p-6 border-border">
             <TableSkeleton rows={5} columns={6} />
           </Card>
         </div>
@@ -300,68 +300,96 @@ export default function ReplayPage() {
     <div className="h-full overflow-auto">
       <div className="p-6 space-y-6">
         {/* Header */}
-        <div className="flex items-start justify-between animate-fade-in">
-          <div>
-            <h1 className="text-3xl font-bold">Replay Studio</h1>
-            <p className="text-muted-foreground">
-              Re-run traces with different models and configurations
+        <div className="flex items-center justify-between mb-6">
+          <div className="space-y-1">
+            <h1 className="text-xl font-bold tracking-tight text-foreground">Replay Studio</h1>
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+              Optimize prompts and models through experiment replay
             </p>
           </div>
-          <Button onClick={() => setCreateDrawerOpen(true)} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Create Replay Set
+          <Button
+            onClick={() => setCreateDrawerOpen(true)}
+            size="sm"
+            className="h-8 bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5 shadow-sm"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span className="text-[11px] font-bold uppercase tracking-tight">
+              Create Replay Set
+            </span>
           </Button>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-scale-in">
-          <Card className="p-6 border-(--accent)">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+          <Card className="p-4 border-border bg-card shadow-sm overflow-hidden group hover:border-primary/30 transition-all duration-300">
             <div className="flex items-start justify-between">
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">Total Replay Sets</p>
-                <p className="text-3xl font-bold">{replaySets.length}</p>
-                <p className="text-sm text-muted-foreground">{completedSets} completed</p>
-              </div>
-              <div className="rounded-lg bg-blue-100 dark:bg-blue-950 p-3">
-                <GitCompare className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-6 border-(--accent)">
-            <div className="flex items-start justify-between">
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">Total Traces</p>
-                <p className="text-3xl font-bold">{totalTraces}</p>
-                <p className="text-sm text-green-600 dark:text-green-500">Across all sets</p>
-              </div>
-              <div className="rounded-lg bg-purple-100 dark:bg-purple-950 p-3">
-                <FileText className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-6 border-(--accent)">
-            <div className="flex items-start justify-between">
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">Avg Cost Savings</p>
-                <p className="text-3xl font-bold">N/A</p>
-                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                  <TrendingDown className="h-4 w-4" />
-                  <span>
-                    {completedSets > 0 ? 'Run replays to see data' : 'No completed replays'}
-                  </span>
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">
+                  Total Replay Sets
+                </p>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-2xl font-mono font-bold tracking-tighter text-foreground">
+                    {replaySets.length}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground/60 font-medium">
+                    {completedSets} completed
+                  </p>
                 </div>
               </div>
-              <div className="rounded-lg bg-green-100 dark:bg-green-950 p-3">
-                <DollarSign className="h-6 w-6 text-green-600 dark:text-green-400" />
+              <div className="rounded-md bg-primary/10 p-2 group-hover:scale-110 transition-transform duration-300">
+                <GitCompare className="h-4 w-4 text-primary" />
+              </div>
+            </div>
+            <div className="mt-2 h-1 w-full bg-muted rounded-full overflow-hidden">
+              <div
+                className="h-full bg-primary rounded-full"
+                style={{
+                  width: `${replaySets.length > 0 ? (completedSets / replaySets.length) * 100 : 0}%`,
+                }}
+              ></div>
+            </div>
+          </Card>
+
+          <Card className="p-4 border-border bg-card shadow-sm overflow-hidden group hover:border-accent transition-all duration-300">
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">
+                  Total Traces
+                </p>
+                <p className="text-2xl font-mono font-bold tracking-tighter text-foreground">
+                  {totalTraces}
+                </p>
+                <p className="text-[10px] text-green-600 dark:text-green-500 font-bold uppercase tracking-tight">
+                  Active Coverage
+                </p>
+              </div>
+              <div className="rounded-md bg-accent p-2 group-hover:scale-110 transition-transform duration-300">
+                <FileText className="h-4 w-4 text-accent-foreground" />
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-4 border-border bg-card shadow-sm overflow-hidden group hover:border-green-500/30 transition-all duration-300">
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">
+                  Avg Cost Savings
+                </p>
+                <p className="text-2xl font-mono font-bold tracking-tighter text-foreground">N/A</p>
+                <div className="flex items-center gap-1 text-[10px] text-muted-foreground/60 font-medium">
+                  <TrendingDown className="h-3 w-3" />
+                  <span>{completedSets > 0 ? 'Analyzing patterns...' : 'No data yet'}</span>
+                </div>
+              </div>
+              <div className="rounded-md bg-primary/10 p-2 group-hover:scale-110 transition-transform duration-300">
+                <DollarSign className="h-4 w-4 text-primary" />
               </div>
             </div>
           </Card>
         </div>
 
         {/* Replay Sets List */}
-        <Card className="p-6 border-(--accent)">
+        <Card className="p-6 border-border">
           <div className="space-y-4">
             <div>
               <h3 className="text-lg font-semibold">Saved Replay Sets</h3>
@@ -370,67 +398,100 @@ export default function ReplayPage() {
               </p>
             </div>
 
-            <div className="relative w-full overflow-x-auto rounded-lg border border-(--border)">
+            <div className="relative w-full overflow-x-auto rounded-lg border border-border">
               <table className="w-full caption-bottom text-sm">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Traces</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead>Last Run</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+                <thead className="sticky top-0 bg-muted/90 backdrop-blur-sm border-b border-border z-10 transition-colors">
+                  <tr>
+                    <th className="h-9 px-3 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground text-left">
+                      Name
+                    </th>
+                    <th className="h-9 px-3 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground text-left">
+                      Traces
+                    </th>
+                    <th className="h-9 px-3 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground text-left">
+                      Created
+                    </th>
+                    <th className="h-9 px-3 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground text-left">
+                      Last Run
+                    </th>
+                    <th className="h-9 px-3 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground text-left">
+                      Status
+                    </th>
+                    <th className="h-9 px-3 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground text-right">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
                   {replaySets.map((set) => (
-                    <TableRow
+                    <tr
                       key={set.replay_id}
-                      className="cursor-pointer hover:bg-muted/50 transition-colors border-(--accent)"
+                      className="cursor-pointer hover:bg-accent/40 transition-colors border-b border-border/50 h-10 group"
                     >
-                      <TableCell className="font-medium">{set.name}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground max-w-80 truncate">
-                        {set.description}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{set.total_traces} traces</Badge>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {formatDateISO(set.created_at)}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
+                      <td className="px-3 py-1.5">
+                        <div className="flex flex-col">
+                          <span className="text-xs font-semibold text-foreground line-clamp-1">
+                            {set.name}
+                          </span>
+                          <span className="text-[9px] text-muted-foreground/60 font-medium line-clamp-1">
+                            {set.description || 'No description'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <Badge
+                          variant="outline"
+                          className="h-4 px-1 text-[9px] font-mono bg-accent text-muted-foreground border-none"
+                        >
+                          {set.total_traces} traces
+                        </Badge>
+                      </td>
+                      <td className="px-3 py-1.5 text-[10px] text-muted-foreground font-mono tracking-tighter">
+                        {formatDateISO(set.created_at).split(' ')[0]}
+                      </td>
+                      <td className="px-3 py-1.5 text-[10px] text-muted-foreground font-mono tracking-tighter">
                         {set.completed_traces && set.completed_traces > 0
-                          ? formatDateISO(set.created_at)
+                          ? formatDateISO(set.created_at).split(' ')[0]
                           : 'Never'}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={set.status === 'completed' ? 'success' : 'secondary'}>
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            'h-4 px-1 text-[9px] font-bold uppercase',
+                            set.status === 'completed'
+                              ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                              : set.status === 'running'
+                                ? 'bg-primary/10 text-primary border-primary/20'
+                                : 'bg-muted text-muted-foreground border-border/50'
+                          )}
+                        >
                           {set.status}
                         </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
+                      </td>
+                      <td className="px-3 py-1.5 text-right">
+                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <Button
                             variant="ghost"
                             size="sm"
+                            className="h-6 px-2 text-[10px] font-bold uppercase text-primary hover:bg-primary/10"
                             onClick={() => {
                               setSelectedSet(set);
                               setRunDrawerOpen(true);
                             }}
                             disabled={set.status === 'running'}
                           >
-                            <Play className="h-4 w-4 mr-1" />
-                            {set.status === 'running' ? 'Running...' : 'Run Replay'}
+                            <Play className="h-3 w-3 mr-1" />
+                            Run
                           </Button>
                           {set.status === 'completed' && (
                             <Button
-                              variant="secondary"
+                              variant="ghost"
                               size="sm"
+                              className="h-6 px-2 text-[10px] font-bold uppercase text-muted-foreground hover:bg-accent"
                               onClick={() => handleViewResults(set)}
                             >
-                              View Results
-                              <ArrowRight className="h-4 w-4 ml-1" />
+                              Results
                             </Button>
                           )}
                           <Button
@@ -440,20 +501,20 @@ export default function ReplayPage() {
                               e.stopPropagation();
                               handleDeleteReplaySet(set.replay_id);
                             }}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                            className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   ))}
-                </TableBody>
+                </tbody>
               </table>
 
               {/* Pagination */}
               {replaySets.length > 0 && totalReplaySets > ITEMS_PER_PAGE && (
-                <div className="flex items-center justify-between px-4 py-3 border-t border-(--border )bg-background">
+                <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-card">
                   <div className="text-sm text-muted-foreground">
                     Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1} to{' '}
                     {Math.min(currentPage * ITEMS_PER_PAGE, totalReplaySets)} of {totalReplaySets}{' '}
@@ -473,7 +534,7 @@ export default function ReplayPage() {
 
         {/* Create Replay Set Drawer */}
         <Drawer open={createDrawerOpen} onOpenChange={setCreateDrawerOpen}>
-          <DrawerContent className="focus:outline-none border-(--border)">
+          <DrawerContent className="focus:outline-none border-border">
             <div className="mx-auto w-full h-full overflow-y-auto">
               <div className="space-y-6 p-6 pb-12">
                 <DrawerHeader className="p-0">
@@ -525,58 +586,67 @@ export default function ReplayPage() {
 
                   {/* Trace Selection */}
                   <div>
-                    <label className="text-sm font-medium">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter ml-1">
                       Select Traces ({selectedTraces.length} selected)
                     </label>
-                    <div className="mt-2 space-y-2 max-h-96 overflow-y-auto custom-scrollbar">
+                    <div className="mt-2 space-y-1 max-h-[400px] overflow-y-auto custom-scrollbar pr-1">
                       {availableTraces.length > 0 ? (
                         availableTraces.map((trace) => (
                           <div
                             key={trace.trace_id}
                             onClick={() => handleToggleTrace(trace.trace_id)}
-                            className={`flex items-center justify-between p-3 rounded-lg border border-(--accent) cursor-pointer transition-colors ${
+                            className={cn(
+                              'flex items-center justify-between p-2 rounded border transition-all cursor-pointer group',
                               selectedTraces.includes(trace.trace_id)
-                                ? 'border-primary bg-primary/5'
-                                : 'border-(--border) hover:border-primary/50'
-                            }`}
+                                ? 'border-primary bg-primary/10'
+                                : 'border-border hover:border-accent-foreground/20'
+                            )}
                           >
-                            <div className="flex-1">
-                              <p className="font-medium text-sm">{trace.endpoint}</p>
-                              <p className="text-xs text-muted-foreground truncate max-w-md">
-                                {trace.prompt || 'No prompt available'}
+                            <div className="flex-1 min-w-0">
+                              <p className="font-bold text-[11px] text-foreground truncate">
+                                {trace.endpoint}
+                              </p>
+                              <p className="text-[9px] text-muted-foreground/60 font-medium truncate max-w-xs">
+                                {trace.prompt || 'No prompt content'}
                               </p>
                             </div>
-                            <div className="flex items-center gap-3">
-                              <Badge variant="secondary" className="text-xs">
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                variant="outline"
+                                className="h-3.5 px-1 text-[8px] font-mono bg-accent text-muted-foreground border-none"
+                              >
                                 {trace.model}
                               </Badge>
                               <div
-                                className={`h-5 w-5 rounded border-2 flex items-center justify-center ${
+                                className={cn(
+                                  'h-3.5 w-3.5 rounded border transition-colors flex items-center justify-center',
                                   selectedTraces.includes(trace.trace_id)
                                     ? 'border-primary bg-primary'
-                                    : 'border-muted-foreground'
-                                }`}
+                                    : 'border-border group-hover:border-primary/50'
+                                )}
                               >
                                 {selectedTraces.includes(trace.trace_id) && (
-                                  <Check className="h-3 w-3 text-primary-foreground" />
+                                  <Check className="h-2.5 w-2.5 text-primary-foreground" />
                                 )}
                               </div>
                             </div>
                           </div>
                         ))
                       ) : (
-                        <p className="text-sm text-muted-foreground text-center py-8">
-                          No traces available. Create some traces first.
-                        </p>
+                        <div className="text-center py-10 bg-slate-50/50 dark:bg-slate-900/10 rounded border border-dashed border-slate-200 dark:border-slate-800">
+                          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight">
+                            No traces available
+                          </p>
+                        </div>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex gap-3 pt-4">
+                  <div className="flex gap-2 pt-4">
                     <Button
-                      variant="secondary"
+                      variant="ghost"
                       onClick={() => setCreateDrawerOpen(false)}
-                      className="flex-1"
+                      className="flex-1 h-8 text-[11px] font-bold uppercase"
                       disabled={isCreating}
                     >
                       Cancel
@@ -584,9 +654,9 @@ export default function ReplayPage() {
                     <Button
                       onClick={handleCreateReplaySet}
                       disabled={selectedTraces.length === 0 || !replayName || isCreating}
-                      className="flex-1"
+                      className="flex-1 h-8 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold uppercase shadow-sm"
                     >
-                      {isCreating ? 'Creating...' : 'Create Replay Set'}
+                      {isCreating ? 'Creating...' : 'Create Set'}
                     </Button>
                   </div>
                 </div>
@@ -597,7 +667,7 @@ export default function ReplayPage() {
 
         {/* Run Replay Drawer */}
         <Drawer open={runDrawerOpen} onOpenChange={setRunDrawerOpen}>
-          <DrawerContent className="focus:outline-none border-(--border)">
+          <DrawerContent className="focus:outline-none border-border">
             <div className="mx-auto w-full h-full overflow-y-auto">
               <div className="space-y-6 p-6 pb-12">
                 <DrawerHeader className="p-0">
@@ -617,11 +687,14 @@ export default function ReplayPage() {
                   </DrawerDescription>
                 </DrawerHeader>
 
-                <div className="space-y-6">
+                <div className="space-y-4">
                   {/* Model Selection */}
                   <div>
-                    <label htmlFor="model" className="text-sm font-medium">
-                      Model
+                    <label
+                      htmlFor="model"
+                      className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter ml-1"
+                    >
+                      Target AI Model
                     </label>
                     <Select value={selectedModel} onValueChange={setSelectedModel}>
                       <SelectTrigger id="model" className="mt-1.5">
@@ -639,11 +712,16 @@ export default function ReplayPage() {
 
                   {/* Temperature */}
                   <div>
-                    <div className="flex items-center justify-between">
-                      <label htmlFor="temperature" className="text-sm font-medium">
+                    <div className="flex items-center justify-between ml-1">
+                      <label
+                        htmlFor="temperature"
+                        className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter"
+                      >
                         Temperature
                       </label>
-                      <span className="text-sm text-muted-foreground">{temperature}</span>
+                      <span className="text-[10px] font-mono font-bold text-primary">
+                        {temperature}
+                      </span>
                     </div>
                     <Input
                       id="temperature"
@@ -653,24 +731,27 @@ export default function ReplayPage() {
                       step="0.1"
                       value={temperature}
                       onChange={(e) => setTemperature(e.target.value)}
-                      className="mt-1.5"
+                      className="mt-1 h-1.5 bg-muted accent-primary"
                     />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Lower is more focused, higher is more creative
+                    <p className="text-[9px] text-muted-foreground/60 font-medium mt-1 uppercase tracking-tight">
+                      Lower is deterministic, higher is creative
                     </p>
                   </div>
 
                   {/* Max Tokens */}
                   <div>
-                    <label htmlFor="max-tokens" className="text-sm font-medium">
-                      Max Tokens
+                    <label
+                      htmlFor="max-tokens"
+                      className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter ml-1"
+                    >
+                      Max Completion Tokens
                     </label>
                     <Input
                       id="max-tokens"
                       type="number"
                       value={maxTokens}
                       onChange={(e) => setMaxTokens(e.target.value)}
-                      className="mt-1.5"
+                      className="mt-1 h-8 text-[11px] font-mono border-border focus:border-primary"
                       min="1"
                       max="4000"
                     />
@@ -678,34 +759,38 @@ export default function ReplayPage() {
 
                   {/* Prompt Template */}
                   <div>
-                    <label htmlFor="prompt-template" className="text-sm font-medium">
-                      Prompt Template (Optional)
+                    <label
+                      htmlFor="prompt-template"
+                      className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter ml-1"
+                    >
+                      Prompt Template Override
                     </label>
                     <Textarea
                       id="prompt-template"
-                      placeholder="Leave empty to use original prompts, or provide a template with {ORIGINAL_PROMPT} placeholder..."
+                      placeholder="Use {ORIGINAL_PROMPT} to transform existing data..."
                       value={promptTemplate}
                       onChange={(e) => setPromptTemplate(e.target.value)}
-                      className="mt-1.5 font-mono text-sm"
+                      className="mt-1 font-mono text-[10px] border-border focus:border-primary bg-muted/20"
                       rows={4}
                     />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Use {'{ORIGINAL_PROMPT}'} to inject the original prompt
-                    </p>
                   </div>
 
-                  <div className="flex gap-3 pt-4 border-t border-(--border)">
+                  <div className="flex gap-2 pt-4 border-t border-border">
                     <Button
-                      variant="secondary"
+                      variant="ghost"
                       onClick={() => setRunDrawerOpen(false)}
-                      className="flex-1"
+                      className="flex-1 h-8 text-[11px] font-bold uppercase"
                       disabled={isRunning}
                     >
                       Cancel
                     </Button>
-                    <Button onClick={handleRunReplay} className="flex-1 gap-2" disabled={isRunning}>
-                      <Play className="h-4 w-4" />
-                      {isRunning ? 'Running...' : 'Run Replay'}
+                    <Button
+                      onClick={handleRunReplay}
+                      className="flex-1 h-8 bg-primary hover:bg-primary/90 text-primary-foreground text-[11px] font-bold uppercase gap-2 shadow-sm"
+                      disabled={isRunning}
+                    >
+                      <Play className="h-3 w-3" />
+                      {isRunning ? 'Executing...' : 'Run Experiment'}
                     </Button>
                   </div>
                 </div>
@@ -716,31 +801,42 @@ export default function ReplayPage() {
 
         {/* Results Drawer */}
         <Drawer open={resultsDrawerOpen} onOpenChange={setResultsDrawerOpen}>
-          <DrawerContent className="focus:outline-none border-(--border)">
+          <DrawerContent className="focus:outline-none border-border">
             <div className="mx-auto w-full h-full overflow-y-auto">
               <div className="space-y-6 p-6 pb-12">
-                <DrawerHeader className="p-0">
-                  <div className="flex items-center justify-between">
+                <DrawerHeader className="shrink-0 border-b border-border bg-muted/30 px-4 py-3">
+                  <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-3">
-                      <DrawerTitle>Replay Results</DrawerTitle>
-                      {selectedSet && <Badge variant="secondary">{selectedSet.name}</Badge>}
-                      {normalizedSummary && (
-                        <Badge variant="success" className="gap-1.5">
-                          <Sparkles className="h-3 w-3" />
-                          {`${normalizedSummary.avg_semantic_score.toFixed(1)}% Avg Similarity`}
+                      <DrawerTitle className="text-base font-bold text-foreground tracking-tight">
+                        Replay Results
+                      </DrawerTitle>
+                      {selectedSet && (
+                        <Badge
+                          variant="outline"
+                          className="font-mono text-[10px] bg-accent text-muted-foreground border-none"
+                        >
+                          {selectedSet.name}
                         </Badge>
                       )}
                     </div>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8"
+                      className="h-8 w-8 -mr-2 text-muted-foreground hover:text-foreground"
                       onClick={() => setResultsDrawerOpen(false)}
                     >
                       <X className="h-4 w-4" />
                     </Button>
                   </div>
-                  <DrawerDescription>Compare original and replayed trace outputs</DrawerDescription>
+                  <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground/60">
+                    <span>Performance Comparison</span>
+                    {normalizedSummary && (
+                      <>
+                        <span>•</span>
+                        <span className="text-primary">{`${normalizedSummary.avg_semantic_score.toFixed(1)}% Avg Similarity`}</span>
+                      </>
+                    )}
+                  </div>
                 </DrawerHeader>
 
                 {isLoadingResults ? (
@@ -752,228 +848,209 @@ export default function ReplayPage() {
                   </div>
                 ) : replaySummary && replayResults.length > 0 ? (
                   <>
-                    {/* Summary Metrics */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                      <Card className="p-4 border-(--accent)">
+                    {/* Summary Metrics - Premium Sticky Bar */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
+                      <div className="rounded border border-border/50 bg-muted/20 p-2.5 space-y-1 group hover:border-primary/30 transition-all">
                         <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-xs text-muted-foreground mb-1">Avg Cost Diff</p>
-                            <p
-                              className={`text-2xl font-bold ${normalizedSummary && normalizedSummary.avg_cost_diff < 0 ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}
-                            >
-                              {normalizedSummary && normalizedSummary.avg_cost_diff > 0 ? '+' : ''}
-                              {normalizedSummary
-                                ? `${(normalizedSummary.avg_cost_diff * 100).toFixed(1)}%`
-                                : 'N/A'}
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {normalizedSummary
-                                ? `${normalizedSummary.total_results} traces`
-                                : '0 traces'}
-                            </p>
-                          </div>
+                          <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-tight">
+                            Avg Cost Diff
+                          </p>
                           <TrendingDown
-                            className={`h-8 w-8 ${replaySummary.avg_cost_diff < 0 ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}
+                            className={cn(
+                              'h-3 w-3',
+                              normalizedSummary && normalizedSummary.avg_cost_diff < 0
+                                ? 'text-emerald-500'
+                                : 'text-destructive'
+                            )}
                           />
                         </div>
-                      </Card>
+                        <p
+                          className={cn(
+                            'text-lg font-mono font-bold tracking-tighter',
+                            normalizedSummary && normalizedSummary.avg_cost_diff < 0
+                              ? 'text-emerald-500'
+                              : 'text-destructive'
+                          )}
+                        >
+                          {normalizedSummary && normalizedSummary.avg_cost_diff > 0 ? '+' : ''}
+                          {normalizedSummary
+                            ? `${(normalizedSummary.avg_cost_diff * 100).toFixed(1)}%`
+                            : 'N/A'}
+                        </p>
+                      </div>
 
-                      <Card className="p-4 border-(--accent)">
+                      <div className="rounded border border-border/50 bg-muted/20 p-2.5 space-y-1 group hover:border-accent/30 transition-all">
                         <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-xs text-muted-foreground mb-1">Avg Latency Diff</p>
-                            <p
-                              className={`text-2xl font-bold ${normalizedSummary && normalizedSummary.avg_latency_diff < 0 ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}
-                            >
-                              {normalizedSummary && normalizedSummary.avg_latency_diff > 0
-                                ? '+'
-                                : ''}
-                              {normalizedSummary
-                                ? `${(normalizedSummary.avg_latency_diff * 100).toFixed(1)}%`
-                                : 'N/A'}
-                            </p>
-                          </div>
-                          <Clock className="h-8 w-8 text-purple-600 dark:text-purple-400" />
+                          <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-tight">
+                            Latency Delta
+                          </p>
+                          <Clock className="h-3 w-3 text-accent" />
                         </div>
-                      </Card>
+                        <p
+                          className={cn(
+                            'text-lg font-mono font-bold tracking-tighter',
+                            normalizedSummary && normalizedSummary.avg_latency_diff < 0
+                              ? 'text-emerald-500'
+                              : 'text-destructive'
+                          )}
+                        >
+                          {normalizedSummary && normalizedSummary.avg_latency_diff > 0 ? '+' : ''}
+                          {normalizedSummary
+                            ? `${(normalizedSummary.avg_latency_diff * 100).toFixed(1)}%`
+                            : 'N/A'}
+                        </p>
+                      </div>
 
-                      <Card className="p-4 border-(--accent)">
+                      <div className="rounded border border-border/50 bg-muted/20 p-2.5 space-y-1 group hover:border-primary/30 transition-all">
                         <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-xs text-muted-foreground mb-1">Semantic Score</p>
-                            <p className="text-2xl font-bold">
-                              {normalizedSummary
-                                ? `${normalizedSummary.avg_semantic_score.toFixed(1)}%`
-                                : 'N/A'}
-                            </p>
-                          </div>
-                          <Sparkles className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                          <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-tight">
+                            Similarity
+                          </p>
+                          <Sparkles className="h-3 w-3 text-primary" />
                         </div>
-                      </Card>
+                        <p className="text-lg font-mono font-bold tracking-tighter text-foreground">
+                          {normalizedSummary
+                            ? `${normalizedSummary.avg_semantic_score.toFixed(1)}%`
+                            : 'N/A'}
+                        </p>
+                      </div>
 
-                      <Card className="p-4 border-(--accent)">
+                      <div className="rounded border border-border/50 bg-muted/20 p-2.5 space-y-1 group hover:border-orange-500/30 transition-all">
                         <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-xs text-muted-foreground mb-1">Response Changes</p>
-                            <p className="text-2xl font-bold">
-                              {normalizedSummary ? normalizedSummary.response_changes : 0}
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {normalizedSummary && normalizedSummary.total_results > 0
-                                ? `${((normalizedSummary.response_changes / normalizedSummary.total_results) * 100).toFixed(1)}% changed`
-                                : '0.0% changed'}
-                            </p>
-                          </div>
-                          <GitCompare className="h-8 w-8 text-orange-600 dark:text-orange-400" />
+                          <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-tight">
+                            Deviations
+                          </p>
+                          <GitCompare className="h-3 w-3 text-orange-500" />
                         </div>
-                      </Card>
+                        <div className="flex items-baseline gap-1.5">
+                          <p className="text-lg font-mono font-bold tracking-tighter text-foreground">
+                            {normalizedSummary ? normalizedSummary.response_changes : 0}
+                          </p>
+                          <span className="text-[9px] text-muted-foreground/60 font-medium">
+                            {normalizedSummary && normalizedSummary.total_results > 0
+                              ? `${((normalizedSummary.response_changes / normalizedSummary.total_results) * 100).toFixed(1)}%`
+                              : '0%'}
+                          </span>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Results List */}
-                    <div>
-                      <h3 className="text-lg font-semibold mb-4">
-                        Individual Results ({replayResults.length})
-                      </h3>
-                      <div className="space-y-4 max-h-[600px] overflow-y-auto custom-scrollbar">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-tighter">
+                          Experiment Results Breakdown ({replayResults.length})
+                        </h3>
+                        <Badge
+                          variant="outline"
+                          className="h-4 px-1.5 text-[9px] font-bold uppercase bg-accent text-muted-foreground border-none"
+                        >
+                          Virtual List Mode
+                        </Badge>
+                      </div>
+                      <div className="space-y-2 max-h-[600px] overflow-y-auto custom-scrollbar pr-1">
                         {replayResults.map((result) => (
-                          <Card key={result.result_id} className="p-4 border-(--accent)">
+                          <Card
+                            key={result.result_id}
+                            className="p-4 border-border/50 bg-card/50 hover:bg-card hover:border-border transition-all"
+                          >
                             <div className="space-y-4">
                               {/* Header */}
                               <div className="flex items-start justify-between">
-                                <div>
-                                  <p className="font-medium">
-                                    {result.service_name || 'Unknown Service'}
-                                  </p>
-                                  <p className="text-sm text-muted-foreground">
-                                    {result.endpoint || 'Unknown Endpoint'}
-                                  </p>
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <h4 className="text-sm font-bold tracking-tight text-foreground">
+                                      {result.service_name || 'System'}
+                                    </h4>
+                                    <span className="text-xs text-muted-foreground font-mono font-medium">
+                                      / {result.endpoint}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-tighter">
+                                        Cost
+                                      </span>
+                                      <span className="text-[10px] font-mono font-bold text-foreground">
+                                        ${result.original_cost.toFixed(4)} → $
+                                        {result.replay_cost.toFixed(4)}
+                                        <span
+                                          className={cn(
+                                            'ml-1.5',
+                                            result.diff_summary.cost_diff_percent < 0
+                                              ? 'text-emerald-500'
+                                              : 'text-destructive'
+                                          )}
+                                        >
+                                          ({result.diff_summary.cost_diff_percent > 0 ? '+' : ''}
+                                          {result.diff_summary.cost_diff_percent.toFixed(1)}%)
+                                        </span>
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-tighter">
+                                        Latency
+                                      </span>
+                                      <span className="text-[10px] font-mono font-bold text-foreground">
+                                        {result.original_latency.toFixed(0)}ms →{' '}
+                                        {result.replay_latency.toFixed(0)}ms
+                                        <span
+                                          className={cn(
+                                            'ml-1.5',
+                                            result.diff_summary.latency_diff_percent < 0
+                                              ? 'text-emerald-500'
+                                              : 'text-destructive'
+                                          )}
+                                        >
+                                          ({result.diff_summary.latency_diff_percent > 0 ? '+' : ''}
+                                          {result.diff_summary.latency_diff_percent.toFixed(1)}%)
+                                        </span>
+                                      </span>
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex flex-col items-end gap-1.5">
                                   <Badge
-                                    variant={
-                                      result.diff_summary.response_changed ? 'warning' : 'success'
-                                    }
+                                    variant="outline"
+                                    className={cn(
+                                      'h-4 px-1.5 text-[8px] font-bold uppercase tracking-widest border-none',
+                                      result.diff_summary.response_changed
+                                        ? 'bg-amber-500/10 text-amber-500'
+                                        : 'bg-emerald-500/10 text-emerald-500'
+                                    )}
                                   >
-                                    {result.diff_summary.response_changed ? 'Changed' : 'Unchanged'}
+                                    {result.diff_summary.response_changed ? 'Modified' : 'Stable'}
                                   </Badge>
-                                  <Badge variant="secondary">
-                                    {result.semantic_score.toFixed(1)}% similar
-                                  </Badge>
+                                  <div className="text-right">
+                                    <div className="text-xs font-mono font-bold text-foreground">
+                                      {result.semantic_score.toFixed(1)}%
+                                    </div>
+                                    <div className="text-[8px] font-bold text-muted-foreground/60 uppercase tracking-tighter">
+                                      Similarity
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
 
-                              {/* Metrics */}
-                              <div className="grid grid-cols-2 gap-4 text-sm">
-                                <div>
-                                  <p className="text-muted-foreground">Cost</p>
-                                  <p className="font-medium">
-                                    ${result.original_cost.toFixed(4)} → $
-                                    {result.replay_cost.toFixed(4)}
-                                    <span
-                                      className={`ml-2 ${result.diff_summary.cost_diff_percent < 0 ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}
-                                    >
-                                      ({result.diff_summary.cost_diff_percent > 0 ? '+' : ''}
-                                      {result.diff_summary.cost_diff_percent.toFixed(1)}%)
-                                    </span>
-                                  </p>
-                                </div>
-                                <div>
-                                  <p className="text-muted-foreground">Latency</p>
-                                  <p className="font-medium">
-                                    {result.original_latency.toFixed(0)}ms →{' '}
-                                    {result.replay_latency.toFixed(0)}ms
-                                    <span
-                                      className={`ml-2 ${result.diff_summary.latency_diff_percent < 0 ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}
-                                    >
-                                      ({result.diff_summary.latency_diff_percent > 0 ? '+' : ''}
-                                      {result.diff_summary.latency_diff_percent.toFixed(1)}%)
-                                    </span>
-                                  </p>
-                                </div>
-                              </div>
-
-                              {/* Prompt Display */}
-                              {(result.prompt || result.replay_prompt) && (
-                                <div className="border-t border-(--border) pt-4">
-                                  <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wide">
-                                    {result.replay_prompt ? 'Prompts' : 'Prompt'}
-                                  </p>
-                                  {result.replay_prompt ? (
-                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                      {/* Original Prompt */}
-                                      <div className="rounded-lg border border-(--border) bg-muted/30 overflow-hidden">
-                                        <div className="px-3 py-2 border-b border-(--border) bg-muted/50">
-                                          <div className="flex items-center gap-2">
-                                            <div className="h-2 w-2 rounded-full bg-blue-500"></div>
-                                            <span className="text-xs font-medium">
-                                              Original Prompt
-                                            </span>
-                                          </div>
-                                        </div>
-                                        <div className="p-3 max-h-32 overflow-auto custom-scrollbar">
-                                          <p className="text-xs font-mono whitespace-pre-wrap">
-                                            {result.prompt || 'No original prompt'}
-                                          </p>
-                                        </div>
-                                      </div>
-
-                                      {/* Replay Prompt */}
-                                      <div className="rounded-lg border border-(--border) bg-muted/30 overflow-hidden">
-                                        <div className="px-3 py-2 border-b border-(--border) bg-muted/50">
-                                          <div className="flex items-center gap-2">
-                                            <div className="h-2 w-2 rounded-full bg-green-500"></div>
-                                            <span className="text-xs font-medium">
-                                              Replay Prompt
-                                            </span>
-                                          </div>
-                                        </div>
-                                        <div className="p-3 max-h-32 overflow-auto custom-scrollbar">
-                                          <p className="text-xs font-mono whitespace-pre-wrap">
-                                            {result.replay_prompt}
-                                          </p>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div className="rounded-lg bg-muted/50 p-3 max-h-24 overflow-auto custom-scrollbar">
-                                      <p className="text-xs font-mono whitespace-pre-wrap">
-                                        {result.prompt}
-                                      </p>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-
-                              {/* Responses Comparison */}
-                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                {/* Original */}
-                                <div className="rounded-lg border border-(--border) bg-muted/30 overflow-hidden">
-                                  <div className="px-3 py-2 border-b border-(--border) bg-muted/50">
-                                    <div className="flex items-center gap-2">
-                                      <div className="h-2 w-2 rounded-full bg-blue-500"></div>
-                                      <span className="text-xs font-medium">Original</span>
-                                    </div>
+                              {/* IO Comparison */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                  <div className="flex items-center gap-1.5 text-[9px] font-bold text-muted-foreground/60 uppercase tracking-tight">
+                                    <Database className="h-3 w-3" />
+                                    <span>Original Response</span>
                                   </div>
-                                  <div className="p-3 max-h-48 overflow-auto custom-scrollbar">
-                                    <p className="text-xs leading-relaxed whitespace-pre-wrap">
-                                      {result.original_response}
-                                    </p>
-                                  </div>
+                                  <pre className="p-2.5 rounded border border-border/50 bg-muted/20 text-[10px] font-mono text-muted-foreground/80 overflow-auto max-h-[120px] custom-scrollbar leading-relaxed">
+                                    {result.original_response}
+                                  </pre>
                                 </div>
-
-                                {/* Replay */}
-                                <div className="rounded-lg border border-(--border) bg-muted/30 overflow-hidden">
-                                  <div className="px-3 py-2 border-b border-(--border) bg-muted/50">
-                                    <div className="flex items-center gap-2">
-                                      <div className="h-2 w-2 rounded-full bg-green-500"></div>
-                                      <span className="text-xs font-medium">Replayed</span>
-                                    </div>
+                                <div className="space-y-1.5">
+                                  <div className="flex items-center gap-1.5 text-[9px] font-bold text-primary/70 uppercase tracking-tight">
+                                    <Sparkles className="h-3 w-3" />
+                                    <span>Replayed Response</span>
                                   </div>
-                                  <div className="p-3 max-h-48 overflow-auto custom-scrollbar">
-                                    <p className="text-xs leading-relaxed whitespace-pre-wrap">
-                                      {result.replay_response}
-                                    </p>
-                                  </div>
+                                  <pre className="p-2.5 rounded border border-primary/20 bg-primary/5 text-[10px] font-mono text-foreground/90 overflow-auto max-h-[120px] custom-scrollbar leading-relaxed">
+                                    {result.replay_response}
+                                  </pre>
                                 </div>
                               </div>
                             </div>
@@ -983,11 +1060,17 @@ export default function ReplayPage() {
                     </div>
                   </>
                 ) : (
-                  <div className="flex items-center justify-center py-12">
+                  <div className="flex flex-col items-center justify-center py-20 bg-muted/20 rounded-lg border border-dashed border-border">
                     <div className="text-center space-y-3">
-                      <FileText className="h-12 w-12 text-muted-foreground mx-auto" />
-                      <p className="text-sm text-muted-foreground">No replay results available</p>
-                      <p className="text-xs text-muted-foreground">Run a replay to see results</p>
+                      <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mx-auto">
+                        <FileText className="h-6 w-6 text-muted-foreground/60" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-foreground">No results available</p>
+                        <p className="text-[11px] text-muted-foreground uppercase font-medium tracking-tight">
+                          Run a replay execution to generate metrics
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}

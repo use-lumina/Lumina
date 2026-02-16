@@ -354,10 +354,12 @@ app.get('/anomalies', requireAuth, async (c) => {
         and(
           eq(traces.serviceName, costBaselines.serviceName),
           eq(traces.endpoint, costBaselines.endpoint),
-          eq(costBaselines.windowSize, '24h')
+          eq(costBaselines.windowSize, '7d') // Use 7d baseline for more robust anomaly detection
         )
       )
-      .where(and(...conditions, sql`${traces.costUsd} > 2 * COALESCE(${costBaselines.p95Cost}, 0)`))
+      .where(
+        and(...conditions, sql`${traces.costUsd} > 1.05 * COALESCE(${costBaselines.p95Cost}, 0)`)
+      )
       .orderBy(desc(sql`${traces.costUsd} / NULLIF(${costBaselines.p95Cost}, 1)`))
       .limit(parseInt(limit));
 

@@ -190,7 +190,7 @@ async function main() {
     console.log('\n🌱 Seeding test data...\n');
 
     // Fixed test customer ID
-    const customerId = 'test-customer-001';
+    const customerId = 'default-customer';
     const customerName = 'Test Company';
     const userId = 'test-user-001';
     const email = 'admin@test.com';
@@ -323,7 +323,7 @@ async function main() {
         model: tracesForAlerts[1].model,
         reasoning: 'Semantic similarity dropped below threshold (0.85)',
         timestamp: tracesForAlerts[1].timestamp,
-        status: 'acknowledged' as const,
+        status: 'resolved' as const,
       },
       {
         traceId: tracesForAlerts[2].traceId,

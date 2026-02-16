@@ -8,5 +8,8 @@
   "typescript.tsdk": "node_modules/typescript/lib",
   "files.eol": "\n",
   "files.insertFinalNewline": true,
-  "files.trimTrailingWhitespace": true
+  "files.trimTrailingWhitespace": true,
+  "[typescript]": {
+    "editor.defaultFormatter": "vscode.typescript-language-features"
+  }
 }

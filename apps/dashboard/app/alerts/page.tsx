@@ -12,17 +12,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  AlertTriangle,
-  AlertCircle,
-  CheckCircle2,
-  Clock,
-  DollarSign,
-  Eye,
-  Check,
-} from 'lucide-react';
+import { AlertTriangle, AlertCircle, CheckCircle2, Eye, Check, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getAlerts, acknowledgeAlert, type Alert } from '@/lib/api';
+import { getAlerts, resolveAlert, type Alert } from '@/lib/api';
+import { TableBody } from '@/components/ui/table';
 import { formatDistanceToNow } from 'date-fns';
 
 export default function AlertsPage() {
@@ -60,13 +53,13 @@ export default function AlertsPage() {
     return () => clearInterval(interval);
   }, [filterSeverity, filterStatus]);
 
-  const handleAcknowledge = async (alertId: string) => {
+  const handleResolve = async (alertId: string) => {
     try {
-      await acknowledgeAlert(alertId);
+      await resolveAlert(alertId);
       // Refresh alerts to get updated status
       await fetchAlerts();
     } catch (error) {
-      console.error('Failed to acknowledge alert:', error);
+      console.error('Failed to resolve alert:', error);
     }
   };
 
@@ -78,7 +71,7 @@ export default function AlertsPage() {
   });
 
   // Group alerts by severity
-  const groupedAlerts = {
+  const _groupedAlerts = {
     HIGH: filteredAlerts.filter((a) => a?.severity === 'HIGH'),
     MEDIUM: filteredAlerts.filter((a) => a?.severity === 'MEDIUM'),
     LOW: filteredAlerts.filter((a) => a?.severity === 'LOW'),
@@ -97,88 +90,62 @@ export default function AlertsPage() {
     }
   };
 
-  const getSeverityBadgeVariant = (severity: string) => {
-    switch (severity) {
+  const _getSeverityBadgeVariant = (severity: string) => {
+    switch (severity.toUpperCase()) {
       case 'HIGH':
         return 'destructive';
       case 'MEDIUM':
         return 'warning';
-      case 'LOW':
-        return 'secondary';
       default:
         return 'secondary';
     }
   };
 
   const getTypeBadge = (type: string) => {
-    switch (type) {
-      case 'cost_and_quality':
-        return (
-          <Badge variant="destructive" className="text-xs">
-            Cost + Quality
-          </Badge>
-        );
-      case 'cost_spike':
-        return (
-          <Badge variant="warning" className="text-xs">
-            Cost
-          </Badge>
-        );
-      case 'quality_drop':
-        return (
-          <Badge variant="warning" className="text-xs">
-            Quality
-          </Badge>
-        );
-      case 'latency':
-        return (
-          <Badge variant="secondary" className="text-xs">
-            Latency
-          </Badge>
-        );
-      default:
-        return (
-          <Badge variant="secondary" className="text-xs">
-            {type}
-          </Badge>
-        );
-    }
+    const label =
+      type === 'cost_and_quality'
+        ? 'Cost + Quality'
+        : type === 'cost_spike'
+          ? 'Cost'
+          : type === 'quality_drop'
+            ? 'Quality'
+            : type === 'latency'
+              ? 'Latency'
+              : type;
+
+    return (
+      <Badge
+        variant="muted"
+        className="text-[10px] uppercase font-bold tracking-tighter bg-accent/20 border-border/50"
+      >
+        {label}
+      </Badge>
+    );
   };
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return (
-          <Badge variant="destructive" className="text-xs gap-1">
-            <Clock className="h-3 w-3" />
-            Pending
-          </Badge>
-        );
-      case 'acknowledged':
-        return (
-          <Badge variant="warning" className="text-xs gap-1">
-            <Check className="h-3 w-3" />
-            Acknowledged
-          </Badge>
-        );
-      case 'resolved':
-        return (
-          <Badge variant="success" className="text-xs gap-1">
-            <CheckCircle2 className="h-3 w-3" />
-            Resolved
-          </Badge>
-        );
-      default:
-        return (
-          <Badge variant="secondary" className="text-xs gap-1">
-            {status}
-          </Badge>
-        );
-    }
+    const isPending = status === 'pending';
+    const isResolved = status === 'resolved';
+
+    return (
+      <Badge
+        variant="muted"
+        className="text-[10px] uppercase font-bold tracking-tighter border-border/50"
+      >
+        <div
+          className={cn(
+            'w-1 h-1 rounded-full mr-1.5',
+            isPending && 'bg-destructive animate-pulse',
+            isResolved && 'bg-emerald-500'
+          )}
+        />
+        {status}
+      </Badge>
+    );
   };
 
   const getAlertTitle = (alert: Alert) => {
-    switch (alert.alert_type) {
+    switch (alert.alertType) {
       case 'cost_spike':
         return 'Cost Spike Detected';
       case 'quality_drop':
@@ -188,136 +155,129 @@ export default function AlertsPage() {
       case 'latency':
         return 'Latency Issue';
       default:
-        return alert.alert_type.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+        return alert.alertType
+          ? alert.alertType.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())
+          : 'Unknown Alert';
     }
   };
 
-  const AlertCard = ({ alert }: { alert: Alert }) => {
+  const _AlertCard = ({ alert }: { alert: Alert }) => {
     if (!alert) return null;
 
     return (
       <Card
         className={cn(
-          'p-4 transition-all hover:shadow-md',
-          alert.severity === 'HIGH' && 'border-red-500/50',
-          alert.severity === 'MEDIUM' && 'border-amber-500/50'
+          'p-3 transition-all hover:bg-accent/50 border-border group relative overflow-hidden',
+          alert.status === 'pending' && 'ring-1 ring-inset ring-destructive/30'
         )}
       >
         <div className="space-y-3">
-          {/* Header */}
+          {/* Header Row */}
           <div className="flex items-start justify-between gap-3">
-            <div className="flex items-start gap-3 flex-1">
+            <div className="flex items-center gap-3 overflow-hidden">
               <div
                 className={cn(
-                  'rounded-lg p-2',
-                  alert.severity === 'HIGH' &&
-                    'bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400',
-                  alert.severity === 'MEDIUM' &&
-                    'bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-400',
-                  alert.severity === 'LOW' &&
-                    'bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400'
+                  'rounded p-1.5 shrink-0 transition-colors',
+                  alert.severity === 'HIGH' && 'bg-destructive/10 text-destructive',
+                  alert.severity === 'MEDIUM' && 'bg-amber-500/10 text-amber-500',
+                  alert.severity === 'LOW' && 'bg-primary/10 text-primary'
                 )}
               >
                 {getSeverityIcon(alert.severity)}
               </div>
-              <div className="flex-1 space-y-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-semibold">{getAlertTitle(alert)}</h3>
-                  {getTypeBadge(alert.alert_type)}
-                  {getStatusBadge(alert.status)}
+              <div className="flex flex-col min-w-0">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <h3 className="font-semibold text-sm text-foreground truncate">
+                    {getAlertTitle(alert)}
+                  </h3>
+                  <div className="flex items-center gap-1.5">
+                    {getTypeBadge(alert.alertType)}
+                    {getStatusBadge(alert.status)}
+                  </div>
                 </div>
-                {alert.reasoning && (
-                  <p className="text-sm text-muted-foreground">{alert.reasoning}</p>
-                )}
-                <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                  {alert.service_name && <span>{alert.service_name}</span>}
-                  {alert.service_name && alert.endpoint && <span>•</span>}
-                  <span className="font-mono">{alert.endpoint}</span>
+                <div className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground uppercase tracking-tighter">
+                  {alert.serviceName && (
+                    <span className="font-semibold text-foreground/80">{alert.serviceName}</span>
+                  )}
+                  {alert.endpoint && (
+                    <span className="truncate max-w-[200px]">{alert.endpoint}</span>
+                  )}
                   <span>•</span>
-                  <span>
-                    {alert.timestamp
-                      ? `${formatDistanceToNow(new Date(alert.timestamp))} ago`
-                      : 'Unknown time'}
-                  </span>
+                  <span>{formatDistanceToNow(new Date(alert.timestamp), { addSuffix: true })}</span>
                 </div>
               </div>
             </div>
-            <Badge variant={getSeverityBadgeVariant(alert.severity)} className="uppercase text-xs">
+
+            <Badge
+              variant="outline"
+              className={cn(
+                'h-5 text-[10px] font-mono uppercase border-border',
+                alert.severity === 'HIGH' && 'text-destructive border-destructive/30'
+              )}
+            >
               {alert.severity}
             </Badge>
           </div>
 
-          {/* Metrics */}
-          {(alert.current_cost !== undefined ||
-            alert.cost_usd !== undefined ||
-            alert.latency_ms !== undefined) && (
-            <div className="flex items-center gap-4 px-2 py-2 bg-muted/50 rounded-md flex-wrap">
-              {alert.current_cost !== undefined &&
-                alert.current_cost !== null &&
-                alert.baseline_cost !== undefined &&
-                alert.baseline_cost !== null && (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">
-                        Current: ${alert.current_cost.toFixed(4)}
-                      </span>
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      Baseline: ${alert.baseline_cost.toFixed(4)}
-                    </div>
-                    {alert.cost_increase_percent !== undefined &&
-                      alert.cost_increase_percent !== null && (
-                        <div className="text-sm font-semibold text-red-600 dark:text-red-400">
-                          +{alert.cost_increase_percent.toFixed(0)}%
-                        </div>
-                      )}
-                  </>
-                )}
-              {alert.cost_usd !== undefined &&
-                alert.cost_usd !== null &&
-                alert.current_cost === undefined && (
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">Cost: ${alert.cost_usd.toFixed(4)}</span>
-                  </div>
-                )}
-              {alert.latency_ms !== undefined && alert.latency_ms !== null && (
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Latency: {alert.latency_ms}ms</span>
-                </div>
-              )}
-              {alert.model && (
-                <div className="text-sm text-muted-foreground">Model: {alert.model}</div>
-              )}
-            </div>
+          {alert.reasoning && (
+            <p className="text-xs text-muted-foreground bg-accent/20 p-2 rounded border border-border/50">
+              {alert.reasoning}
+            </p>
           )}
 
-          {/* Actions */}
-          <div className="flex items-center gap-2">
-            {alert.trace_id && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => router.push(`/traces?traceId=${alert.trace_id}`)}
-              >
-                <Eye className="h-4 w-4 mr-2" />
-                View Trace
-              </Button>
-            )}
-            {alert.status === 'pending' && (
-              <Button size="sm" onClick={() => handleAcknowledge(alert.alert_id)}>
-                <Check className="h-4 w-4 mr-2" />
-                Acknowledge
-              </Button>
-            )}
-            {alert.status === 'acknowledged' && (
-              <Button size="sm" variant="secondary" disabled>
-                <CheckCircle2 className="h-4 w-4 mr-2" />
-                Acknowledged
-              </Button>
-            )}
+          {/* Metrics & Actions Row */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              {alert.currentCost !== undefined && alert.currentCost !== null && (
+                <div className="flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-muted/30 border border-border">
+                  <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-tighter">
+                    Cost
+                  </span>
+                  <span className="text-[10px] font-mono font-semibold text-foreground">
+                    ${alert.currentCost.toFixed(4)}
+                  </span>
+                  {alert.costIncreasePercent !== undefined && (
+                    <span className="text-[10px] font-bold text-destructive ml-0.5">
+                      +{alert.costIncreasePercent.toFixed(0)}%
+                    </span>
+                  )}
+                </div>
+              )}
+              {alert.latencyMs !== undefined && alert.latencyMs !== null && (
+                <div className="flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-muted/30 border border-border">
+                  <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-tighter">
+                    Lat
+                  </span>
+                  <span className="text-[10px] font-mono font-semibold text-foreground">
+                    {alert.latencyMs}ms
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              {alert.traceId && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-[10px] uppercase font-bold tracking-tight hover:bg-accent"
+                  onClick={() => router.push(`/traces?traceId=${alert.traceId}`)}
+                >
+                  <Eye className="h-3 w-3 mr-1.5" />
+                  View Trace
+                </Button>
+              )}
+              {alert.status === 'pending' && (
+                <Button
+                  size="sm"
+                  className="h-7 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] uppercase font-bold tracking-tight"
+                  onClick={() => handleResolve(alert.alertId)}
+                >
+                  <Check className="h-3 w-3 mr-1.5" />
+                  Resolve
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </Card>
@@ -352,50 +312,73 @@ export default function AlertsPage() {
     <div className="h-full overflow-auto">
       <div className="p-6 space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold">Alerts</h1>
-          <p className="text-muted-foreground">Monitor and manage system alerts</p>
+        <div className="animate-fade-in flex flex-col gap-1.5">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Alerts</h1>
+          <p className="text-sm text-muted-foreground">
+            Monitor and manage system alerts across your services
+          </p>
         </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="p-6 border-(--accent)">
+          <Card className="p-4 border-border bg-card shadow-sm">
             <div className="flex items-start justify-between">
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">Active Alerts</p>
-                <p className="text-3xl font-bold">{activeCount}</p>
-                <p className="text-sm text-muted-foreground">Requires attention</p>
+              <div className="space-y-1">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Active Alerts
+                </p>
+                <p className="text-2xl font-bold text-foreground">{activeCount}</p>
+                <Badge
+                  variant="outline"
+                  className="h-5 px-1.5 text-[10px] bg-destructive/10 text-destructive border-destructive/30"
+                >
+                  Requires attention
+                </Badge>
               </div>
-              <div className="rounded-lg bg-red-100 dark:bg-red-950 p-3">
-                <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
+              <div className="rounded-md bg-destructive/10 p-2">
+                <AlertTriangle className="h-4 w-4 text-destructive" />
               </div>
             </div>
           </Card>
 
-          <Card className="p-6 border-(--accent)">
+          <Card className="p-4 border-border bg-card shadow-sm">
             <div className="flex items-start justify-between">
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">High Severity</p>
-                <p className="text-3xl font-bold">{highSeverityCount}</p>
-                <p className="text-sm text-muted-foreground">Critical issues</p>
+              <div className="space-y-1">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  High Severity
+                </p>
+                <p className="text-2xl font-bold text-foreground">{highSeverityCount}</p>
+                <Badge
+                  variant="outline"
+                  className="h-5 px-1.5 text-[10px] bg-amber-500/10 text-amber-500 border-amber-500/30"
+                >
+                  Critical issues
+                </Badge>
               </div>
-              <div className="rounded-lg bg-amber-100 dark:bg-amber-950 p-3">
-                <AlertCircle className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+              <div className="rounded-md bg-amber-500/10 p-2">
+                <AlertCircle className="h-4 w-4 text-amber-500" />
               </div>
             </div>
           </Card>
 
-          <Card className="p-6 border-(--accent)">
+          <Card className="p-4 border-border bg-card shadow-sm">
             <div className="flex items-start justify-between">
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">Resolved (24h)</p>
-                <p className="text-3xl font-bold">
+              <div className="space-y-1">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Resolved (24h)
+                </p>
+                <p className="text-2xl font-bold text-foreground">
                   {alerts.filter((a) => a?.status === 'resolved').length}
                 </p>
-                <p className="text-sm text-muted-foreground">Recently resolved</p>
+                <Badge
+                  variant="outline"
+                  className="h-5 px-1.5 text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+                >
+                  Recently resolved
+                </Badge>
               </div>
-              <div className="rounded-lg bg-emerald-100 dark:bg-emerald-950 p-3">
-                <CheckCircle2 className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+              <div className="rounded-md bg-emerald-500/10 p-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
               </div>
             </div>
           </Card>
@@ -422,7 +405,6 @@ export default function AlertsPage() {
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="acknowledged">Acknowledged</SelectItem>
               <SelectItem value="resolved">Resolved</SelectItem>
             </SelectContent>
           </Select>
@@ -432,58 +414,186 @@ export default function AlertsPage() {
           </div>
         </div>
 
-        {/* Alerts Grouped by Severity */}
-        {groupedAlerts.HIGH.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold">High Severity</h2>
-              <Badge variant="destructive">{groupedAlerts.HIGH.length}</Badge>
-            </div>
-            <div className="space-y-3">
-              {groupedAlerts.HIGH.map((alert: Alert) => (
-                <AlertCard key={alert.alert_id} alert={alert} />
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Alerts Table */}
+        <Card className="p-0 border-border bg-card shadow-sm overflow-hidden">
+          <div className="relative w-full overflow-x-auto">
+            {filteredAlerts.length > 0 ? (
+              <table className="w-full caption-bottom text-[11px]">
+                <thead className="sticky top-0 bg-muted/90 backdrop-blur-sm border-b border-border z-10 transition-colors">
+                  <tr>
+                    <th className="w-[40px] px-3"></th>
+                    <th className="h-9 px-3 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground text-left">
+                      Severity
+                    </th>
+                    <th className="h-9 px-3 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground text-left">
+                      Alert Type
+                    </th>
+                    <th className="h-9 px-3 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground text-left">
+                      Service / Endpoint
+                    </th>
+                    <th className="h-9 px-3 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground text-right">
+                      Metrics
+                    </th>
+                    <th className="h-9 px-3 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground text-right">
+                      When
+                    </th>
+                    <th className="h-9 px-3 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground text-center">
+                      Status
+                    </th>
+                    <th className="w-[80px] h-9 px-3"></th>
+                  </tr>
+                </thead>
+                <TableBody>
+                  {filteredAlerts.map((alert: Alert) => (
+                    <tr
+                      key={alert.alertId}
+                      className={cn(
+                        'cursor-pointer hover:bg-accent/40 transition-colors border-b border-border/50 h-9 group',
+                        alert.status === 'pending' && 'bg-destructive/5'
+                      )}
+                      onClick={() => alert.traceId && router.push(`/traces?id=${alert.traceId}`)}
+                    >
+                      <td className="px-3 py-1.5">
+                        <div
+                          className={cn(
+                            'h-1.5 w-1.5 rounded-full shadow-[0_0_8px_rgba(var(--primary),0.2)]',
+                            alert.severity === 'HIGH'
+                              ? 'bg-red-500 shadow-red-500/20'
+                              : alert.severity === 'MEDIUM'
+                                ? 'bg-amber-500 shadow-amber-500/20'
+                                : 'bg-primary shadow-primary/20'
+                          )}
+                        ></div>
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            'h-4 px-1 text-[9px] font-bold uppercase',
+                            alert.severity === 'HIGH'
+                              ? 'bg-destructive/10 text-destructive border-destructive/20'
+                              : alert.severity === 'MEDIUM'
+                                ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                                : 'bg-primary/10 text-primary border-primary/20'
+                          )}
+                        >
+                          {alert.severity}
+                        </Badge>
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-foreground">
+                            {getAlertTitle(alert)}
+                          </span>
+                          <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-tight">
+                            {alert.alertType ? alert.alertType.replace('_', ' ') : 'unknown'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-[10px] font-bold text-foreground/80 truncate max-w-[150px]">
+                            {alert.serviceName || 'System'}
+                          </span>
+                          <span className="font-mono text-[9px] text-muted-foreground truncate max-w-[200px]">
+                            {alert.endpoint || '-'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-1.5 text-right">
+                        <div className="flex flex-col items-end gap-0.5">
+                          {/* Cost metrics for cost_spike and cost_and_quality */}
+                          {(alert.alertType === 'cost_spike' ||
+                            alert.alertType === 'cost_and_quality') &&
+                            alert.currentCost !== undefined &&
+                            alert.currentCost !== null && (
+                              <span className="font-mono font-bold text-foreground">
+                                ${alert.currentCost.toFixed(4)}
+                                {alert.costIncreasePercent !== undefined &&
+                                  alert.costIncreasePercent !== null && (
+                                    <span className="text-destructive ml-1">
+                                      +{alert.costIncreasePercent.toFixed(0)}%
+                                    </span>
+                                  )}
+                              </span>
+                            )}
 
-        {groupedAlerts.MEDIUM.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold">Medium Severity</h2>
-              <Badge variant="warning">{groupedAlerts.MEDIUM.length}</Badge>
-            </div>
-            <div className="space-y-3">
-              {groupedAlerts.MEDIUM.map((alert: Alert) => (
-                <AlertCard key={alert.alert_id} alert={alert} />
-              ))}
-            </div>
-          </div>
-        )}
+                          {/* Quality metrics for quality_drop and cost_and_quality */}
+                          {(alert.alertType === 'quality_drop' ||
+                            alert.alertType === 'cost_and_quality') && (
+                            <>
+                              {alert.semanticScore !== undefined &&
+                                alert.semanticScore !== null && (
+                                  <span className="font-mono text-xs text-foreground">
+                                    Score: {alert.semanticScore.toFixed(3)}
+                                  </span>
+                                )}
+                              {alert.hashSimilarity !== undefined &&
+                                alert.hashSimilarity !== null && (
+                                  <span className="font-mono text-xs text-muted-foreground">
+                                    Hash: {alert.hashSimilarity.toFixed(3)}
+                                  </span>
+                                )}
+                            </>
+                          )}
 
-        {groupedAlerts.LOW.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold">Low Severity</h2>
-              <Badge variant="secondary">{groupedAlerts.LOW.length}</Badge>
-            </div>
-            <div className="space-y-3">
-              {groupedAlerts.LOW.map((alert: Alert) => (
-                <AlertCard key={alert.alert_id} alert={alert} />
-              ))}
-            </div>
+                          {alert.latencyMs !== undefined && alert.latencyMs !== null && (
+                            <span className="font-mono text-muted-foreground tracking-tighter">
+                              {alert.latencyMs}ms
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td
+                        className="px-3 py-1.5 text-right text-muted-foreground tabular-nums tracking-tighter"
+                        suppressHydrationWarning
+                      >
+                        {formatDistanceToNow(new Date(alert.timestamp), { addSuffix: false })}
+                      </td>
+                      <td className="px-3 py-1.5 text-center">{getStatusBadge(alert.status)}</td>
+                      <td className="px-3 py-1.5">
+                        <div className="flex items-center justify-end gap-1 px-1">
+                          {alert.status === 'pending' && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 w-6 p-0 hover:bg-emerald-500/10 hover:text-emerald-500"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleResolve(alert.alertId);
+                              }}
+                            >
+                              <Check className="h-3 w-3" />
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (alert.traceId) router.push(`/traces?id=${alert.traceId}`);
+                            }}
+                          >
+                            <ArrowRight className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </TableBody>
+              </table>
+            ) : (
+              <div className="text-center py-20 bg-accent/10">
+                <CheckCircle2 className="h-10 w-10 mx-auto text-muted-foreground opacity-20 mb-4" />
+                <h3 className="text-sm font-semibold text-foreground">All Systems Clear</h3>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  No alerts found for the current filters
+                </p>
+              </div>
+            )}
           </div>
-        )}
-
-        {filteredAlerts.length === 0 && (
-          <Card className="p-12">
-            <div className="text-center space-y-2">
-              <CheckCircle2 className="h-12 w-12 mx-auto text-muted-foreground" />
-              <h3 className="text-lg font-semibold">No alerts found</h3>
-              <p className="text-sm text-muted-foreground">All systems are operating normally</p>
-            </div>
-          </Card>
-        )}
+        </Card>
       </div>
     </div>
   );
