@@ -139,7 +139,7 @@ export function Sidebar() {
     <aside className="w-55 border-r border-border bg-sidebar/80 backdrop-blur-md flex flex-col h-full shrink-0 z-50 transition-all duration-400">
       {/* Logo */}
       <div className="h-18 border-b border-border/60 flex items-center justify-start">
-        <div className="relative h-12 w-auto">
+        <Link href="/" className="relative h-15 w-auto cursor-pointer">
           <Image
             src={logoFull}
             alt="Lumina Analytics"
@@ -149,7 +149,7 @@ export function Sidebar() {
             width={120}
             className="object-contain object-left"
           />
-        </div>
+        </Link>
       </div>
 
       {/* Navigation */}
