@@ -134,41 +134,31 @@ export default function CostPage() {
       });
       setCostData(chartData);
 
-      // Calculate offset for pagination
-      const offset = (currentPage - 1) * ITEMS_PER_PAGE;
-
-      // Fetch endpoint breakdown with pagination
-      const breakdownData = await getCostBreakdown({
-        groupBy: 'endpoint',
-        startTime: startTime.toISOString(),
-        endTime: now.toISOString(),
-        limit: ITEMS_PER_PAGE,
-        offset: offset,
-      });
-
-      // Fetch endpoint trends to get real trend data
+      // Fetch endpoint trends (includes model data)
       const trendsData = await getEndpointTrends({
         startTime: startTime.toISOString(),
         endTime: now.toISOString(),
-        limit: 20,
+        limit: 1000, // Get all results, we'll paginate client-side
       });
 
-      // Create a map of trends by endpoint
-      const trendsMap = new Map();
-      trendsData.data.forEach((item) => {
-        trendsMap.set(item.endpoint, item.trend);
-      });
-
-      const formattedEndpoints: EndpointData[] = breakdownData.data.map((item: any) => ({
-        endpoint: item.group_name,
+      // Use trends data directly (it includes model information)
+      const allEndpoints: EndpointData[] = trendsData.data.map((item: any) => ({
+        endpoint: item.endpoint,
         model: item.model || '-',
-        requests: item.request_count,
+        requests: item.total_requests,
         totalCost: parseFloat(item.total_cost.toString()),
         avgCost: parseFloat(item.avg_cost.toString()),
-        trend: trendsMap.get(item.group_name) || 'stable',
+        trend: 'stable', // TODO: calculate trend from historical data
       }));
-      setEndpoints(formattedEndpoints);
-      setTotalEndpoints(breakdownData.pagination?.total || breakdownData.data.length);
+
+      // Sort by total cost (descending) and paginate
+      const sortedEndpoints = allEndpoints.sort((a, b) => b.totalCost - a.totalCost);
+      setTotalEndpoints(sortedEndpoints.length);
+
+      // Paginate client-side
+      const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+      const endIdx = startIdx + ITEMS_PER_PAGE;
+      setEndpoints(sortedEndpoints.slice(startIdx, endIdx));
 
       // Fetch model breakdown
       const modelData = await getCostBreakdown({

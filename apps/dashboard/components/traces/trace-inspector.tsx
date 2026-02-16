@@ -12,8 +12,6 @@ import {
   ChevronRight,
   Maximize2,
   Minimize2,
-  Database,
-  PenLine,
   AlignLeft,
   Braces,
   Check,
@@ -23,6 +21,7 @@ import type { UITrace, HierarchicalSpan } from '@/types/trace';
 import { JsonViewer } from './json-viewer';
 import { DataViewer } from './data-viewer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface TraceInspectorProps {
   trace: UITrace | null;
@@ -45,6 +44,19 @@ function flattenSpanTree(
   if (span.children && span.children.length > 0) {
     span.children.forEach((child) => {
       result.push(...flattenSpanTree(child, depth + 1));
+    });
+  }
+
+  return result;
+}
+
+// Flatten hierarchical span tree to get all spans (for cost breakdown)
+function getAllSpans(span: HierarchicalSpan): HierarchicalSpan[] {
+  const result: HierarchicalSpan[] = [span];
+
+  if (span.children && span.children.length > 0) {
+    span.children.forEach((child) => {
+      result.push(...getAllSpans(child));
     });
   }
 
@@ -142,23 +154,6 @@ export function TraceInspector({ trace, onClose }: TraceInspectorProps) {
           </div>
 
           <div className="flex items-center gap-1.5">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs gap-1.5 hidden sm:flex bg-card"
-            >
-              <Database className="h-3 w-3 text-muted-foreground" />
-              <span className="text-muted-foreground">Add to datasets</span>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs gap-1.5 hidden sm:flex bg-card"
-            >
-              <PenLine className="h-3 w-3 text-muted-foreground" />
-              <span className="text-muted-foreground">Annotate</span>
-            </Button>
-            <Separator orientation="vertical" className="h-4 mx-1.5" />
             <Button
               variant="ghost"
               size="icon"
@@ -358,62 +353,403 @@ export function TraceInspector({ trace, onClose }: TraceInspectorProps) {
                     <>
                       {/* Input / Output Section */}
                       <div className="space-y-6">
-                        {currentSpan?.prompt && (
+                        {(currentSpan?.prompt || trace.prompt) && (
                           <div className="space-y-3">
                             <DataViewer
-                              data={currentSpan.prompt}
+                              data={currentSpan?.prompt || trace.prompt}
                               label="Input"
                               viewMode="formatted"
                             />
                           </div>
                         )}
 
-                        {currentSpan?.response && (
+                        {(currentSpan?.response || trace.response) && (
                           <div className="space-y-3">
-                            {currentSpan.prompt && <Separator className="my-6" />}
+                            {(currentSpan?.prompt || trace.prompt) && (
+                              <Separator className="my-6" />
+                            )}
                             <DataViewer
-                              data={currentSpan.response}
+                              data={currentSpan?.response || trace.response}
                               label="Output"
                               viewMode="formatted"
                             />
                           </div>
                         )}
 
-                        {/* Fallback for IO removed per user request */}
+                        {/* Fallback if no prompt/response */}
+                        {!currentSpan?.prompt &&
+                          !trace.prompt &&
+                          !currentSpan?.response &&
+                          !trace.response && (
+                            <div className="p-8 text-center text-muted-foreground/50 text-sm border border-dashed rounded-lg">
+                              No input/output data available for this trace
+                            </div>
+                          )}
                       </div>
 
                       <Separator />
 
-                      {/* Metadata Section (merged) */}
+                      {/* Performance Metrics */}
                       <div className="space-y-4">
                         <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">
-                          Metadata
+                          Performance Metrics
                         </h4>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <Card className="border-border/50">
+                            <CardContent className="pt-4 pb-3">
+                              <div className="space-y-1">
+                                <label className="text-xs font-medium text-muted-foreground">
+                                  Latency
+                                </label>
+                                <p className="text-lg font-semibold">
+                                  {formatDuration(currentSpan?.latency_ms || trace.latencyMs)}
+                                </p>
+                              </div>
+                            </CardContent>
+                          </Card>
+                          <Card className="border-border/50">
+                            <CardContent className="pt-4 pb-3">
+                              <div className="space-y-1">
+                                <label className="text-xs font-medium text-muted-foreground">
+                                  Cost
+                                </label>
+                                <p className="text-lg font-semibold">
+                                  ${(currentSpan?.cost_usd || trace.costUsd).toFixed(6)}
+                                </p>
+                              </div>
+                            </CardContent>
+                          </Card>
+                          <Card className="border-border/50">
+                            <CardContent className="pt-4 pb-3">
+                              <div className="space-y-1">
+                                <label className="text-xs font-medium text-muted-foreground">
+                                  Prompt Tokens
+                                </label>
+                                <p className="text-lg font-semibold">
+                                  {(
+                                    currentSpan?.prompt_tokens ||
+                                    trace.metadata?.tokensIn ||
+                                    0
+                                  ).toLocaleString()}
+                                </p>
+                              </div>
+                            </CardContent>
+                          </Card>
+                          <Card className="border-border/50">
+                            <CardContent className="pt-4 pb-3">
+                              <div className="space-y-1">
+                                <label className="text-xs font-medium text-muted-foreground">
+                                  Completion Tokens
+                                </label>
+                                <p className="text-lg font-semibold">
+                                  {(
+                                    currentSpan?.completion_tokens ||
+                                    trace.metadata?.tokensOut ||
+                                    0
+                                  ).toLocaleString()}
+                                </p>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      </div>
+
+                      <Separator />
+
+                      {/* System Information */}
+                      <div className="space-y-4">
+                        <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">
+                          System Information
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                           <div className="space-y-1">
-                            <label className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider">
+                            <label className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider">
                               Trace ID
                             </label>
-                            <p className="font-mono text-foreground/80">{trace.id}</p>
+                            <p className="font-mono text-foreground/80 break-all">{trace.id}</p>
                           </div>
+                          {currentSpan && (
+                            <div className="space-y-1">
+                              <label className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider">
+                                Span ID
+                              </label>
+                              <p className="font-mono text-foreground/80 break-all">
+                                {currentSpan.span_id}
+                              </p>
+                            </div>
+                          )}
                           <div className="space-y-1">
-                            <label className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider">
+                            <label className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider">
                               Service
                             </label>
                             <p className="text-foreground/80">
-                              {currentSpan?.service_name || 'N/A'}
+                              {currentSpan?.service_name || trace.service || 'N/A'}
                             </p>
                           </div>
                           <div className="space-y-1">
-                            <label className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider">
+                            <label className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider">
+                              Endpoint
+                            </label>
+                            <p className="font-mono text-foreground/80">
+                              {currentSpan?.endpoint || trace.endpoint || 'N/A'}
+                            </p>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider">
                               Model
                             </label>
-                            <p className="text-foreground/80">{currentSpan?.model || 'N/A'}</p>
+                            <p className="text-foreground/80">
+                              {currentSpan?.model || trace.model || 'N/A'}
+                            </p>
                           </div>
-                          {/* Custom attributes */}
-                          {/* JSON Fallback removed per user request */}
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider">
+                              Provider
+                            </label>
+                            <p className="text-foreground/80">
+                              {trace.metadata?.provider || 'N/A'}
+                            </p>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider">
+                              Environment
+                            </label>
+                            <Badge variant="outline">
+                              {trace.metadata?.environment || trace.release || 'production'}
+                            </Badge>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider">
+                              Status
+                            </label>
+                            <Badge
+                              variant={
+                                trace.status === 'success' || trace.status === 'healthy'
+                                  ? 'default'
+                                  : trace.status === 'degraded'
+                                    ? 'secondary'
+                                    : 'destructive'
+                              }
+                            >
+                              {trace.status}
+                            </Badge>
+                          </div>
                         </div>
                       </div>
+
+                      {/* Tags */}
+                      {trace.metadata?.tags && trace.metadata.tags.length > 0 && (
+                        <>
+                          <Separator />
+                          <div className="space-y-4">
+                            <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">
+                              Tags
+                            </h4>
+                            <div className="flex flex-wrap gap-2">
+                              {trace.metadata.tags.map((tag: string, idx: number) => (
+                                <Badge key={idx} variant="secondary">
+                                  {tag}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        </>
+                      )}
+
+                      {/* Model Parameters */}
+                      {trace.metadata &&
+                        (trace.metadata.temperature !== undefined ||
+                          trace.metadata.maxTokens !== undefined ||
+                          trace.metadata.topP !== undefined ||
+                          trace.metadata.topK !== undefined) && (
+                          <>
+                            <Separator />
+                            <div className="space-y-4">
+                              <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">
+                                Model Parameters
+                              </h4>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                {trace.metadata.temperature !== undefined && (
+                                  <div className="space-y-1">
+                                    <label className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider">
+                                      Temperature
+                                    </label>
+                                    <p className="font-mono text-foreground/80">
+                                      {trace.metadata.temperature}
+                                    </p>
+                                  </div>
+                                )}
+                                {trace.metadata.maxTokens !== undefined && (
+                                  <div className="space-y-1">
+                                    <label className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider">
+                                      Max Tokens
+                                    </label>
+                                    <p className="font-mono text-foreground/80">
+                                      {trace.metadata.maxTokens}
+                                    </p>
+                                  </div>
+                                )}
+                                {trace.metadata.topP !== undefined && (
+                                  <div className="space-y-1">
+                                    <label className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider">
+                                      Top P
+                                    </label>
+                                    <p className="font-mono text-foreground/80">
+                                      {trace.metadata.topP}
+                                    </p>
+                                  </div>
+                                )}
+                                {trace.metadata.topK !== undefined && (
+                                  <div className="space-y-1">
+                                    <label className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider">
+                                      Top K
+                                    </label>
+                                    <p className="font-mono text-foreground/80">
+                                      {trace.metadata.topK}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </>
+                        )}
+
+                      {/* Cost Breakdown for Multi-Span Traces */}
+                      {(() => {
+                        const allSpans = trace.hierarchicalSpan
+                          ? getAllSpans(trace.hierarchicalSpan)
+                          : [];
+                        return allSpans.length > 1 ? (
+                          <>
+                            <Separator />
+                            <div className="space-y-4">
+                              <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">
+                                Cost Breakdown by Span
+                              </h4>
+                              <div className="rounded-md border border-border">
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-sm">
+                                    <thead>
+                                      <tr className="border-b bg-muted/50">
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">
+                                          Span Name
+                                        </th>
+                                        <th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground">
+                                          Cost
+                                        </th>
+                                        <th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground">
+                                          Tokens
+                                        </th>
+                                        <th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground">
+                                          Duration
+                                        </th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {allSpans.map((span, idx) => (
+                                        <tr key={span.span_id} className="border-b last:border-0">
+                                          <td className="px-4 py-2 font-medium">
+                                            {span.endpoint ||
+                                              span.service_name ||
+                                              `Span ${idx + 1}`}
+                                          </td>
+                                          <td className="px-4 py-2 text-right font-mono">
+                                            ${(span.cost_usd || 0).toFixed(6)}
+                                          </td>
+                                          <td className="px-4 py-2 text-right font-mono">
+                                            {(
+                                              (span.prompt_tokens || 0) +
+                                              (span.completion_tokens || 0)
+                                            ).toLocaleString()}
+                                          </td>
+                                          <td className="px-4 py-2 text-right font-mono">
+                                            {formatDuration(span.latency_ms)}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                      <tr className="bg-muted/30 font-semibold">
+                                        <td className="px-4 py-2">Total</td>
+                                        <td className="px-4 py-2 text-right font-mono">
+                                          $
+                                          {allSpans
+                                            .reduce((sum, s) => sum + (s.cost_usd || 0), 0)
+                                            .toFixed(6)}
+                                        </td>
+                                        <td className="px-4 py-2 text-right font-mono">
+                                          {allSpans
+                                            .reduce(
+                                              (sum, s) =>
+                                                sum +
+                                                (s.prompt_tokens || 0) +
+                                                (s.completion_tokens || 0),
+                                              0
+                                            )
+                                            .toLocaleString()}
+                                        </td>
+                                        <td className="px-4 py-2 text-right font-mono">
+                                          {formatDuration(
+                                            allSpans.reduce((sum, s) => sum + s.latency_ms, 0)
+                                          )}
+                                        </td>
+                                      </tr>
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            </div>
+                          </>
+                        ) : null;
+                      })()}
+
+                      {/* Complete Metadata */}
+                      {trace.metadata && Object.keys(trace.metadata).length > 0 && (
+                        <>
+                          <Separator />
+                          <div className="space-y-4">
+                            <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">
+                              Complete Metadata
+                            </h4>
+                            <div className="rounded-md border border-border">
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                  <thead>
+                                    <tr className="border-b bg-muted/50">
+                                      <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">
+                                        Field
+                                      </th>
+                                      <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">
+                                        Type
+                                      </th>
+                                      <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">
+                                        Value
+                                      </th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {Object.entries(trace.metadata).map(([key, value]) => (
+                                      <tr key={key} className="border-b last:border-0">
+                                        <td className="px-4 py-2 font-medium font-mono">{key}</td>
+                                        <td className="px-4 py-2">
+                                          <Badge variant="secondary" className="text-xs">
+                                            {Array.isArray(value) ? 'array' : typeof value}
+                                          </Badge>
+                                        </td>
+                                        <td className="px-4 py-2 font-mono break-all">
+                                          {Array.isArray(value)
+                                            ? `[${value.length} items]`
+                                            : typeof value === 'object' && value !== null
+                                              ? JSON.stringify(value)
+                                              : String(value)}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          </div>
+                        </>
+                      )}
 
                       {/* Scores Section (merged) */}
                       {trace.evaluations && trace.evaluations.length > 0 && (

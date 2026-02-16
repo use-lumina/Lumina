@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useState, useEffect, useMemo, Suspense, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { TraceTableToolbar } from '@/components/traces/trace-table-toolbar';
 import { TraceFilterPanel } from '@/components/traces/trace-filter-panel';
 import { TraceTable } from '@/components/traces/trace-table';
 import { TraceInspector } from '@/components/traces/trace-inspector';
-import { getTraces, type Trace as APITrace } from '@/lib/api';
+import { getTraces, getTraceById, type Trace as APITrace } from '@/lib/api';
 import type { UITrace, TraceSpan, HierarchicalSpan } from '@/types/trace';
 
 // Force dynamic rendering
@@ -90,6 +90,7 @@ function mapApiTraceToUI(trace: APITrace): UITrace {
 function TracesPageContent() {
   const searchParams = useSearchParams();
   const traceIdParam = searchParams.get('id');
+  const isClosingRef = useRef(false);
 
   const [traces, setTraces] = useState<UITrace[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -142,6 +143,12 @@ function TracesPageContent() {
   useEffect(() => {
     if (traces.length === 0) return;
 
+    // Skip if we're manually closing the inspector
+    if (isClosingRef.current) {
+      isClosingRef.current = false;
+      return;
+    }
+
     // 1. Exact Trace ID Match
     if (traceIdParam && !selectedTrace) {
       const trace = traces.find((t) => t.id === traceIdParam);
@@ -167,8 +174,17 @@ function TracesPageContent() {
     }
   }, [traceIdParam, traces, selectedTrace, searchParams]);
 
-  const handleTraceSelect = (trace: UITrace) => {
-    setSelectedTrace(trace);
+  const handleTraceSelect = async (trace: UITrace) => {
+    // Fetch full trace details with prompt/response/children
+    try {
+      const { trace: fullTrace } = await getTraceById(trace.id);
+      const uiTrace = mapApiTraceToUI(fullTrace);
+      setSelectedTrace(uiTrace);
+    } catch (error) {
+      console.error('Failed to fetch full trace details:', error);
+      // Fallback to cached data if fetch fails
+      setSelectedTrace(trace);
+    }
   };
 
   // Bulk action handlers
@@ -340,7 +356,19 @@ function TracesPageContent() {
 
           {/* Trace Inspector */}
           {selectedTrace && (
-            <TraceInspector trace={selectedTrace} onClose={() => setSelectedTrace(null)} />
+            <TraceInspector
+              trace={selectedTrace}
+              onClose={() => {
+                isClosingRef.current = true;
+                setSelectedTrace(null);
+                // Clear the URL parameter
+                if (traceIdParam) {
+                  const url = new URL(window.location.href);
+                  url.searchParams.delete('id');
+                  window.history.replaceState({}, '', url.toString());
+                }
+              }}
+            />
           )}
         </div>
       </div>

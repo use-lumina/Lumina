@@ -20,6 +20,7 @@ import {
   Key,
   ArrowRight,
   TrendingUp,
+  TrendingDown,
   DollarSign,
   Zap,
   MoreHorizontal,
@@ -38,8 +39,10 @@ import {
   getCostTimeline,
   getCostSummary,
   getAlerts,
+  getTraceTrends,
   type Trace,
   type Alert,
+  type TraceTrendsResponse,
 } from '@/lib/api';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -56,6 +59,7 @@ export default function Home() {
   const [costSummary, setCostSummary] = useState<any>(null);
   const [totalRequests, setTotalRequests] = useState(0);
   const [costFallback, setCostFallback] = useState<string | null>(null);
+  const [trends, setTrends] = useState<TraceTrendsResponse | null>(null);
 
   // Progress: prefer backend-provided progress if available. Backend may use one of
   // `progress_percent`, `progressPercent`, or `progress` keys in `costSummary.summary`.
@@ -224,6 +228,17 @@ export default function Home() {
           status: 'pending',
         });
         setAlerts(alertsResponse.data);
+
+        // Fetch trace trends using the same time range as traces
+        // Use fallback duration if no traces were found in the requested window
+        const trendDuration =
+          tracesFallback === '24hours' ? 24 * 60 * 60 * 1000 : requestedDuration;
+        const trendStart = new Date(now.getTime() - trendDuration);
+        const trendsResponse = await getTraceTrends({
+          startTime: trendStart.toISOString(),
+          endTime: now.toISOString(),
+        });
+        setTrends(trendsResponse);
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
       } finally {
@@ -421,11 +436,7 @@ export default function Home() {
                     </thead>
                     <tbody>
                       {recentTraces.map((trace) => (
-                        <tr
-                          key={trace.trace_id}
-                          className="cursor-pointer hover:bg-accent/40 transition-colors border-b border-border/50 h-8 group"
-                          onClick={() => router.push(`/traces?id=${trace.trace_id}`)}
-                        >
+                        <tr key={trace.trace_id} className="border-b border-border/50 h-8">
                           <td className="px-2 py-1.5">
                             <div
                               className={`h-1.5 w-1.5 rounded-full ${
@@ -472,32 +483,130 @@ export default function Home() {
                 )}
               </div>
 
-              {/* Summary Stats */}
-              <div className="flex items-center justify-between pt-4 border-t border-border">
-                <div className="text-center flex-1">
-                  <div className="text-lg font-bold text-foreground">{totalRequests}</div>
-                  <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mt-1">
+              {/* Summary Stats with Trends */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-border">
+                {/* Total Requests */}
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-lg font-bold text-foreground">
+                      {trends?.current.totalRequests ?? totalRequests}
+                    </span>
+                    {trends?.trends.requestsTrend !== 0 &&
+                      trends?.trends.requestsTrend !== undefined && (
+                        <div
+                          className={cn(
+                            'flex items-center gap-0.5 text-[10px] font-medium',
+                            trends.trends.requestsTrend > 0
+                              ? 'text-emerald-600 dark:text-emerald-500'
+                              : 'text-red-600 dark:text-red-500'
+                          )}
+                        >
+                          {trends.trends.requestsTrend > 0 ? (
+                            <TrendingUp className="h-3 w-3" />
+                          ) : (
+                            <TrendingDown className="h-3 w-3" />
+                          )}
+                          {Math.abs(trends.trends.requestsTrend).toFixed(0)}%
+                        </div>
+                      )}
+                  </div>
+                  <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                     Requests
                   </div>
                 </div>
-                <div className="h-8 w-px bg-border"></div>
-                <div className="text-center flex-1">
-                  <div className="text-lg font-bold text-foreground">
-                    {costSummary
-                      ? `${(costSummary.summary.avg_latency_ms || 0).toFixed(0)}ms`
-                      : '-'}
+
+                {/* Avg Latency */}
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-lg font-bold text-foreground">
+                      {trends?.current.avgLatency
+                        ? `${trends.current.avgLatency.toFixed(0)}ms`
+                        : '-'}
+                    </span>
+                    {trends?.trends.latencyTrend !== 0 &&
+                      trends?.trends.latencyTrend !== undefined && (
+                        <div
+                          className={cn(
+                            'flex items-center gap-0.5 text-[10px] font-medium',
+                            trends.trends.latencyTrend < 0
+                              ? 'text-emerald-600 dark:text-emerald-500'
+                              : 'text-red-600 dark:text-red-500'
+                          )}
+                        >
+                          {trends.trends.latencyTrend > 0 ? (
+                            <TrendingUp className="h-3 w-3" />
+                          ) : (
+                            <TrendingDown className="h-3 w-3" />
+                          )}
+                          {Math.abs(trends.trends.latencyTrend).toFixed(0)}%
+                        </div>
+                      )}
                   </div>
-                  <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mt-1">
+                  <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                     Avg Latency
                   </div>
                 </div>
-                <div className="h-8 w-px bg-border"></div>
-                <div className="text-center flex-1">
-                  <div className="text-lg font-bold text-foreground">
-                    {costSummary ? `$${(costSummary.summary.avg_cost || 0).toFixed(4)}` : '-'}
+
+                {/* Avg Cost */}
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-lg font-bold text-foreground">
+                      {trends?.current.totalCost !== null && trends?.current.totalCost !== undefined
+                        ? `$${trends.current.totalCost.toFixed(4)}`
+                        : '-'}
+                    </span>
+                    {trends?.trends.costTrend !== 0 && trends?.trends.costTrend !== undefined && (
+                      <div
+                        className={cn(
+                          'flex items-center gap-0.5 text-[10px] font-medium',
+                          trends.trends.costTrend < 0
+                            ? 'text-emerald-600 dark:text-emerald-500'
+                            : 'text-red-600 dark:text-red-500'
+                        )}
+                      >
+                        {trends.trends.costTrend > 0 ? (
+                          <TrendingUp className="h-3 w-3" />
+                        ) : (
+                          <TrendingDown className="h-3 w-3" />
+                        )}
+                        {Math.abs(trends.trends.costTrend).toFixed(0)}%
+                      </div>
+                    )}
                   </div>
-                  <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mt-1">
+                  <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                     Avg Cost
+                  </div>
+                </div>
+
+                {/* Error Rate */}
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-lg font-bold text-foreground">
+                      {trends?.current.errorRate !== undefined
+                        ? `${trends.current.errorRate.toFixed(1)}%`
+                        : '-'}
+                    </span>
+                    {trends?.trends.errorRateTrend !== 0 &&
+                      trends?.trends.errorRateTrend !== undefined && (
+                        <div
+                          className={cn(
+                            'flex items-center gap-0.5 text-[10px] font-medium',
+                            trends.trends.errorRateTrend < 0
+                              ? 'text-emerald-600 dark:text-emerald-500'
+                              : 'text-red-600 dark:text-red-500'
+                          )}
+                        >
+                          {trends.trends.errorRateTrend > 0 ? (
+                            <TrendingUp className="h-3 w-3" />
+                          ) : (
+                            <TrendingDown className="h-3 w-3" />
+                          )}
+                          {Math.abs(trends.trends.errorRateTrend).toFixed(0)}%
+                        </div>
+                      )}
+                  </div>
+                  <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    Error Rate
                   </div>
                 </div>
               </div>
@@ -673,8 +782,8 @@ export default function Home() {
                 {alerts.length > 0 ? (
                   alerts.map((alert) => (
                     <button
-                      key={alert.alert_id}
-                      onClick={() => router.push(`/traces?id=${alert.trace_id}`)}
+                      key={alert.alertId}
+                      onClick={() => router.push(`/traces?id=${alert.traceId}`)}
                       className="w-full flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors text-left"
                     >
                       <div
@@ -695,9 +804,9 @@ export default function Home() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium mb-1">
-                          {alert.alert_type === 'cost_spike'
+                          {alert.alertType === 'cost_spike'
                             ? 'Cost Spike Detected'
-                            : alert.alert_type === 'quality_drop'
+                            : alert.alertType === 'quality_drop'
                               ? 'Quality Degradation'
                               : 'Cost & Quality Issue'}
                         </p>

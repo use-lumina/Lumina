@@ -19,7 +19,7 @@ async function main() {
   try {
     console.log('\n🌱 Seeding multi-span RAG trace...\n');
 
-    const customerId = 'test-customer-001';
+    const customerId = 'default-customer';
 
     // Generate shared trace ID for all spans
     const traceId = `trace_${randomBytes(8).toString('hex')}`;

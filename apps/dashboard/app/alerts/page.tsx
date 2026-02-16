@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/select';
 import { AlertTriangle, AlertCircle, CheckCircle2, Eye, Check, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getAlerts, acknowledgeAlert, type Alert } from '@/lib/api';
+import { getAlerts, resolveAlert, type Alert } from '@/lib/api';
 import { TableBody } from '@/components/ui/table';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -53,13 +53,13 @@ export default function AlertsPage() {
     return () => clearInterval(interval);
   }, [filterSeverity, filterStatus]);
 
-  const handleAcknowledge = async (alertId: string) => {
+  const handleResolve = async (alertId: string) => {
     try {
-      await acknowledgeAlert(alertId);
+      await resolveAlert(alertId);
       // Refresh alerts to get updated status
       await fetchAlerts();
     } catch (error) {
-      console.error('Failed to acknowledge alert:', error);
+      console.error('Failed to resolve alert:', error);
     }
   };
 
@@ -125,7 +125,6 @@ export default function AlertsPage() {
 
   const getStatusBadge = (status: string) => {
     const isPending = status === 'pending';
-    const isAck = status === 'acknowledged';
     const isResolved = status === 'resolved';
 
     return (
@@ -137,7 +136,6 @@ export default function AlertsPage() {
           className={cn(
             'w-1 h-1 rounded-full mr-1.5',
             isPending && 'bg-destructive animate-pulse',
-            isAck && 'bg-amber-500',
             isResolved && 'bg-emerald-500'
           )}
         />
@@ -147,7 +145,7 @@ export default function AlertsPage() {
   };
 
   const getAlertTitle = (alert: Alert) => {
-    switch (alert.alert_type) {
+    switch (alert.alertType) {
       case 'cost_spike':
         return 'Cost Spike Detected';
       case 'quality_drop':
@@ -157,7 +155,9 @@ export default function AlertsPage() {
       case 'latency':
         return 'Latency Issue';
       default:
-        return alert.alert_type.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+        return alert.alertType
+          ? alert.alertType.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())
+          : 'Unknown Alert';
     }
   };
 
@@ -191,13 +191,13 @@ export default function AlertsPage() {
                     {getAlertTitle(alert)}
                   </h3>
                   <div className="flex items-center gap-1.5">
-                    {getTypeBadge(alert.alert_type)}
+                    {getTypeBadge(alert.alertType)}
                     {getStatusBadge(alert.status)}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground uppercase tracking-tighter">
-                  {alert.service_name && (
-                    <span className="font-semibold text-foreground/80">{alert.service_name}</span>
+                  {alert.serviceName && (
+                    <span className="font-semibold text-foreground/80">{alert.serviceName}</span>
                   )}
                   {alert.endpoint && (
                     <span className="truncate max-w-[200px]">{alert.endpoint}</span>
@@ -228,40 +228,40 @@ export default function AlertsPage() {
           {/* Metrics & Actions Row */}
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              {alert.current_cost !== undefined && alert.current_cost !== null && (
+              {alert.currentCost !== undefined && alert.currentCost !== null && (
                 <div className="flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-muted/30 border border-border">
                   <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-tighter">
                     Cost
                   </span>
                   <span className="text-[10px] font-mono font-semibold text-foreground">
-                    ${alert.current_cost.toFixed(4)}
+                    ${alert.currentCost.toFixed(4)}
                   </span>
-                  {alert.cost_increase_percent !== undefined && (
+                  {alert.costIncreasePercent !== undefined && (
                     <span className="text-[10px] font-bold text-destructive ml-0.5">
-                      +{alert.cost_increase_percent.toFixed(0)}%
+                      +{alert.costIncreasePercent.toFixed(0)}%
                     </span>
                   )}
                 </div>
               )}
-              {alert.latency_ms !== undefined && alert.latency_ms !== null && (
+              {alert.latencyMs !== undefined && alert.latencyMs !== null && (
                 <div className="flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-muted/30 border border-border">
                   <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-tighter">
                     Lat
                   </span>
                   <span className="text-[10px] font-mono font-semibold text-foreground">
-                    {alert.latency_ms}ms
+                    {alert.latencyMs}ms
                   </span>
                 </div>
               )}
             </div>
 
             <div className="flex items-center gap-1.5">
-              {alert.trace_id && (
+              {alert.traceId && (
                 <Button
                   variant="ghost"
                   size="sm"
                   className="h-7 text-[10px] uppercase font-bold tracking-tight hover:bg-accent"
-                  onClick={() => router.push(`/traces?traceId=${alert.trace_id}`)}
+                  onClick={() => router.push(`/traces?traceId=${alert.traceId}`)}
                 >
                   <Eye className="h-3 w-3 mr-1.5" />
                   View Trace
@@ -271,10 +271,10 @@ export default function AlertsPage() {
                 <Button
                   size="sm"
                   className="h-7 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] uppercase font-bold tracking-tight"
-                  onClick={() => handleAcknowledge(alert.alert_id)}
+                  onClick={() => handleResolve(alert.alertId)}
                 >
                   <Check className="h-3 w-3 mr-1.5" />
-                  Acknowledge
+                  Resolve
                 </Button>
               )}
             </div>
@@ -405,7 +405,6 @@ export default function AlertsPage() {
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="acknowledged">Acknowledged</SelectItem>
               <SelectItem value="resolved">Resolved</SelectItem>
             </SelectContent>
           </Select>
@@ -447,12 +446,12 @@ export default function AlertsPage() {
                 <TableBody>
                   {filteredAlerts.map((alert: Alert) => (
                     <tr
-                      key={alert.alert_id}
+                      key={alert.alertId}
                       className={cn(
                         'cursor-pointer hover:bg-accent/40 transition-colors border-b border-border/50 h-9 group',
                         alert.status === 'pending' && 'bg-destructive/5'
                       )}
-                      onClick={() => alert.trace_id && router.push(`/traces?id=${alert.trace_id}`)}
+                      onClick={() => alert.traceId && router.push(`/traces?id=${alert.traceId}`)}
                     >
                       <td className="px-3 py-1.5">
                         <div
@@ -487,14 +486,14 @@ export default function AlertsPage() {
                             {getAlertTitle(alert)}
                           </span>
                           <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-tight">
-                            {alert.alert_type.replace('_', ' ')}
+                            {alert.alertType ? alert.alertType.replace('_', ' ') : 'unknown'}
                           </span>
                         </div>
                       </td>
                       <td className="px-3 py-1.5">
                         <div className="flex flex-col min-w-0">
                           <span className="text-[10px] font-bold text-foreground/80 truncate max-w-[150px]">
-                            {alert.service_name || 'System'}
+                            {alert.serviceName || 'System'}
                           </span>
                           <span className="font-mono text-[9px] text-muted-foreground truncate max-w-[200px]">
                             {alert.endpoint || '-'}
@@ -503,20 +502,44 @@ export default function AlertsPage() {
                       </td>
                       <td className="px-3 py-1.5 text-right">
                         <div className="flex flex-col items-end gap-0.5">
-                          {alert.current_cost !== undefined && alert.current_cost !== null && (
-                            <span className="font-mono font-bold text-foreground">
-                              ${alert.current_cost.toFixed(4)}
-                              {alert.cost_increase_percent !== undefined &&
-                                alert.cost_increase_percent !== null && (
-                                  <span className="text-destructive ml-1">
-                                    +{alert.cost_increase_percent.toFixed(0)}%
+                          {/* Cost metrics for cost_spike and cost_and_quality */}
+                          {(alert.alertType === 'cost_spike' ||
+                            alert.alertType === 'cost_and_quality') &&
+                            alert.currentCost !== undefined &&
+                            alert.currentCost !== null && (
+                              <span className="font-mono font-bold text-foreground">
+                                ${alert.currentCost.toFixed(4)}
+                                {alert.costIncreasePercent !== undefined &&
+                                  alert.costIncreasePercent !== null && (
+                                    <span className="text-destructive ml-1">
+                                      +{alert.costIncreasePercent.toFixed(0)}%
+                                    </span>
+                                  )}
+                              </span>
+                            )}
+
+                          {/* Quality metrics for quality_drop and cost_and_quality */}
+                          {(alert.alertType === 'quality_drop' ||
+                            alert.alertType === 'cost_and_quality') && (
+                            <>
+                              {alert.semanticScore !== undefined &&
+                                alert.semanticScore !== null && (
+                                  <span className="font-mono text-xs text-foreground">
+                                    Score: {alert.semanticScore.toFixed(3)}
                                   </span>
                                 )}
-                            </span>
+                              {alert.hashSimilarity !== undefined &&
+                                alert.hashSimilarity !== null && (
+                                  <span className="font-mono text-xs text-muted-foreground">
+                                    Hash: {alert.hashSimilarity.toFixed(3)}
+                                  </span>
+                                )}
+                            </>
                           )}
-                          {alert.latency_ms !== undefined && alert.latency_ms !== null && (
+
+                          {alert.latencyMs !== undefined && alert.latencyMs !== null && (
                             <span className="font-mono text-muted-foreground tracking-tighter">
-                              {alert.latency_ms}ms
+                              {alert.latencyMs}ms
                             </span>
                           )}
                         </div>
@@ -537,7 +560,7 @@ export default function AlertsPage() {
                               className="h-6 w-6 p-0 hover:bg-emerald-500/10 hover:text-emerald-500"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleAcknowledge(alert.alert_id);
+                                handleResolve(alert.alertId);
                               }}
                             >
                               <Check className="h-3 w-3" />
@@ -549,7 +572,7 @@ export default function AlertsPage() {
                             className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (alert.trace_id) router.push(`/traces/detail/${alert.trace_id}`);
+                              if (alert.traceId) router.push(`/traces?id=${alert.traceId}`);
                             }}
                           >
                             <ArrowRight className="h-3 w-3" />
