@@ -34,7 +34,7 @@ export function AlertDetail({ alert }: AlertDetailProps) {
 
     setIsAcknowledging(true);
     try {
-      const result = await acknowledgeAlert(alert.alert_id);
+      const result = await acknowledgeAlert(alert.alertId);
       setStatus(result.alert.status);
       router.refresh();
     } catch (error) {
@@ -49,7 +49,7 @@ export function AlertDetail({ alert }: AlertDetailProps) {
 
     setIsResolving(true);
     try {
-      const result = await resolveAlert(alert.alert_id);
+      const result = await resolveAlert(alert.alertId);
       setStatus(result.alert.status);
       router.refresh();
     } catch (error) {
@@ -98,7 +98,7 @@ export function AlertDetail({ alert }: AlertDetailProps) {
               variant="outline"
               className="font-mono text-[10px] bg-accent text-muted-foreground border-none"
             >
-              {alert.alert_id}
+              {alert.alertId}
             </Badge>
           </div>
           <div className="flex gap-1.5">
@@ -129,7 +129,7 @@ export function AlertDetail({ alert }: AlertDetailProps) {
           </div>
         </div>
         <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground/60">
-          <span>{alert.service_name || 'System'}</span>
+          <span>{alert.serviceName || 'System'}</span>
           <span>/</span>
           <span className="font-mono text-[9px] lowercase tracking-normal">{alert.endpoint}</span>
         </div>
@@ -158,7 +158,7 @@ export function AlertDetail({ alert }: AlertDetailProps) {
                 <span>Type</span>
               </div>
               <p className="text-xs font-semibold text-foreground">
-                {getAlertTypeLabel(alert.alert_type)}
+                {getAlertTypeLabel(alert.alertType)}
               </p>
             </div>
 
@@ -192,7 +192,7 @@ export function AlertDetail({ alert }: AlertDetailProps) {
 
           {/* Metrics & Reasoning */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {(alert.alert_type === 'cost_spike' || alert.alert_type === 'cost_and_quality') && (
+            {(alert.alertType === 'cost_spike' || alert.alertType === 'cost_and_quality') && (
               <div className="rounded-lg border border-border bg-muted/10 p-4 space-y-4">
                 <h3 className="text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-muted-foreground">
                   <DollarSign className="h-4 w-4" />
@@ -204,7 +204,7 @@ export function AlertDetail({ alert }: AlertDetailProps) {
                       Current
                     </p>
                     <p className="text-lg font-mono font-bold text-foreground">
-                      ${alert.current_cost?.toFixed(4) || '0.0000'}
+                      ${alert.currentCost?.toFixed(4) || '0.0000'}
                     </p>
                   </div>
                   <div className="space-y-0.5">
@@ -212,7 +212,7 @@ export function AlertDetail({ alert }: AlertDetailProps) {
                       Baseline
                     </p>
                     <p className="text-sm font-mono text-muted-foreground">
-                      ${alert.baseline_cost?.toFixed(4) || '0.0000'}
+                      ${alert.baselineCost?.toFixed(4) || '0.0000'}
                     </p>
                   </div>
                   <div className="col-span-2 pt-2 border-t border-border/50">
@@ -222,7 +222,7 @@ export function AlertDetail({ alert }: AlertDetailProps) {
                         Increase
                       </span>
                       <span className="text-xl font-mono font-bold text-destructive">
-                        +{alert.cost_increase_percent?.toFixed(1) || '0.0'}%
+                        +{alert.costIncreasePercent?.toFixed(1) || '0.0'}%
                       </span>
                     </div>
                   </div>
@@ -230,7 +230,7 @@ export function AlertDetail({ alert }: AlertDetailProps) {
               </div>
             )}
 
-            {(alert.alert_type === 'quality_drop' || alert.alert_type === 'cost_and_quality') && (
+            {(alert.alertType === 'quality_drop' || alert.alertType === 'cost_and_quality') && (
               <div className="rounded-lg border border-border bg-muted/10 p-4 space-y-4">
                 <h3 className="text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-muted-foreground">
                   <Activity className="h-4 w-4" />
@@ -242,7 +242,7 @@ export function AlertDetail({ alert }: AlertDetailProps) {
                       Similarity
                     </p>
                     <p className="text-lg font-mono font-bold text-foreground">
-                      {((alert.hash_similarity || 0) * 100).toFixed(1)}%
+                      {((alert.hashSimilarity || 0) * 100).toFixed(1)}%
                     </p>
                   </div>
                   <div className="space-y-0.5">
@@ -250,7 +250,7 @@ export function AlertDetail({ alert }: AlertDetailProps) {
                       Semantic
                     </p>
                     <p className="text-lg font-mono font-bold text-foreground">
-                      {((alert.semantic_score || 0) * 100).toFixed(1)}%
+                      {((alert.semanticScore || 0) * 100).toFixed(1)}%
                     </p>
                   </div>
                   <div className="col-span-2 pt-2 border-t border-border/50">
@@ -262,7 +262,7 @@ export function AlertDetail({ alert }: AlertDetailProps) {
                         variant="outline"
                         className="h-4 text-[9px] font-bold border-none bg-accent"
                       >
-                        {alert.scoring_method || 'N/A'}
+                        {alert.scoringMethod || 'N/A'}
                       </Badge>
                     </div>
                   </div>
@@ -282,15 +282,15 @@ export function AlertDetail({ alert }: AlertDetailProps) {
           </div>
 
           {/* Trace Performance Metrics */}
-          {(alert.cost_usd !== undefined || alert.latency_ms !== undefined) && (
+          {(alert.cost_usd !== undefined || alert.latencyMs !== undefined) && (
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              {alert.latency_ms !== undefined && (
+              {alert.latencyMs !== undefined && (
                 <div className="rounded-lg border border-border bg-card p-4">
                   <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
                     <Clock className="h-4 w-4" />
                     <span>Latency</span>
                   </div>
-                  <p className="text-2xl font-semibold">{alert.latency_ms}ms</p>
+                  <p className="text-2xl font-semibold">{alert.latencyMs}ms</p>
                 </div>
               )}
 
@@ -360,7 +360,7 @@ export function AlertDetail({ alert }: AlertDetailProps) {
                       Alert ID
                     </dt>
                     <dd className="text-xs font-mono text-foreground font-medium">
-                      {alert.alert_id}
+                      {alert.alertId}
                     </dd>
                   </div>
 
@@ -370,34 +370,34 @@ export function AlertDetail({ alert }: AlertDetailProps) {
                     </dt>
                     <dd className="text-xs font-mono">
                       <a
-                        href={`/traces/detail/${alert.trace_id}`}
+                        href={`/traces/detail/${alert.traceId}`}
                         className="text-primary hover:underline font-medium"
                         target="_blank"
                         rel="noopener noreferrer"
                       >
-                        {alert.trace_id}
+                        {alert.traceId}
                       </a>
                     </dd>
                   </div>
 
-                  {alert.span_id && (
+                  {alert.spanId && (
                     <div className="space-y-1">
                       <dt className="text-[9px] font-bold text-muted-foreground uppercase tracking-tight">
                         Span ID
                       </dt>
                       <dd className="text-xs font-mono text-foreground font-medium">
-                        {alert.span_id}
+                        {alert.spanId}
                       </dd>
                     </div>
                   )}
 
-                  {alert.customer_id && (
+                  {alert.customerId && (
                     <div className="space-y-1">
                       <dt className="text-[9px] font-bold text-muted-foreground uppercase tracking-tight">
                         Customer ID
                       </dt>
                       <dd className="text-xs font-mono text-foreground font-medium">
-                        {alert.customer_id}
+                        {alert.customerId}
                       </dd>
                     </div>
                   )}

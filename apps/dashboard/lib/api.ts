@@ -480,7 +480,7 @@ export interface Alert {
   prompt?: string;
   response?: string;
   cost_usd?: number;
-  latency_ms?: number;
+  latencyMs?: number;
   prompt_tokens?: number;
   completion_tokens?: number;
   trace_timestamp?: string;

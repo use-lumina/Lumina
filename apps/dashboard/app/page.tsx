@@ -816,9 +816,9 @@ export default function Home() {
                         {alert.model && (
                           <p className="text-xs text-muted-foreground mt-1">Model: {alert.model}</p>
                         )}
-                        {alert.service_name && (
+                        {alert.serviceName && (
                           <p className="text-xs text-muted-foreground mt-1">
-                            Service: {alert.service_name}
+                            Service: {alert.serviceName}
                           </p>
                         )}
                       </div>

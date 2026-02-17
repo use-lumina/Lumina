@@ -102,7 +102,7 @@ export function TraceTable({
               <th className="text-left py-2 px-3 font-medium text-muted-foreground">Input</th>
               <th className="text-left py-2 px-3 font-medium text-muted-foreground">Output</th>
               <th className="text-left py-2 px-3 font-medium text-muted-foreground w-[80px]">
-                Levels
+                Status
               </th>
               <th className="text-right py-2 px-3 font-medium text-muted-foreground w-[80px]">
                 Latency
@@ -197,8 +197,17 @@ export function TraceTable({
                     </div>
                   </td>
                   <td className="py-1.5 px-3 cursor-pointer" onClick={() => onTraceSelect(trace)}>
-                    <Badge variant="muted" className="text-[10px] h-5 px-1.5">
-                      {trace.spans?.length || 1}
+                    <Badge
+                      variant={
+                        trace.status === 'healthy'
+                          ? 'default'
+                          : trace.status === 'degraded'
+                            ? 'secondary'
+                            : 'destructive'
+                      }
+                      className="text-[10px] h-5 px-1.5"
+                    >
+                      {trace.status}
                     </Badge>
                   </td>
                   <td

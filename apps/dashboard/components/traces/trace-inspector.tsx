@@ -524,7 +524,7 @@ export function TraceInspector({ trace, onClose }: TraceInspectorProps) {
                             </label>
                             <Badge
                               variant={
-                                trace.status === 'success' || trace.status === 'healthy'
+                                trace.status === 'healthy'
                                   ? 'default'
                                   : trace.status === 'degraded'
                                     ? 'secondary'
