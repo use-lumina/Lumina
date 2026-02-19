@@ -342,11 +342,11 @@ Audit all AI interactions with complete logs. Filter by user, timestamp, or cust
 
 ## Documentation
 
-- [Quickstart Guide](./docs/guides/QUICKSTART.md) — Get running in 5 minutes
-- [Architecture](./docs/guides/ARCHITECTURE.md) — System design and components
-- [API Reference](./docs/api/API_REFERENCE.md) — Complete REST API documentation
+- [Quickstart Guide](./docs/guides/quickstart.md) — Get running in 5 minutes
+- [Architecture](./docs/guides/architecture.md) — System design and components
+- [API Reference](./docs/api/api-reference.md) — Complete REST API documentation
 - [Multi-Span Tracing](./docs/guides/multi-span-tracing.md) — Hierarchical trace implementation
-- [Troubleshooting](./docs/guides/TROUBLESHOOTING.md) — Common issues and solutions
+- [Troubleshooting](./docs/guides/troubleshooting.md) — Common issues and solutions
 
 ---
 
