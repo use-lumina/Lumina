@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lumina-sdk"
+version = "0.1.0"
+description = "Python SDK for Lumina LLM observability — OpenTelemetry-native instrumentation"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.9"
+dependencies = [
+    "opentelemetry-api>=1.20",
+    "opentelemetry-sdk>=1.20",
+    "opentelemetry-exporter-otlp-proto-http>=1.20",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+]
+
+[project.urls]
+Homepage = "https://uselumina.com"
+Repository = "https://github.com/use-lumina/lumina"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["lumina*"]
