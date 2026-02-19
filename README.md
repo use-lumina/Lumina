@@ -2,6 +2,7 @@
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![npm version](https://img.shields.io/npm/v/@uselumina/sdk.svg)](https://www.npmjs.com/package/@uselumina/sdk)
+[![PyPI version](https://img.shields.io/pypi/v/lumina-sdk.svg)](https://pypi.org/project/lumina-sdk/)
 [![CI](https://github.com/use-lumina/Lumina/actions/workflows/ci.yml/badge.svg)](https://github.com/use-lumina/Lumina/actions/workflows/ci.yml)
 [![GitHub stars](https://img.shields.io/github/stars/use-lumina/Lumina?style=social)](https://github.com/use-lumina/Lumina/stargazers)
 
@@ -87,13 +88,11 @@ cd apps/dashboard && bun run dev      # Port 3000
 
 ## Instrument Your Application
 
-Install the SDK:
+### TypeScript / JavaScript
 
 ```bash
 npm install @uselumina/sdk
 ```
-
-Wrap your LLM calls:
 
 ```typescript
 import Anthropic from '@anthropic-ai/sdk';
@@ -120,6 +119,36 @@ const response = await lumina.traceLLM(
     metadata: { userId: 'user-123' },
   }
 );
+```
+
+### Python
+
+```bash
+pip install lumina-sdk
+```
+
+```python
+import anthropic
+from lumina import init_lumina
+
+client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+
+lumina = init_lumina({
+    "endpoint": "http://localhost:9411/v1/traces",
+    "service_name": "my-service",
+})
+
+response = lumina.trace_llm(
+    lambda: client.messages.create(
+        model="claude-sonnet-4-5",
+        max_tokens=1024,
+        messages=[{"role": "user", "content": "Hello!"}],
+    ),
+    name="chat-completion",
+    system="anthropic",
+    prompt="Hello!",
+    metadata={"user_id": "user-123"},
+)
 ```
 
 Traces appear in the dashboard immediately with automatic cost calculation and token tracking.
@@ -158,10 +187,11 @@ View the complete trace hierarchy in the dashboard with per-span costs and laten
 ## Architecture
 
 ```
-┌─────────────────────┐
-│  Application        │
-│  + @uselumina/sdk   │
-└──────────┬──────────┘
+┌─────────────────────────────────┐
+│  Application                    │
+│  + @uselumina/sdk (TypeScript)  │
+│  + lumina-sdk (Python)          │
+└──────────┬──────────────────────┘
            │ OTLP/HTTP
            v
 ┌──────────────────────────────────────────────┐
@@ -322,11 +352,18 @@ Audit all AI interactions with complete logs. Filter by user, timestamp, or cust
 
 ## Examples
 
-Full example applications in `/examples`:
+Full example applications in [`/examples`](./examples):
 
-- **[nextjs-rag](./examples/nextjs-rag)** — Next.js RAG application with hierarchical tracing
-- **[anthropic-basic](./examples/anthropic-basic)** — Basic Claude integration
-- **[openai-basic](./examples/openai-basic)** — Basic GPT integration
+**TypeScript**
+
+- **[openai-basic](./examples/typescript/openai-basic)** — Basic GPT integration
+- **[anthropic-basic](./examples/typescript/anthropic-basic)** — Basic Claude integration
+- **[nextjs-rag](./examples/typescript/nextjs-rag)** — Next.js RAG application with hierarchical tracing
+
+**Python**
+
+- **[openai-basic](./examples/python/openai-basic)** — Basic GPT integration
+- **[anthropic-basic](./examples/python/anthropic-basic)** — Basic Claude integration
 
 ---
 
