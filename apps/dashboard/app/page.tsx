@@ -440,7 +440,7 @@ export default function Home() {
                           <td className="px-2 py-1.5">
                             <div
                               className={`h-1.5 w-1.5 rounded-full ${
-                                trace.status === 'healthy' ? 'bg-emerald-500' : 'bg-amber-500'
+                                trace.status === 'success' ? 'bg-emerald-500' : 'bg-red-500'
                               }`}
                             ></div>
                           </td>

@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { getTraceById, type Trace } from '@/lib/api';
 import { TraceDetail } from '@/components/traces/trace-detail';
 import type { UITrace, HierarchicalSpan } from '@/types/trace';
+import { normalizeTraceStatus } from '@/lib/trace-status';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +18,7 @@ function mapTraceToHierarchicalSpan(trace: Trace): HierarchicalSpan {
     service_name: trace.service_name,
     endpoint: trace.endpoint,
     model: trace.model,
-    status: trace.status,
+    status: normalizeTraceStatus(trace.status),
     latency_ms: trace.latency_ms,
     cost_usd: trace.cost_usd,
     prompt_tokens: trace.prompt_tokens,
@@ -36,10 +37,7 @@ function mapApiTraceToUI(trace: Trace): UITrace {
     service: trace.service_name,
     endpoint: trace.endpoint,
     model: trace.model,
-    status:
-      trace.status === 'ok' || trace.status === 'healthy'
-        ? 'healthy'
-        : (trace.status as 'healthy' | 'degraded' | 'error'),
+    status: normalizeTraceStatus(trace.status),
     latencyMs: trace.latency_ms,
     costUsd: trace.cost_usd ?? 0,
     createdAt: trace.timestamp,

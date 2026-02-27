@@ -70,15 +70,7 @@ export function TraceDetailDialog({ trace, open, onOpenChange }: TraceDetailDial
                 <User className="h-3 w-3" />
                 <span>Status</span>
               </div>
-              <Badge
-                variant={
-                  trace.status === 'healthy'
-                    ? 'success'
-                    : trace.status === 'degraded'
-                      ? 'warning'
-                      : 'destructive'
-                }
-              >
+              <Badge variant={trace.status === 'success' ? 'success' : 'destructive'}>
                 {trace.status}
               </Badge>
             </div>

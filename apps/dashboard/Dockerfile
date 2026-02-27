@@ -11,19 +11,23 @@ COPY packages/sdk/package.json ./packages/sdk/
 COPY apps/dashboard/package.json ./apps/dashboard/
 
 # Install dependencies using Bun (handles workspace protocol)
-RUN bun install --no-verify
+RUN bun install --frozen-lockfile
 
-# Build stage - use Node.js for Next.js build
-FROM node:20-alpine AS builder
+# Build stage
+FROM oven/bun:1 AS builder
 WORKDIR /app
 
 # Copy dependencies from Bun stage
 COPY --from=deps /app/node_modules ./node_modules
 
 # Copy source code
+COPY package.json bun.lock ./
 COPY packages ./packages
 COPY apps/dashboard ./apps/dashboard
 COPY tsconfig.json ./
+
+# Build workspace packages required by the dashboard
+RUN bun run build:packages
 
 # Build the dashboard
 WORKDIR /app/apps/dashboard
@@ -32,7 +36,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Create .env file from example if it doesn't exist (required for build)
 RUN if [ ! -f .env ]; then cp .env.example .env; fi
 
-RUN npm run build
+RUN bun run build
 
 # Ensure public directory exists (even if empty)
 RUN mkdir -p public

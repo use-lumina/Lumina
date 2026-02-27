@@ -522,15 +522,7 @@ export function TraceInspector({ trace, onClose }: TraceInspectorProps) {
                             <label className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider">
                               Status
                             </label>
-                            <Badge
-                              variant={
-                                trace.status === 'healthy'
-                                  ? 'default'
-                                  : trace.status === 'degraded'
-                                    ? 'secondary'
-                                    : 'destructive'
-                              }
-                            >
+                            <Badge variant={trace.status === 'success' ? 'default' : 'destructive'}>
                               {trace.status}
                             </Badge>
                           </div>

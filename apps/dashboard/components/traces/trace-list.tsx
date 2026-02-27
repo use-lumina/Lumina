@@ -178,8 +178,7 @@ export function TraceList({ traces }: TraceListProps) {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Statuses</SelectItem>
-                      <SelectItem value="healthy">Healthy</SelectItem>
-                      <SelectItem value="degraded">Degraded</SelectItem>
+                      <SelectItem value="success">Success</SelectItem>
                       <SelectItem value="error">Error</SelectItem>
                     </SelectContent>
                   </Select>

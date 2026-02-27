@@ -137,8 +137,7 @@ function StatusDot({ status, className }: { status: UITrace['status']; className
       <span
         className={cn(
           'h-2.5 w-2.5 rounded-full',
-          status === 'healthy' && 'bg-emerald-500',
-          status === 'degraded' && 'bg-amber-500',
+          status === 'success' && 'bg-emerald-500',
           status === 'error' && 'bg-red-500'
         )}
       />

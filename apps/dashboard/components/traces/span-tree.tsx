@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import type { HierarchicalSpan } from '@/types/trace';
 import { Badge } from '@/components/ui/badge';
+import { normalizeTraceStatus } from '@/lib/trace-status';
 
 interface SpanTreeProps {
   span: HierarchicalSpan;
@@ -17,6 +18,7 @@ export function SpanTree({ span, level = 0, selectedSpanId, onSpanSelect }: Span
   const hasChildren = span.children && span.children.length > 0;
   const indent = level * 20;
   const isSelected = selectedSpanId === span.span_id;
+  const normalizedStatus = normalizeTraceStatus(span.status);
 
   const handleSpanClick = () => {
     onSpanSelect?.(span);
@@ -69,10 +71,10 @@ export function SpanTree({ span, level = 0, selectedSpanId, onSpanSelect }: Span
 
         <div className="shrink-0">
           <Badge
-            variant={span.status === 'success' ? 'default' : 'destructive'}
+            variant={normalizedStatus === 'success' ? 'default' : 'destructive'}
             className="text-xs"
           >
-            {span.status}
+            {normalizedStatus}
           </Badge>
         </div>
       </div>

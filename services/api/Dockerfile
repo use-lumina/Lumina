@@ -16,7 +16,7 @@ COPY packages/sdk/package.json ./packages/sdk/
 COPY services/api/package.json ./services/api/
 
 # Install dependencies (workspace install)
-RUN bun install --no-verify
+RUN bun install --frozen-lockfile
 
 # Build stage
 FROM base AS builder
@@ -26,9 +26,15 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 
 # Copy source code
+COPY package.json bun.lock ./
 COPY packages ./packages
 COPY services/api ./services/api
 COPY tsconfig.json ./
+
+# Build workspace packages required by the service
+WORKDIR /app
+RUN bun run build:packages
+RUN cd packages/database && bun run build
 
 # Build the service
 WORKDIR /app/services/api

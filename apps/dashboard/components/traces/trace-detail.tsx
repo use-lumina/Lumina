@@ -7,6 +7,7 @@ import { SpanTimeline } from './trace-timeline';
 import { SpanTree } from './span-tree';
 import { Clock, DollarSign, User, Hash } from 'lucide-react';
 import type { UITrace, HierarchicalSpan } from '@/types/trace';
+import { normalizeTraceStatus } from '@/lib/trace-status';
 
 interface TraceDetailProps {
   trace: UITrace;
@@ -44,6 +45,8 @@ export function TraceDetail({ trace }: TraceDetailProps) {
         completionTokens: trace.metadata?.tokensOut,
         status: trace.status,
       };
+
+  const displayStatus = normalizeTraceStatus(displayData.status);
 
   return (
     <div className="space-y-6">
@@ -91,16 +94,8 @@ export function TraceDetail({ trace }: TraceDetailProps) {
             <User className="h-4 w-4" />
             <span>Status</span>
           </div>
-          <Badge
-            variant={
-              displayData.status === 'healthy' || displayData.status === 'success'
-                ? 'success'
-                : displayData.status === 'degraded'
-                  ? 'warning'
-                  : 'destructive'
-            }
-          >
-            {displayData.status}
+          <Badge variant={displayStatus === 'success' ? 'success' : 'destructive'}>
+            {displayStatus}
           </Badge>
         </div>
       </div>

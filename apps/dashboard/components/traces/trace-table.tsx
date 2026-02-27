@@ -198,13 +198,7 @@ export function TraceTable({
                   </td>
                   <td className="py-1.5 px-3 cursor-pointer" onClick={() => onTraceSelect(trace)}>
                     <Badge
-                      variant={
-                        trace.status === 'healthy'
-                          ? 'default'
-                          : trace.status === 'degraded'
-                            ? 'secondary'
-                            : 'destructive'
-                      }
+                      variant={trace.status === 'success' ? 'default' : 'destructive'}
                       className="text-[10px] h-5 px-1.5"
                     >
                       {trace.status}

@@ -39,7 +39,7 @@ export type UITrace = {
   service: string;
   endpoint: string;
   model: string;
-  status: 'healthy' | 'degraded' | 'error';
+  status: 'success' | 'error';
   latencyMs: number;
   costUsd: number;
   createdAt: string;

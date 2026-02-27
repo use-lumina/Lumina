@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { X, Clock, User, Tag, CheckCircle2, AlertTriangle, XCircle, Activity } from 'lucide-react';
+import { X, Clock, User, Tag, CheckCircle2, XCircle, Activity } from 'lucide-react';
 import type { UITrace } from '@/types/trace';
 import { cn } from '@/lib/utils';
 import { TraceWaterfall } from './trace-waterfall';
@@ -23,10 +23,8 @@ export function TraceDetailDrawer({ trace, open, onOpenChange }: TraceDetailDraw
 
   const getStatusIcon = (status: UITrace['status']) => {
     switch (status) {
-      case 'healthy':
+      case 'success':
         return <CheckCircle2 className="h-5 w-5 text-emerald-500" />;
-      case 'degraded':
-        return <AlertTriangle className="h-5 w-5 text-amber-500" />;
       case 'error':
         return <XCircle className="h-5 w-5 text-red-500" />;
     }

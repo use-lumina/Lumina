@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useMemo, Suspense, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -7,6 +7,7 @@ import { TraceFilterPanel } from '@/components/traces/trace-filter-panel';
 import { TraceTable } from '@/components/traces/trace-table';
 import { TraceInspector } from '@/components/traces/trace-inspector';
 import { getTraces, getTraceById, type Trace as APITrace } from '@/lib/api';
+import { normalizeTraceStatus } from '@/lib/trace-status';
 import type { UITrace, TraceSpan, HierarchicalSpan } from '@/types/trace';
 
 // Force dynamic rendering
@@ -23,7 +24,7 @@ function mapApiTraceToUI(trace: APITrace): UITrace {
       service_name: apiTrace.service_name,
       endpoint: apiTrace.endpoint,
       model: apiTrace.model,
-      status: apiTrace.status,
+      status: normalizeTraceStatus(apiTrace.status),
       latency_ms: apiTrace.latency_ms,
       cost_usd: apiTrace.cost_usd,
       prompt_tokens: apiTrace.prompt_tokens,
@@ -64,12 +65,7 @@ function mapApiTraceToUI(trace: APITrace): UITrace {
     service: trace.service_name,
     endpoint: trace.endpoint,
     model: trace.model || 'unknown',
-    status:
-      trace.status === 'ok' || trace.status === 'healthy'
-        ? 'healthy'
-        : trace.status === 'degraded'
-          ? 'degraded'
-          : 'error',
+    status: normalizeTraceStatus(trace.status),
     latencyMs: trace.latency_ms,
     costUsd: trace.cost_usd || 0,
     prompt: trace.prompt,
